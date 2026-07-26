@@ -1,0 +1,9 @@
+id,hipotese,status,evidencia
+H01,O scanner AST não cobre todo o código produtivo (scaneia apenas src/cortes/ e ignora src/youtube_clipper/),CONFIRMADA,evidencias/06-subprocess-scan.txt
+H02,Módulos de estágio ausentes são ignorados silenciosamente (loop usa continue sem falhar se stage.py não existe),CONFIRMADA,evidencias/07-stage-modules.txt
+H03,As evidências do golden run contêm caminhos absolutos e não são puramente relativas,CONFIRMADA,evidencias/08-portabilidade.txt
+H04,O verificador modifica estado ao regravar verify_result.json no diretório do run durante a verificação,CONFIRMADA,evidencias/09-verificador-readonly.txt
+H05,O corte de URL do YouTube aplica o offset duas vezes no pipeline,REFUTADA,evidencias/10-corte-duplo.txt
+H06,O dashboard possui superfície insegura sem autenticação padrão e com mutação de estado de cookies,CONFIRMADA,evidencias/11-dashboard-superficie.txt
+H07,Não existe CI automatizado (workforce) em .github/workflows/,CONFIRMADA,evidencias/12-ci-e-branches.txt
+H08,A disciplina de branch foi descumprida na fase T0 (commits feitos diretamente na branch main),CONFIRMADA,evidencias/12-ci-e-branches.txt
