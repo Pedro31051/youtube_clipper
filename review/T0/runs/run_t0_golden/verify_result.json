@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "run_t0_golden",
+  "verified_at": "2026-07-26T22:59:50.678814+00:00",
+  "overall_passed": true,
+  "total_checks": 14,
+  "passed_checks": 14,
+  "failed_checks": 0,
+  "checks": [
+    {
+      "check_id": "events_file_exists",
+      "passed": true,
+      "measured": "File exists",
+      "expected": "File exists",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "events_schema_valid",
+      "passed": true,
+      "measured": "Validated 8 events",
+      "expected": "Schema Version 1.0.0 valid",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "seq_integrity",
+      "passed": true,
+      "measured": "seq 1..N continuous without gaps and stage DAG sequence valid",
+      "expected": "seq == index + 1 without gaps or duplicates and stage DAG sequence valid",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "ts_monotonic",
+      "passed": true,
+      "measured": "Timestamps non-decreasing",
+      "expected": "Monotonic non-decreasing ISO timestamps",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "commands_log_sync",
+      "passed": true,
+      "measured": "Commands log in sync",
+      "expected": "All event commands present in commands.log",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/commands.log"
+    },
+    {
+      "check_id": "exit_codes_zero",
+      "passed": true,
+      "measured": "All ok events have exit_code 0",
+      "expected": "exit_code == 0 for all outcome ok events",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "producer_evidence_required",
+      "passed": true,
+      "measured": "All producer ok events have evidence paths",
+      "expected": "Producer stages with outcome ok must declare non-empty evidence paths",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "artifact_exists",
+      "passed": true,
+      "measured": "All declared evidence artifacts exist",
+      "expected": "All evidence files exist on disk",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "artifact_sha256",
+      "passed": true,
+      "measured": "All SHA-256 hashes match",
+      "expected": "Calculated SHA-256 matches declared hash",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "artifact_bytes",
+      "passed": true,
+      "measured": "All byte sizes match",
+      "expected": "Disk byte size matches declared size",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "video_resolution",
+      "passed": true,
+      "measured": "1080x1920",
+      "expected": "1080x1920",
+      "evidence_path": "run_t0_golden/artifacts/render/short.mp4"
+    },
+    {
+      "check_id": "audio_stream_count",
+      "passed": true,
+      "measured": "1 audio stream(s)",
+      "expected": "Exactly 1 audio stream",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/artifacts/render/short.mp4"
+    },
+    {
+      "check_id": "video_duration_range",
+      "passed": true,
+      "measured": "25.0 seconds",
+      "expected": "20.0 <= duration <= 58.0 seconds",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/artifacts/render/short.mp4"
+    },
+    {
+      "check_id": "audio_lufs_loudness",
+      "passed": true,
+      "measured": "-14.50 LUFS",
+      "expected": "[-16.0 LUFS, -13.0 LUFS]",
+      "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/artifacts/render/short.mp4"
+    }
+  ]
+}

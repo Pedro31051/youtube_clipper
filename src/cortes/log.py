@@ -188,8 +188,8 @@ def emit_event(
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         try:
             f.seek(0)
-            lines = [l for l in f.read().splitlines() if l.strip()]
-            seq = len(lines) + 1
+            lines = f.read().splitlines()
+            seq = len([l for l in lines if l.strip()]) + 1
 
             event_dict = {
                 "schema_version": "1.0.0",

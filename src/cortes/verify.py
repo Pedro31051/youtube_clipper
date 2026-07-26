@@ -13,6 +13,30 @@ from typing import Any, Dict, List, Union
 from cortes.log import compute_sha256, run_cmd
 
 
+STAGE_ORDER = {
+    "env": 0,
+    "ingest": 1,
+    "transcribe": 2,
+    "scenes": 3,
+    "select": 4,
+    "cut": 5,
+    "subtitles": 6,
+    "audio": 7,
+    "transform": 8,
+    "render": 9,
+    "verify": 10,
+    "report": 11,
+}
+
+
+def parse_iso_ts(ts_str: str) -> datetime:
+    """Parse ISO 8601 string to timezone-aware datetime object, handling 'Z' suffix."""
+    if not ts_str:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    s = ts_str.replace("Z", "+00:00")
+    return datetime.fromisoformat(s)
+
+
 def measure_sha256(file_path: pathlib.Path) -> str:
     """Compute sha256 of file from scratch."""
     return compute_sha256(file_path)
@@ -169,14 +193,22 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
 
         # 2. Check seq_integrity
         seq_passed = True
-        seq_msg = "seq 1..N continuous without gaps"
+        seq_msg = "seq 1..N continuous without gaps and stage DAG sequence valid"
         if events_valid_schema and events:
+            prev_stage_rank = -1
             for i, ev in enumerate(events):
                 expected_seq = i + 1
                 if ev.get("seq") != expected_seq:
                     seq_passed = False
                     seq_msg = f"Mismatch at index {i}: expected seq {expected_seq}, found {ev.get('seq')}"
                     break
+                stage_name = ev.get("stage")
+                stage_rank = STAGE_ORDER.get(stage_name, 999)
+                if stage_rank < prev_stage_rank:
+                    seq_passed = False
+                    seq_msg = f"Invalid stage DAG sequence at seq {ev.get('seq')}: stage '{stage_name}' occurred after higher rank stage"
+                    break
+                prev_stage_rank = stage_rank
         else:
             seq_passed = False
             seq_msg = "Events schema invalid or empty"
@@ -185,7 +217,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             check_id="seq_integrity",
             passed=seq_passed,
             measured=seq_msg,
-            expected="seq == index + 1 without gaps or duplicates",
+            expected="seq == index + 1 without gaps or duplicates and stage DAG sequence valid",
             evidence_path=str(events_file),
         )
 
@@ -193,14 +225,22 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
         ts_passed = True
         ts_msg = "Timestamps non-decreasing"
         if events_valid_schema and events:
-            prev_ts = ""
-            for i, ev in enumerate(events):
-                curr_ts = ev.get("ts", "")
-                if curr_ts < prev_ts:
+            prev_dt = None
+            prev_ts_str = ""
+            for ev in events:
+                curr_ts_str = ev.get("ts", "")
+                try:
+                    curr_dt = parse_iso_ts(curr_ts_str)
+                    if prev_dt is not None and curr_dt < prev_dt:
+                        ts_passed = False
+                        ts_msg = f"Timestamp decreased at seq {ev.get('seq')}: {curr_ts_str} < {prev_ts_str}"
+                        break
+                    prev_dt = curr_dt
+                    prev_ts_str = curr_ts_str
+                except Exception as ex:
                     ts_passed = False
-                    ts_msg = f"Timestamp decreased at seq {ev.get('seq')}: {curr_ts} < {prev_ts}"
+                    ts_msg = f"Invalid timestamp format at seq {ev.get('seq')}: {curr_ts_str} ({ex})"
                     break
-                prev_ts = curr_ts
 
         add_check(
             check_id="ts_monotonic",

@@ -1,0 +1,486 @@
+diff --git a/src/cortes/log.py b/src/cortes/log.py
+index be4952e..0b4b453 100644
+--- a/src/cortes/log.py
++++ b/src/cortes/log.py
+@@ -188,8 +188,8 @@ def emit_event(
+         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+         try:
+             f.seek(0)
+-            lines = [l for l in f.read().splitlines() if l.strip()]
+-            seq = len(lines) + 1
++            lines = f.read().splitlines()
++            seq = len([l for l in lines if l.strip()]) + 1
+ 
+             event_dict = {
+                 "schema_version": "1.0.0",
+diff --git a/src/cortes/verify.py b/src/cortes/verify.py
+index 18f18ed..173befd 100644
+--- a/src/cortes/verify.py
++++ b/src/cortes/verify.py
+@@ -13,6 +13,30 @@ from typing import Any, Dict, List, Union
+ from cortes.log import compute_sha256, run_cmd
+ 
+ 
++STAGE_ORDER = {
++    "env": 0,
++    "ingest": 1,
++    "transcribe": 2,
++    "scenes": 3,
++    "select": 4,
++    "cut": 5,
++    "subtitles": 6,
++    "audio": 7,
++    "transform": 8,
++    "render": 9,
++    "verify": 10,
++    "report": 11,
++}
++
++
++def parse_iso_ts(ts_str: str) -> datetime:
++    """Parse ISO 8601 string to timezone-aware datetime object, handling 'Z' suffix."""
++    if not ts_str:
++        return datetime.min.replace(tzinfo=timezone.utc)
++    s = ts_str.replace("Z", "+00:00")
++    return datetime.fromisoformat(s)
++
++
+ def measure_sha256(file_path: pathlib.Path) -> str:
+     """Compute sha256 of file from scratch."""
+     return compute_sha256(file_path)
+@@ -169,14 +193,22 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
+ 
+         # 2. Check seq_integrity
+         seq_passed = True
+-        seq_msg = "seq 1..N continuous without gaps"
++        seq_msg = "seq 1..N continuous without gaps and stage DAG sequence valid"
+         if events_valid_schema and events:
++            prev_stage_rank = -1
+             for i, ev in enumerate(events):
+                 expected_seq = i + 1
+                 if ev.get("seq") != expected_seq:
+                     seq_passed = False
+                     seq_msg = f"Mismatch at index {i}: expected seq {expected_seq}, found {ev.get('seq')}"
+                     break
++                stage_name = ev.get("stage")
++                stage_rank = STAGE_ORDER.get(stage_name, 999)
++                if stage_rank < prev_stage_rank:
++                    seq_passed = False
++                    seq_msg = f"Invalid stage DAG sequence at seq {ev.get('seq')}: stage '{stage_name}' occurred after higher rank stage"
++                    break
++                prev_stage_rank = stage_rank
+         else:
+             seq_passed = False
+             seq_msg = "Events schema invalid or empty"
+@@ -185,7 +217,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
+             check_id="seq_integrity",
+             passed=seq_passed,
+             measured=seq_msg,
+-            expected="seq == index + 1 without gaps or duplicates",
++            expected="seq == index + 1 without gaps or duplicates and stage DAG sequence valid",
+             evidence_path=str(events_file),
+         )
+ 
+@@ -193,14 +225,22 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
+         ts_passed = True
+         ts_msg = "Timestamps non-decreasing"
+         if events_valid_schema and events:
+-            prev_ts = ""
+-            for i, ev in enumerate(events):
+-                curr_ts = ev.get("ts", "")
+-                if curr_ts < prev_ts:
++            prev_dt = None
++            prev_ts_str = ""
++            for ev in events:
++                curr_ts_str = ev.get("ts", "")
++                try:
++                    curr_dt = parse_iso_ts(curr_ts_str)
++                    if prev_dt is not None and curr_dt < prev_dt:
++                        ts_passed = False
++                        ts_msg = f"Timestamp decreased at seq {ev.get('seq')}: {curr_ts_str} < {prev_ts_str}"
++                        break
++                    prev_dt = curr_dt
++                    prev_ts_str = curr_ts_str
++                except Exception as ex:
+                     ts_passed = False
+-                    ts_msg = f"Timestamp decreased at seq {ev.get('seq')}: {curr_ts} < {prev_ts}"
++                    ts_msg = f"Invalid timestamp format at seq {ev.get('seq')}: {curr_ts_str} ({ex})"
+                     break
+-                prev_ts = curr_ts
+ 
+         add_check(
+             check_id="ts_monotonic",
+diff --git a/tests/test_contracts.py b/tests/test_contracts.py
+index 65c1a3c..49e0144 100644
+--- a/tests/test_contracts.py
++++ b/tests/test_contracts.py
+@@ -11,6 +11,7 @@ import ast
+ import pathlib
+ import pytest
+ import json
++from typing import List
+ from cortes.log import (
+     audited,
+     run_cmd,
+@@ -50,7 +51,7 @@ def is_audited_decorator(dec_node: ast.AST) -> bool:
+ 
+ 
+ def test_ast_stage_functions_have_audited_decorator():
+-    """Requirement (a): AST scan fails if any stage function lacks @audited decorator."""
++    """Requirement (a): AST scan fails if any stage function lacks @audited decorator (including _ prefixed)."""
+     src_dir = pathlib.Path(__file__).parent.parent / "src" / "cortes"
+     assert src_dir.exists(), "src/cortes directory must exist"
+ 
+@@ -65,21 +66,123 @@ def test_ast_stage_functions_have_audited_decorator():
+ 
+         for node in ast.walk(tree):
+             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+-                # Ignore private functions starting with '_'
+-                if not node.name.startswith("_"):
+-                    has_audited = any(is_audited_decorator(dec) for dec in node.decorator_list)
+-                    if not has_audited:
+-                        missing_audited.append(
+-                            f"{stage_file.name}:{node.lineno} - function '{node.name}' lacks @audited"
+-                        )
++                # Check ALL functions in stage modules (including private ones starting with '_')
++                has_audited = any(is_audited_decorator(dec) for dec in node.decorator_list)
++                if not has_audited:
++                    missing_audited.append(
++                        f"{stage_file.name}:{node.lineno} - function '{node.name}' lacks @audited"
++                    )
+ 
+     assert not missing_audited, (
+         "The following stage functions are missing the @audited decorator:\n" + "\n".join(missing_audited)
+     )
+ 
+ 
++def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
++    """Helper to scan an AST tree for prohibited subprocess, system, eval/exec, and dynamic import patterns."""
++    violations = []
++    prohibited_os_attrs = {
++        "system", "popen", "posix_spawn", "spawn", "spawnl", "spawnle",
++        "spawnlp", "spawnlpe", "spawnv", "spawnve", "spawnvp", "spawnvpe",
++        "exec", "execv", "execve", "execl", "execle", "execlp", "execlpe"
++    }
++    prohibited_asyncio_attrs = {
++        "create_subprocess_exec", "create_subprocess_shell"
++    }
++
++    for node in ast.walk(tree):
++        # 1. Direct or module imports
++        if isinstance(node, ast.Import):
++            for alias in node.names:
++                if alias.name == "subprocess" or alias.name.startswith("subprocess."):
++                    violations.append(
++                        f"{filename}:{getattr(node, 'lineno', 1)} - Direct import of 'subprocess'"
++                    )
++        elif isinstance(node, ast.ImportFrom):
++            if node.module and (node.module == "subprocess" or node.module.startswith("subprocess.")):
++                violations.append(
++                    f"{filename}:{getattr(node, 'lineno', 1)} - Import from 'subprocess'"
++                )
++            elif node.module == "os":
++                for alias in node.names:
++                    if alias.name in prohibited_os_attrs:
++                        violations.append(
++                            f"{filename}:{getattr(node, 'lineno', 1)} - Import of prohibited 'os.{alias.name}'"
++                        )
++            elif node.module == "asyncio":
++                for alias in node.names:
++                    if alias.name in prohibited_asyncio_attrs:
++                        violations.append(
++                            f"{filename}:{getattr(node, 'lineno', 1)} - Import of prohibited 'asyncio.{alias.name}'"
++                        )
++
++        # 2. Attribute accesses
++        elif isinstance(node, ast.Attribute):
++            if isinstance(node.value, ast.Name):
++                if node.value.id == "subprocess":
++                    violations.append(
++                        f"{filename}:{getattr(node, 'lineno', 1)} - Access to 'subprocess.{node.attr}'"
++                    )
++                elif node.value.id == "os" and node.attr in prohibited_os_attrs:
++                    violations.append(
++                        f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited system call 'os.{node.attr}'"
++                    )
++                elif node.value.id == "asyncio" and node.attr in prohibited_asyncio_attrs:
++                    violations.append(
++                        f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited asyncio call 'asyncio.{node.attr}'"
++                    )
++
++        # 3. Function calls (eval, exec, __import__, importlib.import_module, direct call to system/popen/etc.)
++        elif isinstance(node, ast.Call):
++            if isinstance(node.func, ast.Name):
++                func_id = node.func.id
++                if func_id in ("eval", "exec"):
++                    violations.append(
++                        f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call to '{func_id}'"
++                    )
++                elif func_id == "__import__":
++                    if node.args:
++                        arg0 = node.args[0]
++                        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
++                            if arg0.value == "subprocess" or arg0.value.startswith("subprocess."):
++                                violations.append(
++                                    f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call '__import__({arg0.value!r})'"
++                                )
++                        else:
++                            violations.append(
++                                f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call to '__import__'"
++                            )
++                    else:
++                        violations.append(
++                            f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call to '__import__'"
++                        )
++                elif func_id == "import_module":
++                    if node.args:
++                        arg0 = node.args[0]
++                        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
++                            if arg0.value == "subprocess" or arg0.value.startswith("subprocess."):
++                                violations.append(
++                                    f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call 'import_module({arg0.value!r})'"
++                                )
++                elif func_id in prohibited_os_attrs or func_id in prohibited_asyncio_attrs:
++                    violations.append(
++                        f"{filename}:{getattr(node, 'lineno', 1)} - Direct call to prohibited function '{func_id}'"
++                    )
++            elif isinstance(node.func, ast.Attribute):
++                if node.func.attr == "import_module":
++                    if node.args:
++                        arg0 = node.args[0]
++                        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
++                            if arg0.value == "subprocess" or arg0.value.startswith("subprocess."):
++                                violations.append(
++                                    f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call 'importlib.import_module({arg0.value!r})'"
++                                )
++
++    return violations
++
++
+ def test_ast_prohibit_subprocess_outside_run_cmd():
+-    """Requirement (b): AST scan fails if subprocess or os.system is used outside src/cortes/log.py."""
++    """Requirement (b): AST scan fails if subprocess, os.system/popen/posix_spawn, importlib/subprocess, __import__('subprocess'), eval/exec, or asyncio subprocess is used outside src/cortes/log.py."""
+     src_dir = pathlib.Path(__file__).parent.parent / "src" / "cortes"
+     assert src_dir.exists(), "src/cortes directory must exist"
+ 
+@@ -91,38 +194,35 @@ def test_ast_prohibit_subprocess_outside_run_cmd():
+             continue
+ 
+         tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+-
+-        for node in ast.walk(tree):
+-            if isinstance(node, ast.Import):
+-                for alias in node.names:
+-                    if alias.name == "subprocess" or alias.name.startswith("subprocess."):
+-                        violations.append(
+-                            f"{py_file.name}:{node.lineno} - Direct import of 'subprocess'"
+-                        )
+-            elif isinstance(node, ast.ImportFrom):
+-                if node.module and (node.module == "subprocess" or node.module.startswith("subprocess.")):
+-                    violations.append(
+-                        f"{py_file.name}:{node.lineno} - Import from 'subprocess'"
+-                    )
+-            elif isinstance(node, ast.Attribute):
+-                if isinstance(node.value, ast.Name) and node.value.id == "subprocess":
+-                    violations.append(
+-                        f"{py_file.name}:{node.lineno} - Access to 'subprocess.{node.attr}'"
+-                    )
+-                elif (
+-                    isinstance(node.value, ast.Name)
+-                    and node.value.id == "os"
+-                    and node.attr in ("system", "popen", "exec", "spawn", "execv", "execve")
+-                ):
+-                    violations.append(
+-                        f"{py_file.name}:{node.lineno} - Prohibited system call 'os.{node.attr}'"
+-                    )
++        violations.extend(scan_ast_for_violations(tree, py_file.name))
+ 
+     assert not violations, (
+-        "Prohibited subprocess usage detected outside src/cortes/log.py:\n" + "\n".join(violations)
++        "Prohibited subprocess/system usage detected outside src/cortes/log.py:\n" + "\n".join(violations)
+     )
+ 
+ 
++def test_ast_evasion_attempts_are_blocked():
++    """Verify that AST scanner blocks all 10 known evasion vectors."""
++    evasion_snippets = [
++        "from os import system; system('ls')",
++        "from os import popen; popen('ls')",
++        "from os import posix_spawn; posix_spawn('/bin/ls', ['ls'], {})",
++        "import importlib; sub = importlib.import_module('subprocess'); sub.run(['ls'])",
++        "from importlib import import_module; sub = import_module('subprocess')",
++        "__import__('subprocess').run(['ls'])",
++        "eval('1+1')",
++        "exec('1+1')",
++        "import asyncio; asyncio.create_subprocess_exec('ls')",
++        "import asyncio; asyncio.create_subprocess_shell('ls')",
++        "from asyncio import create_subprocess_exec; create_subprocess_exec('ls')",
++    ]
++
++    for snippet in evasion_snippets:
++        tree = ast.parse(snippet)
++        violations = scan_ast_for_violations(tree, "snippet.py")
++        assert len(violations) > 0, f"AST scanner failed to block evasion snippet: {snippet}"
++
++
+ def test_events_jsonl_schema_validation_on_all_runs(tmp_path):
+     """Requirement (c): Fails if events.jsonl of any run does not validate against schema 1.0.0."""
+     runs_dir = pathlib.Path("runs")
+diff --git a/tests/test_mutation.py b/tests/test_mutation.py
+index aeb78aa..65a8901 100644
+--- a/tests/test_mutation.py
++++ b/tests/test_mutation.py
+@@ -351,3 +351,153 @@ def test_mutation_7_missing_evidence_artifact(golden_run, tmp_path):
+     assert res["overall_passed"] is False
+     failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
+     assert "artifact_exists" in failed_checks
++
++
++def test_mutation_8_missing_events_file(golden_run, tmp_path):
++    """Delete events.jsonl -> verify must fail events_file_exists."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_missing_events")
++
++    events_file = mut_dir / "events.jsonl"
++    events_file.unlink()
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "events_file_exists" in failed_checks
++
++
++def test_mutation_9_invalid_event_schema(golden_run, tmp_path):
++    """Corrupt events.jsonl schema version -> verify must fail events_schema_valid."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_invalid_schema")
++
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    lines[0]["schema_version"] = "9.9.9"
++    events_file.write_text("\n".join(json.dumps(ev) for ev in lines) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "events_schema_valid" in failed_checks
++
++
++def test_mutation_10_stage_dag_out_of_order(golden_run, tmp_path):
++    """Reorder stage events (place render before env) -> verify must fail seq_integrity."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_stage_dag")
++
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    ev_render = lines[1]
++    ev_env = lines[0]
++    ev_render["seq"] = 1
++    ev_env["seq"] = 2
++    events_file.write_text(json.dumps(ev_render) + "\n" + json.dumps(ev_env) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "seq_integrity" in failed_checks
++
++
++def test_mutation_11_non_monotonic_timestamp(golden_run, tmp_path):
++    """Decrease event timestamp in seq 2 -> verify must fail ts_monotonic."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_ts_mono")
++
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    lines[1]["ts"] = "2020-01-01T00:00:00.000000Z"
++    events_file.write_text("\n".join(json.dumps(ev) for ev in lines) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "ts_monotonic" in failed_checks
++
++
++def test_mutation_12_commands_log_unsynced(golden_run, tmp_path):
++    """Delete commands.log when events contain commands -> verify must fail commands_log_sync."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_commands_sync")
++
++    commands_file = mut_dir / "commands.log"
++    if commands_file.exists():
++        commands_file.unlink()
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "commands_log_sync" in failed_checks
++
++
++def test_mutation_13_non_zero_exit_code(golden_run, tmp_path):
++    """Set non-zero exit_code on outcome ok event -> verify must fail exit_codes_zero."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_exit_code")
++
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    lines[1]["exit_code"] = 1
++    events_file.write_text("\n".join(json.dumps(ev) for ev in lines) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "exit_codes_zero" in failed_checks
++
++
++def test_mutation_14_missing_producer_evidence(golden_run, tmp_path):
++    """Remove evidence paths from producer stage event -> verify must fail producer_evidence_required."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_producer_ev")
++
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    lines[1]["evidence"] = {"paths": [], "sha256": [], "bytes": []}
++    events_file.write_text("\n".join(json.dumps(ev) for ev in lines) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "producer_evidence_required" in failed_checks
++
++
++def test_mutation_15_artifact_bytes_mismatch(golden_run, tmp_path):
++    """Alter declared byte size in event -> verify must fail artifact_bytes."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_artifact_bytes")
++
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    lines[1]["evidence"]["bytes"][0] += 999
++    events_file.write_text("\n".join(json.dumps(ev) for ev in lines) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "artifact_bytes" in failed_checks
++
++
++def test_mutation_16_audio_stream_count_mismatch(golden_run, tmp_path):
++    """Replace video artifact with an audio-less video -> verify must fail audio_stream_count."""
++    mut_dir = copy_golden_for_mutation(golden_run, tmp_path / "mut_audio_stream")
++
++    video_path = mut_dir / "artifacts" / "clip_01" / "short.mp4"
++    cmd = [
++        "ffmpeg",
++        "-y",
++        "-f", "lavfi", "-i", "testsrc=size=1080x1920:rate=15",
++        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
++        "-an",
++        "-t", "21",
++        str(video_path),
++    ]
++    run_cmd(cmd, stage="render")
++
++    new_sha = compute_sha256(video_path)
++    new_bytes = video_path.stat().st_size
++    events_file = mut_dir / "events.jsonl"
++    lines = [json.loads(l) for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
++    lines[1]["evidence"]["sha256"] = [new_sha]
++    lines[1]["evidence"]["bytes"] = [new_bytes]
++    events_file.write_text("\n".join(json.dumps(ev) for ev in lines) + "\n", encoding="utf-8")
++
++    res = verify_run(mut_dir)
++    assert res["overall_passed"] is False
++    failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
++    assert "audio_stream_count" in failed_checks
