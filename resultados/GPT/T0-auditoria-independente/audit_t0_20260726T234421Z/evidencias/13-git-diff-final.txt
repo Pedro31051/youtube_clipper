@@ -1,0 +1,6 @@
+A  resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md
+ M review/T0/runs/run_t0_golden/verify_result.json
+?? resultados/GPT/T0-auditoria-independente/
+---
+ review/T0/runs/run_t0_golden/verify_result.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)

@@ -1,0 +1,5 @@
+H04 Readonly Check Results:
+  Modified: 1
+  Created: 0
+  Deleted: 0
+    Mod: review/T0/runs/run_t0_golden/verify_result.json

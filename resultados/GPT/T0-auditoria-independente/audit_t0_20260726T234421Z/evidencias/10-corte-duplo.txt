@@ -1,0 +1,24 @@
+FFmpegProcessor.cut_media source:
+    def cut_media(
+        self,
+        input_path: Union[str, Path],
+        start: float,
+        end: float,
+        output_path: Union[str, Path],
+        fast_copy: bool = False,
+    ) -> str:
+        """Cut input video file between start and end timestamps into output_path.
+
+        Args:
+            input_path: Path to existing source video file.
+            start: Start timestamp in seconds.
+            end: End timestamp in seconds.
+            output_path: Target path for output clip.
+            fast_copy: If True, uses stream copy (-c copy) without re-encoding.
+
+        Returns:
+            Absolute or normalized output file path as a string.
+
+        Raises:
+            ProcessingError: If input does not exist, timestamps are invalid, or subprocess fails.
+            FFmpegNo
