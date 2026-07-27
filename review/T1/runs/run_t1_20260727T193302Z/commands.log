@@ -1,0 +1,92 @@
+================================================================================
+[2026-07-27T19:33:06.396869+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 3.13ms]
+COMMAND: python3 --version
+--- STDOUT ---
+Python 3.12.3
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.408039+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 67.56ms]
+COMMAND: ffmpeg -version
+--- STDOUT ---
+ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+libavutil      58. 29.100 / 58. 29.100
+libavcodec     60. 31.102 / 60. 31.102
+libavformat    60. 16.100 / 60. 16.100
+libavdevice    60.  3.100 / 60.  3.100
+libavfilter     9. 12.100 /  9. 12.100
+libswscale      7.  5.100 /  7.  5.100
+libswresample   4. 12.100 /  4. 12.100
+libpostproc    57.  3.100 / 57.  3.100
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.480611+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 64.54ms]
+COMMAND: ffprobe -version
+--- STDOUT ---
+ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers
+built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+libavutil      58. 29.100 / 58. 29.100
+libavcodec     60. 31.102 / 60. 31.102
+libavformat    60. 16.100 / 60. 16.100
+libavdevice    60.  3.100 / 60.  3.100
+libavfilter     9. 12.100 /  9. 12.100
+libswscale      7.  5.100 /  7.  5.100
+libswresample   4. 12.100 /  4. 12.100
+libpostproc    57.  3.100 / 57.  3.100
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.550055+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 53.97ms]
+COMMAND: python3 -c "import soundfile"
+--- STDOUT ---
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.608979+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 12.46ms]
+COMMAND: fc-list | grep -Eci "inter|roboto|noto"
+--- STDOUT ---
+271
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.626178+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 31.7ms]
+COMMAND: nvidia-smi --query-gpu=name,memory.total --format=csv
+--- STDOUT ---
+name, memory.total [MiB]
+Tesla T4, 15360 MiB
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.662592+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 3.13ms]
+COMMAND: df -B1G --output=avail . | tail -1
+--- STDOUT ---
+   20
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T19:33:06.669984+00:00] [AGENT: worker_t1] [CWD: /tmp/youtube-clipper-t1.v16hrX] [EXIT: 0] [DURATION: 2.73ms]
+COMMAND: git --version
+--- STDOUT ---
+git version 2.43.0
+
+--- STDERR ---
+
+================================================================================

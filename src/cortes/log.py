@@ -260,7 +260,6 @@ def audited(
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             start_time = time.perf_counter()
-            start_ts = datetime.now(timezone.utc).isoformat()
             span_id = uuid.uuid4().hex[:16]
 
             # Calculate deterministic args_hash
@@ -329,7 +328,6 @@ def audited(
                     evidence={"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes},
                     outcome=outcome,
                     error=error_msg,
-                    ts=start_ts,
                 )
 
         return wrapper
@@ -342,6 +340,7 @@ def run_cmd(
     cwd: Optional[str] = None,
     agent: str = "worker",
     stage: str = "cmd",
+    attempt: int = 1,
     check: bool = False,
     env: Optional[Dict[str, str]] = None,
     video_id: str = "unknown",
@@ -420,6 +419,7 @@ def run_cmd(
         agent=agent,
         video_id=video_id,
         clip_id=clip_id,
+        attempt=attempt,
         severity=severity,
         duration_ms=duration_ms,
         tool=tool_name,

@@ -11,6 +11,7 @@ import ast
 import pathlib
 import pytest
 import json
+from datetime import datetime
 from typing import List
 from cortes.log import (
     audited,
@@ -75,6 +76,19 @@ def test_ast_stage_functions_have_audited_decorator():
     assert not missing_audited, (
         "The following stage functions are missing the @audited decorator:\n" + "\n".join(missing_audited)
     )
+
+
+def test_t1_environment_execution_is_audited():
+    """The T1 execution boundary must emit an audited env-stage event."""
+    env_file = pathlib.Path(__file__).parent.parent / "src" / "cortes" / "env.py"
+    tree = ast.parse(env_file.read_text(encoding="utf-8"), filename=str(env_file))
+    runner = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_execute_environment_phase"
+    )
+    assert any(is_audited_decorator(dec) for dec in runner.decorator_list)
 
 
 def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
@@ -321,3 +335,28 @@ def test_run_cmd_subprocesses_logged(tmp_path):
     assert event["tool"] == "echo"
     assert event["cmd"] == "echo hello_world"
     assert event["exit_code"] == 0
+
+
+def test_audited_final_event_timestamp_follows_nested_commands(
+    tmp_path, monkeypatch
+):
+    """A decorator's final event cannot predate commands emitted inside it."""
+    monkeypatch.chdir(tmp_path)
+    set_run_id("run_t1_nested_timestamp")
+
+    @audited(stage="env")
+    def stage_with_command():
+        run_cmd(["echo", "nested"], stage="env")
+
+    stage_with_command()
+    events_file = get_run_dir("run_t1_nested_timestamp") / "events.jsonl"
+    events = [
+        json.loads(line)
+        for line in events_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    timestamps = [
+        datetime.fromisoformat(event["ts"].replace("Z", "+00:00"))
+        for event in events
+    ]
+    assert timestamps == sorted(timestamps)
