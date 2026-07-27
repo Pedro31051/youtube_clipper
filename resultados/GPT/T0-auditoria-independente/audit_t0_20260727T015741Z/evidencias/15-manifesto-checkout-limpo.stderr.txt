@@ -1,0 +1,223 @@
+++ mktemp -d /tmp/checkout_limpo_XXXXXX
++ CLONE=/tmp/checkout_limpo_pUOn2p
++ git clone --quiet --branch agent/auditoria-independente-t0 /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper /tmp/checkout_limpo_pUOn2p/repo
++ cd /tmp/checkout_limpo_pUOn2p/repo
++ git log --oneline -1
++ git status --short
++ echo '--- validando o manifesto em checkout limpo ---'
++ cd resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z
++ sha256sum -c MANIFESTO_SHA256.txt
++ echo SHA256SUM_C_EXIT=0
++ echo '--- todo arquivo do manifesto existe e esta versionado? ---'
++ cut '-d ' -f3- MANIFESTO_SHA256.txt
++ read -r f
++ '[' -f COMANDOS.jsonl ']'
++ read -r f
++ '[' -f CORRECOES_FISCALIZACAO.md ']'
++ read -r f
++ '[' -f HIPOTESES.csv ']'
++ read -r f
++ '[' -f INVENTARIO.txt ']'
++ read -r f
++ '[' -f LIMITACOES.md ']'
++ read -r f
++ '[' -f PACOTE.md ']'
++ read -r f
++ '[' -f RELATORIO.md ']'
++ read -r f
++ '[' -f VEREDITO.json ']'
++ read -r f
++ '[' -f evidencias/00-baseline-git.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/00-baseline-git.txt ']'
++ read -r f
++ '[' -f evidencias/01-ambiente.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/01-ambiente.txt ']'
++ read -r f
++ '[' -f evidencias/02-arquivos-relevantes.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/02-arquivos-relevantes.txt ']'
++ read -r f
++ '[' -f evidencias/03-pytest-completo.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/03-pytest-completo.txt ']'
++ read -r f
++ '[' -f evidencias/04-pytest-contracts.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/04-pytest-contracts.txt ']'
++ read -r f
++ '[' -f evidencias/05-pytest-mutation.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/05-pytest-mutation.txt ']'
++ read -r f
++ '[' -f evidencias/06-subprocess-scan.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/06-subprocess-scan.txt ']'
++ read -r f
++ '[' -f evidencias/07-stage-modules.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/07-stage-modules.txt ']'
++ read -r f
++ '[' -f evidencias/08-portabilidade.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/08-portabilidade.txt ']'
++ read -r f
++ '[' -f evidencias/09-verificador-readonly.att2.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/09-verificador-readonly.att2.txt ']'
++ read -r f
++ '[' -f evidencias/09-verificador-readonly.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/09-verificador-readonly.txt ']'
++ read -r f
++ '[' -f evidencias/10-corte-duplo.att2.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/10-corte-duplo.att2.txt ']'
++ read -r f
++ '[' -f evidencias/10-corte-duplo.att3.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/10-corte-duplo.att3.txt ']'
++ read -r f
++ '[' -f evidencias/10-corte-duplo.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/10-corte-duplo.txt ']'
++ read -r f
++ '[' -f evidencias/11-dashboard-superficie.att2.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/11-dashboard-superficie.att2.txt ']'
++ read -r f
++ '[' -f evidencias/11-dashboard-superficie.att3.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/11-dashboard-superficie.att3.txt ']'
++ read -r f
++ '[' -f evidencias/11-dashboard-superficie.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/11-dashboard-superficie.txt ']'
++ read -r f
++ '[' -f evidencias/12-ci-e-branches.att2.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/12-ci-e-branches.att2.txt ']'
++ read -r f
++ '[' -f evidencias/12-ci-e-branches.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/12-ci-e-branches.txt ']'
++ read -r f
++ '[' -f evidencias/13-git-diff-final.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/13-git-diff-final.txt ']'
++ read -r f
++ '[' -f evidencias/14-mutacao-cobertura.att2.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/14-mutacao-cobertura.att2.txt ']'
++ read -r f
++ '[' -f evidencias/14-mutacao-cobertura.att3.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/14-mutacao-cobertura.att3.txt ']'
++ read -r f
++ '[' -f evidencias/14-mutacao-cobertura.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/14-mutacao-cobertura.txt ']'
++ read -r f
++ '[' -f evidencias/90-inventario.stderr.txt ']'
++ read -r f
++ '[' -f evidencias/90-inventario.txt ']'
++ read -r f
++ '[' -f evidencias/pytest.xml ']'
++ read -r f
++ '[' -f scratch/.seq_state ']'
++ read -r f
++ '[' -f scratch/h01.py ']'
++ read -r f
++ '[' -f scratch/h02.py ']'
++ read -r f
++ '[' -f scratch/h03.py ']'
++ read -r f
++ '[' -f scratch/h04.py ']'
++ read -r f
++ '[' -f scratch/h05.py ']'
++ read -r f
++ '[' -f scratch/h06.py ']'
++ read -r f
++ '[' -f scratch/h07_mutacao.py ']'
++ read -r f
++ '[' -f scratch/runner.py ']'
++ read -r f
++ echo '(nenhuma linha AUSENTE acima = manifesto integro)'
++ echo '--- o manifesto cobre todos os arquivos versionados do pacote? ---'
++ git ls-files .
++ grep -v '^MANIFESTO_SHA256.txt$'
++ sort
++ cut '-d ' -f3- MANIFESTO_SHA256.txt
++ sort
++ diff /tmp/versionados.txt /tmp/manifestados.txt
++ echo COBERTURA_EXATA=SIM
++ echo '--- contagem ---'
+++ wc -l
++ echo 'versionados (sem o manifesto): 66'
+++ wc -l
++ echo 'no manifesto               : 66'
++ echo '--- caminhos citados pelo RELATORIO existem neste checkout limpo? ---'
++ grep -o 'evidencias/[a-z0-9.-]*\.txt\|scratch/h[0-9_a-z]*\.py' RELATORIO.md
++ sort -u
++ read -r p
++ '[' -e evidencias/00-baseline-git.txt ']'
++ echo '  OK      evidencias/00-baseline-git.txt'
++ read -r p
++ '[' -e evidencias/01-ambiente.txt ']'
++ echo '  OK      evidencias/01-ambiente.txt'
++ read -r p
++ '[' -e evidencias/03-pytest-completo.txt ']'
++ echo '  OK      evidencias/03-pytest-completo.txt'
++ read -r p
++ '[' -e evidencias/04-pytest-contracts.txt ']'
++ echo '  OK      evidencias/04-pytest-contracts.txt'
++ read -r p
++ '[' -e evidencias/05-pytest-mutation.txt ']'
++ echo '  OK      evidencias/05-pytest-mutation.txt'
++ read -r p
++ '[' -e evidencias/06-subprocess-scan.txt ']'
++ echo '  OK      evidencias/06-subprocess-scan.txt'
++ read -r p
++ '[' -e evidencias/07-stage-modules.txt ']'
++ echo '  OK      evidencias/07-stage-modules.txt'
++ read -r p
++ '[' -e evidencias/08-portabilidade.txt ']'
++ echo '  OK      evidencias/08-portabilidade.txt'
++ read -r p
++ '[' -e evidencias/09-verificador-readonly.txt ']'
++ echo '  OK      evidencias/09-verificador-readonly.txt'
++ read -r p
++ '[' -e evidencias/10-corte-duplo.att3.txt ']'
++ echo '  OK      evidencias/10-corte-duplo.att3.txt'
++ read -r p
++ '[' -e evidencias/11-dashboard-superficie.att3.txt ']'
++ echo '  OK      evidencias/11-dashboard-superficie.att3.txt'
++ read -r p
++ '[' -e evidencias/12-ci-e-branches.att2.txt ']'
++ echo '  OK      evidencias/12-ci-e-branches.att2.txt'
++ read -r p
++ '[' -e evidencias/14-mutacao-cobertura.att3.txt ']'
++ echo '  OK      evidencias/14-mutacao-cobertura.att3.txt'
++ read -r p
++ '[' -e scratch/h01.py ']'
++ echo '  OK      scratch/h01.py'
++ read -r p
++ '[' -e scratch/h02.py ']'
++ echo '  OK      scratch/h02.py'
++ read -r p
++ '[' -e scratch/h03.py ']'
++ echo '  OK      scratch/h03.py'
++ read -r p
++ '[' -e scratch/h04.py ']'
++ echo '  OK      scratch/h04.py'
++ read -r p
++ '[' -e scratch/h05.py ']'
++ echo '  OK      scratch/h05.py'
++ read -r p
++ '[' -e scratch/h06.py ']'
++ echo '  OK      scratch/h06.py'
++ read -r p
++ '[' -e scratch/h07_mutacao.py ']'
++ echo '  OK      scratch/h07_mutacao.py'
++ read -r p

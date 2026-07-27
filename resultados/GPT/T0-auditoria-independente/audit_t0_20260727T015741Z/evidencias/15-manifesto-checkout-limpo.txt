@@ -1,0 +1,97 @@
+9be3e02 audit: add corrected independent T0 evidence review
+--- validando o manifesto em checkout limpo ---
+COMANDOS.jsonl: OK
+CORRECOES_FISCALIZACAO.md: OK
+HIPOTESES.csv: OK
+INVENTARIO.txt: OK
+LIMITACOES.md: OK
+PACOTE.md: OK
+RELATORIO.md: OK
+VEREDITO.json: OK
+evidencias/00-baseline-git.stderr.txt: OK
+evidencias/00-baseline-git.txt: OK
+evidencias/01-ambiente.stderr.txt: OK
+evidencias/01-ambiente.txt: OK
+evidencias/02-arquivos-relevantes.stderr.txt: OK
+evidencias/02-arquivos-relevantes.txt: OK
+evidencias/03-pytest-completo.stderr.txt: OK
+evidencias/03-pytest-completo.txt: OK
+evidencias/04-pytest-contracts.stderr.txt: OK
+evidencias/04-pytest-contracts.txt: OK
+evidencias/05-pytest-mutation.stderr.txt: OK
+evidencias/05-pytest-mutation.txt: OK
+evidencias/06-subprocess-scan.stderr.txt: OK
+evidencias/06-subprocess-scan.txt: OK
+evidencias/07-stage-modules.stderr.txt: OK
+evidencias/07-stage-modules.txt: OK
+evidencias/08-portabilidade.stderr.txt: OK
+evidencias/08-portabilidade.txt: OK
+evidencias/09-verificador-readonly.att2.stderr.txt: OK
+evidencias/09-verificador-readonly.att2.txt: OK
+evidencias/09-verificador-readonly.stderr.txt: OK
+evidencias/09-verificador-readonly.txt: OK
+evidencias/10-corte-duplo.att2.stderr.txt: OK
+evidencias/10-corte-duplo.att2.txt: OK
+evidencias/10-corte-duplo.att3.stderr.txt: OK
+evidencias/10-corte-duplo.att3.txt: OK
+evidencias/10-corte-duplo.stderr.txt: OK
+evidencias/10-corte-duplo.txt: OK
+evidencias/11-dashboard-superficie.att2.stderr.txt: OK
+evidencias/11-dashboard-superficie.att2.txt: OK
+evidencias/11-dashboard-superficie.att3.stderr.txt: OK
+evidencias/11-dashboard-superficie.att3.txt: OK
+evidencias/11-dashboard-superficie.stderr.txt: OK
+evidencias/11-dashboard-superficie.txt: OK
+evidencias/12-ci-e-branches.att2.stderr.txt: OK
+evidencias/12-ci-e-branches.att2.txt: OK
+evidencias/12-ci-e-branches.stderr.txt: OK
+evidencias/12-ci-e-branches.txt: OK
+evidencias/13-git-diff-final.stderr.txt: OK
+evidencias/13-git-diff-final.txt: OK
+evidencias/14-mutacao-cobertura.att2.stderr.txt: OK
+evidencias/14-mutacao-cobertura.att2.txt: OK
+evidencias/14-mutacao-cobertura.att3.stderr.txt: OK
+evidencias/14-mutacao-cobertura.att3.txt: OK
+evidencias/14-mutacao-cobertura.stderr.txt: OK
+evidencias/14-mutacao-cobertura.txt: OK
+evidencias/90-inventario.stderr.txt: OK
+evidencias/90-inventario.txt: OK
+evidencias/pytest.xml: OK
+scratch/.seq_state: OK
+scratch/h01.py: OK
+scratch/h02.py: OK
+scratch/h03.py: OK
+scratch/h04.py: OK
+scratch/h05.py: OK
+scratch/h06.py: OK
+scratch/h07_mutacao.py: OK
+scratch/runner.py: OK
+SHA256SUM_C_EXIT=0
+--- todo arquivo do manifesto existe e esta versionado? ---
+(nenhuma linha AUSENTE acima = manifesto integro)
+--- o manifesto cobre todos os arquivos versionados do pacote? ---
+COBERTURA_EXATA=SIM
+--- contagem ---
+versionados (sem o manifesto): 66
+no manifesto               : 66
+--- caminhos citados pelo RELATORIO existem neste checkout limpo? ---
+  OK      evidencias/00-baseline-git.txt
+  OK      evidencias/01-ambiente.txt
+  OK      evidencias/03-pytest-completo.txt
+  OK      evidencias/04-pytest-contracts.txt
+  OK      evidencias/05-pytest-mutation.txt
+  OK      evidencias/06-subprocess-scan.txt
+  OK      evidencias/07-stage-modules.txt
+  OK      evidencias/08-portabilidade.txt
+  OK      evidencias/09-verificador-readonly.txt
+  OK      evidencias/10-corte-duplo.att3.txt
+  OK      evidencias/11-dashboard-superficie.att3.txt
+  OK      evidencias/12-ci-e-branches.att2.txt
+  OK      evidencias/14-mutacao-cobertura.att3.txt
+  OK      scratch/h01.py
+  OK      scratch/h02.py
+  OK      scratch/h03.py
+  OK      scratch/h04.py
+  OK      scratch/h05.py
+  OK      scratch/h06.py
+  OK      scratch/h07_mutacao.py

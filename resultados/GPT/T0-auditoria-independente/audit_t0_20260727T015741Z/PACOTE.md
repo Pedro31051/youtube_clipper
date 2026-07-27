@@ -22,7 +22,8 @@
 | `LIMITACOES.md` | limitações declaradas |
 | `INVENTARIO.txt` | ambiente, baseline, dependências e hashes de todos os arquivos relevantes |
 | `COMANDOS.jsonl` | 24 comandos, sequência global contínua, `cmd_uid` único |
-| `MANIFESTO_SHA256.txt` | hashes do pacote, gerado a partir do índice do Git |
+| `MANIFESTO_SHA256.txt` | hashes do pacote no commit A, congelado, gerado a partir do índice do Git |
+| `MANIFESTO_FINAL_SHA256.txt` | manifesto final, cobre **todos** os arquivos do pacote inclusive o manifesto congelado; é o que se valida |
 | `evidencias/` | saídas literais; `<slot>.txt` = stdout, `<slot>.stderr.txt` = stderr |
 | `scratch/` | `runner.py` e os scripts de hipótese `h01`–`h06`, `h07_mutacao` |
 
@@ -64,8 +65,8 @@ emulada por contêiner local, e nenhuma correção de código implementada.
 git checkout agent/auditoria-independente-t0
 cd resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z
 
-# 1. Integridade do pacote (o manifesto cobre apenas arquivos versionados)
-sha256sum -c MANIFESTO_SHA256.txt
+# 1. Integridade do pacote — um comando, todos os arquivos, nenhuma exceção
+sha256sum -c MANIFESTO_FINAL_SHA256.txt
 
 # 2. Suíte declarada, a partir da raiz do repositório
 cd ../../../..
@@ -99,14 +100,25 @@ O pacote foi gravado em dois commits, por uma razão de método:
 1. **Commit A** — o pacote e o `MANIFESTO_SHA256.txt`, gerado a partir do
    índice do Git para conter apenas arquivos efetivamente versionados
    (correção de FISC-GPT-003).
-2. **Commit B** — a validação do manifesto em **checkout limpo**, que só pode
-   existir depois do commit A, mais o manifesto-adendo que cobre esses
-   arquivos. Ver `evidencias/15-manifesto-checkout-limpo.txt` e
-   `MANIFESTO_ADENDO_SHA256.txt`.
+2. **Commit B** — a validação desse manifesto em **checkout limpo**, que só
+   pode existir depois do commit A
+   (`evidencias/15-manifesto-checkout-limpo.txt`: `sha256sum -c` com exit 0,
+   cobertura exata de 66 arquivos, e todos os caminhos citados pelo relatório
+   presentes), mais o `MANIFESTO_FINAL_SHA256.txt`.
 
-Nenhuma evidência do commit A foi alterada pelo commit B; o commit B apenas
-acrescenta arquivos. A branch não foi mesclada e nenhum PR pronto para merge
-foi aberto.
+Por que dois manifestos: validar o manifesto em checkout limpo produz uma nova
+evidência e acrescenta uma linha a `COMANDOS.jsonl`, o que necessariamente
+ocorre **depois** do manifesto original. Em vez de reescrever o manifesto
+congelado — o que violaria a regra de não alterar evidência já capturada —
+acrescentou-se o `MANIFESTO_FINAL_SHA256.txt`, que cobre o pacote inteiro,
+inclusive o `MANIFESTO_SHA256.txt` congelado. É ele que o revisor valida, num
+único comando e sem exceções esperadas.
+
+Nenhum arquivo do commit A foi editado pelo commit B, com a única exceção
+declarada de `COMANDOS.jsonl`, que **cresceu por acréscimo** ao registrar o
+comando `#0025` — o próprio ato de validar o manifesto. Nenhuma linha anterior
+foi alterada ou removida. A branch não foi mesclada e nenhum PR pronto para
+merge foi aberto.
 
 ## Observação sobre o diretório de trabalho
 
