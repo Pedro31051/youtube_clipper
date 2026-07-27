@@ -19,6 +19,10 @@ Data: 2026-07-27
    caminho funcional sem produzir falsa prova de performance GPU. Falhas no
    encoder durante a conversão real disparam retry automático com `libx264`.
 7. A fixture cara de mutação passou a ser criada uma vez por módulo.
+8. Os cenários empíricos usam CPU explicitamente no CI hospedado e preservam
+   a execução CUDA dos mesmos testes em workflow GPU dedicado.
+9. A T1 corrigida foi integrada no merge commit `6c982a9` e a branch T3 foi
+   reaplicada diretamente sobre essa `main`.
 
 ## Evidência final
 
@@ -31,5 +35,5 @@ Data: 2026-07-27
 - Narração: 10,0 s, hash e tamanho conferidos, `amix` presente no comando
 - Variant: `variant_t3_analytical_v5`
 - Histórico: v4, v3 e v1, sem duplicação causada por symlinks
-- Testes completos: 648 aprovados em 308,65 s no commit `39bf229`
+- Testes completos: 654 aprovados em 329,19 s no commit `06b4a98`
 - Testes focais: 32 aprovados

@@ -13,8 +13,9 @@ A suíte de auditoria e revisão interna avaliou as implementações da Fase T3 
 ## 2. Resultados de Benchmarks e Testes Empíricos
 - **Desempenho GPU NVENC**: os testes de conversão e integração aplicam diretamente o limiar `< 5,0 s` quando `h264_nvenc` está operacional; ambos passaram na validação final.
 - **Golden T3 completa**: 26,43 s de mídia foram renderizados em 9,78 s, incluindo vídeo 1080×1920, legenda, overlay, narração e loudnorm de duas passagens.
-- **Suíte completa**: 648 testes aprovados em 308,65 s no commit `39bf229`.
-- **Suíte focal**: 32 testes aprovados em 40,86 s.
+- **Suíte completa**: 654 testes aprovados em 329,19 s no commit `06b4a98`, usando o perfil CPU do GitHub-hosted runner.
+- **Suíte focal**: 32 testes aprovados em 39,86 s.
+- **Separação CPU/GPU**: o CI de pull request executa o pipeline empírico em CPU; o workflow manual `GPU validation` reutiliza os mesmos cenários com CUDA em runner NVIDIA dedicado.
 - **Propriedades da Mídia Renderizada**:
   - Resolução: 1080x1920 (9:16 vertical)
   - Taxa de quadros: Constant Frame Rate (CFR)

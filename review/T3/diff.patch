@@ -1,11 +1,96 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 1372fb2..dc0b9ad 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -13,6 +13,11 @@ jobs:
+   test:
+     runs-on: ubuntu-latest
+     timeout-minutes: 20
++    env:
++      # GitHub-hosted runners do not expose a supported NVIDIA device. The
++      # empirical pipeline still runs end to end here, using its explicit CPU
++      # mode. CUDA is exercised by the separate, manually dispatched GPU job.
++      YOUTUBE_CLIPPER_E2E_DEVICE: cpu
+     steps:
+       - uses: actions/checkout@v6
+       - uses: actions/setup-python@v6
+diff --git a/.github/workflows/gpu-validation.yml b/.github/workflows/gpu-validation.yml
+new file mode 100644
+index 0000000..6d12bd6
+--- /dev/null
++++ b/.github/workflows/gpu-validation.yml
+@@ -0,0 +1,35 @@
++name: GPU validation
++
++on:
++  workflow_dispatch:
++
++permissions:
++  contents: read
++
++jobs:
++  empirical-gpu:
++    # This label set intentionally targets an operator-provided NVIDIA runner.
++    # It does not occupy or fail the regular pull-request CI when no GPU runner
++    # is registered.
++    runs-on: [self-hosted, linux, x64, gpu]
++    timeout-minutes: 30
++    env:
++      YOUTUBE_CLIPPER_E2E_DEVICE: cuda
++    steps:
++      - uses: actions/checkout@v6
++      - uses: actions/setup-python@v6
++        with:
++          python-version: "3.12"
++          cache: pip
++      - name: Verify GPU and FFmpeg
++        run: |
++          nvidia-smi
++          ffmpeg -version
++      - name: Install project
++        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
++      - name: Empirical CUDA pipeline
++        run: >-
++          python -m pytest
++          tests/test_challenger_m3_4_stress.py
++          tests/test_challenger_m3_e2e.py
++          -q
 diff --git a/ORIGINAL_REQUEST.md b/ORIGINAL_REQUEST.md
-index a9148ff..4b11004 100644
+index 1b5a6a9..4b11004 100644
 --- a/ORIGINAL_REQUEST.md
 +++ b/ORIGINAL_REQUEST.md
-@@ -376,3 +376,63 @@ Create `tests/test_regression_media.py` using synthetic test videos generated vi
- ### Testing & Quality Bar
- - [ ] `tests/test_regression_media.py` tests synthetic MP4 generation and validates output clip duration, resolution, and size.
- - [ ] Full `pytest` execution passes with 100% success rate across all unit, integration, and regression test suites.
+@@ -348,3 +348,91 @@ defeito de processo.
+ 
+ Comecem por T0. Não pulem T0.
+ 
++## Follow-up — 2026-07-27T03:51:29Z
++
++Implement Phase T1 (Baseline anti-regression & double-cut fix) for the YouTube Clipper project to eliminate silent MP4 file corruption and establish programmatic media output verification.
++
++Working directory: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper
++Integrity mode: development
++
++## Requirements
++
++### R1. Double-Cut Correction in Pipeline
++Fix segment offset handling in `src/youtube_clipper/pipeline.py`. When downloading YouTube segments, `download_segment` already extracts the cut slice starting at t=0. The pipeline must normalize offsets (`cut_start = 0.0`, `cut_end = end_sec - start_sec`) for YouTube inputs before calling `cut_media`, while retaining absolute timestamps for direct local media files.
++
++### R2. Media Validation Guardrails in Processor
++Enhance `cut_media` in `src/youtube_clipper/processor.py` to validate that generated output MP4 files are valid. Verify that file size is strictly greater than 1024 bytes and that `ffprobe` returns a valid positive duration. Raise `ProcessingError` if media output is corrupted, empty, or unreadable.
++
++### R3. Media Output Baseline & Regression Test Suite
++Create `tests/test_regression_media.py` using synthetic test videos generated via `ffmpeg -f lavfi -i testsrc` to verify duration, resolution, and minimum file size of rendered clips. Include unit tests simulating double-cut scenarios (e.g. 30s input file with start=60) expecting `ProcessingError`. Ensure 100% of existing pytest test cases continue to pass.
++
++## Acceptance Criteria
++
++### Media Pipeline Guardrails & Correctness
++- [ ] `cut_media` validates output MP4 files with `st_size > 1024` and valid `ffprobe` duration, throwing `ProcessingError` on failure.
++- [ ] Pipeline correctly normalizes cut start/end offsets for YouTube downloaded segments vs local files without secondary offset miscalculations.
++- [ ] Double-cut scenarios return descriptive errors (`ProcessingError`) rather than silent exit 0 corrupted 262-byte MP4s.
++
++### Testing & Quality Bar
++- [ ] `tests/test_regression_media.py` tests synthetic MP4 generation and validates output clip duration, resolution, and size.
++- [ ] Full `pytest` execution passes with 100% success rate across all unit, integration, and regression test suites.
 +
 +## Follow-up — 2026-07-27T12:53:01Z
 +
@@ -960,18 +1045,10 @@ index def80c6..3c97b18 100644
 +        "evidence_paths": [str(target_video), str(metadata_json)],
 +    }
 diff --git a/src/cortes/log.py b/src/cortes/log.py
-index d5a886a..f3b37f1 100644
+index 8856e3e..2354d1b 100644
 --- a/src/cortes/log.py
 +++ b/src/cortes/log.py
-@@ -260,7 +260,6 @@ def audited(
-         @functools.wraps(func)
-         def wrapper(*args, **kwargs) -> Any:
-             start_time = time.perf_counter()
--            start_ts = datetime.now(timezone.utc).isoformat()
-             span_id = uuid.uuid4().hex[:16]
- 
-             # Calculate deterministic args_hash
-@@ -295,6 +294,10 @@ def audited(
+@@ -294,6 +294,10 @@ def audited(
                          paths_to_check.extend(result["evidence_paths"])
                      elif "evidence" in result and isinstance(result["evidence"], list):
                          paths_to_check.extend(result["evidence"])
@@ -982,7 +1059,7 @@ index d5a886a..f3b37f1 100644
  
                  if evidence_args:
                      for arg_name in evidence_args:
-@@ -308,7 +311,15 @@ def audited(
+@@ -307,7 +311,15 @@ def audited(
                  for p_item in paths_to_check:
                      p_obj = pathlib.Path(p_item)
                      if p_obj.exists() and p_obj.is_file():
@@ -999,7 +1076,7 @@ index d5a886a..f3b37f1 100644
                          if p_str not in ev_paths:
                              ev_paths.append(p_str)
                              ev_hashes.append(compute_sha256(p_obj))
-@@ -317,8 +328,12 @@ def audited(
+@@ -316,8 +328,12 @@ def audited(
                  emit_event(
                      stage=stage,
                      agent=agent,
@@ -1014,11 +1091,10 @@ index d5a886a..f3b37f1 100644
                      severity=severity,
                      duration_ms=duration_ms,
                      tool="python",
-@@ -329,7 +344,10 @@ def audited(
+@@ -328,6 +344,10 @@ def audited(
                      evidence={"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes},
                      outcome=outcome,
                      error=error_msg,
--                    ts=start_ts,
 +                    # Events are appended on completion.  Timestamping them at
 +                    # completion preserves monotonic order for nested audited
 +                    # calls and their run_cmd children.
@@ -1026,6 +1102,40 @@ index d5a886a..f3b37f1 100644
                  )
  
          return wrapper
+@@ -346,6 +366,8 @@ def run_cmd(
+     video_id: str = "unknown",
+     clip_id: Optional[str] = None,
+     audit: bool = True,
++    evidence: Optional[Dict[str, Any]] = None,
++    evidence_paths: Optional[List[Union[str, pathlib.Path]]] = None,
+ ) -> subprocess.CompletedProcess:
+     """Sole authorized function in the repository for invoking external subprocesses.
+ 
+@@ -414,6 +436,16 @@ def run_cmd(
+ 
+     cmd_hash = f"sha256:{hashlib.sha256(cmd_str.encode('utf-8')).hexdigest()}"
+ 
++    if evidence is None and evidence_paths:
++        ev_paths, ev_hashes, ev_bytes = [], [], []
++        for p in evidence_paths:
++            path = pathlib.Path(p)
++            if path.exists():
++                ev_paths.append(str(path))
++                ev_hashes.append(compute_sha256(path))
++                ev_bytes.append(path.stat().st_size)
++        evidence = {"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes}
++
+     emit_event(
+         stage=effective_stage,
+         agent=agent,
+@@ -428,6 +460,7 @@ def run_cmd(
+         args_hash=cmd_hash,
+         outcome=outcome,
+         error=error_msg,
++        evidence=evidence,
+         ts=start_ts,
+     )
+ 
 diff --git a/src/cortes/pipeline.py b/src/cortes/pipeline.py
 new file mode 100644
 index 0000000..513eb5d
@@ -3309,7 +3419,7 @@ index bd69aa5..f34b9e5 100644
                      sys.stdout.write(f"✅ Upload concluído no Google Drive!\n🔗 Link: {upload_res.get('web_view_link')}\n")
                  else:
 diff --git a/src/youtube_clipper/pipeline.py b/src/youtube_clipper/pipeline.py
-index b184124..3b160bf 100644
+index 00de6c1..86dc89f 100644
 --- a/src/youtube_clipper/pipeline.py
 +++ b/src/youtube_clipper/pipeline.py
 @@ -77,20 +77,19 @@ def run_pipeline(
@@ -3342,8 +3452,8 @@ index b184124..3b160bf 100644
      elif isinstance(input_source, dict):
          raw_input = input_source.get("input") or input_source.get("input_source")
          start = start if start is not None else input_source.get("start")
-@@ -150,30 +149,19 @@ def run_pipeline(
-             cut_end = float(end_sec)
+@@ -151,30 +150,19 @@ def run_pipeline(
+             cut_end = end_sec
  
          if vertical:
 -            if temp_dir_obj is None:
@@ -3378,7 +3488,7 @@ index b184124..3b160bf 100644
          else:
              result_path = processor.cut_media(
 diff --git a/src/youtube_clipper/processor.py b/src/youtube_clipper/processor.py
-index e4c2caf..aafc83f 100644
+index 7e3bd84..29ffd72 100644
 --- a/src/youtube_clipper/processor.py
 +++ b/src/youtube_clipper/processor.py
 @@ -5,10 +5,12 @@ Provides FFmpegProcessor for clipping and re-encoding video files via FFmpeg sub
@@ -3396,7 +3506,7 @@ index e4c2caf..aafc83f 100644
  
  from cortes.log import run_cmd
  from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError
-@@ -180,3 +182,171 @@ class FFmpegProcessor:
+@@ -165,3 +167,171 @@ class FFmpegProcessor:
              raise ProcessingError(
                  f"Subprocess execution error: {e}", cmd=cmd, exit_code=4
              ) from e
@@ -3752,7 +3862,7 @@ index 8a78a34..80fba89 100644
          loopback = bound_host in {"127.0.0.1", "::1", "localhost"}
          if not expected:
 diff --git a/tests/conftest.py b/tests/conftest.py
-index 0a32417..40ef43b 100644
+index 9a1f961..804c0f8 100644
 --- a/tests/conftest.py
 +++ b/tests/conftest.py
 @@ -23,6 +23,7 @@ from typing import Any, Callable, Generator, List, Optional
@@ -6180,10 +6290,10 @@ index 0000000..124b086
 +    assert ver_res["passed_checks"] > 0
 diff --git a/tests/test_challenger_m3_4_stress.py b/tests/test_challenger_m3_4_stress.py
 new file mode 100644
-index 0000000..ae58f9a
+index 0000000..e7f52b6
 --- /dev/null
 +++ b/tests/test_challenger_m3_4_stress.py
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,210 @@
 +"""Empirical challenger stress suite for Milestone M3 remediation.
 +
 +Rigorously verifies:
@@ -6196,6 +6306,7 @@ index 0000000..ae58f9a
 +"""
 +
 +import json
++import os
 +import pathlib
 +import pytest
 +
@@ -6203,6 +6314,21 @@ index 0000000..ae58f9a
 +from cortes.pipeline import run_full_pipeline
 +from cortes.report import run_report
 +from cortes.verify import _resolve_evidence_path, verify_run
++
++
++def _e2e_device() -> str:
++    """Select the explicit device for empirical E2E tests.
++
++    CPU is the portable default used by GitHub-hosted runners. A GPU runner
++    opts into the exact same scenarios with
++    ``YOUTUBE_CLIPPER_E2E_DEVICE=cuda``.
++    """
++    device = os.environ.get("YOUTUBE_CLIPPER_E2E_DEVICE", "cpu").strip().lower()
++    if device not in {"cpu", "cuda"}:
++        raise ValueError(
++            "YOUTUBE_CLIPPER_E2E_DEVICE must be either 'cpu' or 'cuda'"
++        )
++    return device
 +
 +
 +@pytest.fixture
@@ -6238,7 +6364,7 @@ index 0000000..ae58f9a
 +        input_source=synthetic_30s_video,
 +        run_id=run_id,
 +        whisper_model="small",
-+        device="cuda",
++        device=_e2e_device(),
 +        vertical_mode="blur_background",
 +    )
 +
@@ -6335,6 +6461,7 @@ index 0000000..ae58f9a
 +    pipeline_res = run_full_pipeline(
 +        input_source=synthetic_30s_video,
 +        run_id=run_id,
++        device=_e2e_device(),
 +    )
 +    report_path = pathlib.Path(pipeline_res["report_path"])
 +    run_dir = report_path.parent
@@ -6368,17 +6495,21 @@ index 0000000..ae58f9a
 +        assert any(c["check_id"] == "seq_integrity" and not c["passed"] for c in seq_verify["checks"])
 +    finally:
 +        # Restore events.jsonl
-+        run_full_pipeline(input_source=synthetic_30s_video, run_id=run_id)
++        run_full_pipeline(
++            input_source=synthetic_30s_video,
++            run_id=run_id,
++            device=_e2e_device(),
++        )
 +
 +    # 3. Path escape security test
 +    with pytest.raises(ValueError, match="Evidence path escapes"):
 +        _resolve_evidence_path("../../etc/passwd", run_dir)
 diff --git a/tests/test_challenger_m3_e2e.py b/tests/test_challenger_m3_e2e.py
 new file mode 100644
-index 0000000..de38474
+index 0000000..f901440
 --- /dev/null
 +++ b/tests/test_challenger_m3_e2e.py
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,139 @@
 +"""Empirical E2E pipeline challenger stress test for Milestone M3.
 +
 +Verifies end-to-end execution of run_full_pipeline on a synthetic video fixture,
@@ -6388,6 +6519,7 @@ index 0000000..de38474
 +"""
 +
 +import json
++import os
 +import pathlib
 +import pytest
 +
@@ -6395,6 +6527,16 @@ index 0000000..de38474
 +from cortes.pipeline import run_full_pipeline
 +from cortes.report import run_report
 +from cortes.verify import verify_run
++
++
++def _e2e_device() -> str:
++    """Return the portable E2E device, with explicit CUDA opt-in."""
++    device = os.environ.get("YOUTUBE_CLIPPER_E2E_DEVICE", "cpu").strip().lower()
++    if device not in {"cpu", "cuda"}:
++        raise ValueError(
++            "YOUTUBE_CLIPPER_E2E_DEVICE must be either 'cpu' or 'cuda'"
++        )
++    return device
 +
 +
 +@pytest.fixture
@@ -6430,7 +6572,7 @@ index 0000000..de38474
 +        input_source=synthetic_25s_video,
 +        run_id=run_id,
 +        whisper_model="small",
-+        device="cuda",
++        device=_e2e_device(),
 +        vertical_mode="blur_background",
 +    )
 +
@@ -6546,10 +6688,10 @@ index aa693f0..121e32c 100644
      assert "Invalid codec" in failed_res.stderr
  
 diff --git a/tests/test_contracts.py b/tests/test_contracts.py
-index 8e7a896..0d03c66 100644
+index a10bee0..65f710d 100644
 --- a/tests/test_contracts.py
 +++ b/tests/test_contracts.py
-@@ -33,9 +33,11 @@ STAGE_MODULES = [
+@@ -34,9 +34,11 @@ STAGE_MODULES = [
      "audio",
      "transform",
      "render",
@@ -6561,8 +6703,8 @@ index 8e7a896..0d03c66 100644
  def is_audited_decorator(dec_node: ast.AST) -> bool:
      """Check if AST node represents @audited or @audited(...) or @cortes.log.audited(...)"""
      if isinstance(dec_node, ast.Name) and dec_node.id == "audited":
-@@ -77,8 +79,8 @@ def test_ast_stage_functions_have_audited_decorator():
-     )
+@@ -91,8 +93,8 @@ def test_t1_environment_execution_is_audited():
+     assert any(is_audited_decorator(dec) for dec in runner.decorator_list)
  
  
 -def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
@@ -6572,7 +6714,7 @@ index 8e7a896..0d03c66 100644
      violations = []
      prohibited_os_attrs = {
          "system", "popen", "posix_spawn", "spawn", "spawnl", "spawnle",
-@@ -86,116 +88,173 @@ def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
+@@ -100,116 +102,173 @@ def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
          "exec", "execv", "execve", "execl", "execle", "execlp", "execlpe"
      }
      prohibited_asyncio_attrs = {
@@ -6802,7 +6944,7 @@ index 8e7a896..0d03c66 100644
              )
          )
  
-@@ -205,19 +264,38 @@ def test_ast_prohibit_subprocess_outside_run_cmd():
+@@ -219,19 +278,38 @@ def test_ast_prohibit_subprocess_outside_run_cmd():
  
  
  def test_ast_evasion_attempts_are_blocked():
@@ -7007,7 +7149,7 @@ index a81ebd9..a2868ee 100644
          else:
              target_func = _get_target_func()
 diff --git a/tests/test_e2e_pipeline.py b/tests/test_e2e_pipeline.py
-index 2f4b003..0fc0f62 100644
+index d7a0834..e020789 100644
 --- a/tests/test_e2e_pipeline.py
 +++ b/tests/test_e2e_pipeline.py
 @@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
@@ -7044,7 +7186,7 @@ index 2f4b003..0fc0f62 100644
              assert res.returncode == 0
              assert "usage:" in res.stdout.lower() or "youtube_clipper" in res.stdout
 diff --git a/tests/test_e2e_processor.py b/tests/test_e2e_processor.py
-index 7badcc7..3a1773f 100644
+index 83dc221..8315170 100644
 --- a/tests/test_e2e_processor.py
 +++ b/tests/test_e2e_processor.py
 @@ -18,6 +18,7 @@ from typing import List, Optional
@@ -7633,44 +7775,192 @@ index 5a474b7..c9e4905 100644
          assert res.returncode == 0
          assert "usage:" in res.stdout.lower() or "youtube_clipper" in res.stdout.lower()
 diff --git a/tests/test_regression_media.py b/tests/test_regression_media.py
-index d14cfa7..c07108a 100644
---- a/tests/test_regression_media.py
+new file mode 100644
+index 0000000..c07108a
+--- /dev/null
 +++ b/tests/test_regression_media.py
-@@ -25,6 +25,7 @@ from unittest.mock import MagicMock, patch
- 
- import pytest
- 
+@@ -0,0 +1,181 @@
++"""
++tests/test_regression_media.py - Baseline anti-regression & media output verification test suite.
++
++Covers:
++1. test_synthetic_mp4_generation_and_properties:
++   Generates a synthetic MP4 clip using FFmpeg lavfi filters, validates st_size > 1024,
++   ffprobe duration (~5s), and resolution (640x360).
++2. test_double_cut_scenario_raises_processing_error:
++   Calls cut_media with out-of-bounds start/end timestamps (e.g. 60s to 70s on a 5s source),
++   asserting ProcessingError is raised.
++3. test_small_or_corrupt_file_raises_processing_error:
++   Verifies cut_media validation rejects small (<=1024 bytes) or empty media files.
++4. test_pipeline_youtube_offset_normalization:
++   Verifies pipeline segment offset handling for YouTube URLs (normalized to cut_start=0,
++   cut_end=duration) vs local media files (cut_start=start_sec, cut_end=end_sec).
++"""
++
++from __future__ import annotations
++
++from pathlib import Path
++import shutil
++import subprocess
++from typing import Any
++from unittest.mock import MagicMock, patch
++
++import pytest
++
 +from cortes.log import run_cmd
- from youtube_clipper.exceptions import ProcessingError
- from youtube_clipper.pipeline import run_pipeline
- from youtube_clipper.processor import FFmpegProcessor
-@@ -46,7 +47,7 @@ def _create_real_synthetic_video(output_path: Path, duration: int = 5, size: str
-         "-pix_fmt", "yuv420p",
-         str(output_path),
-     ]
--    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
++from youtube_clipper.exceptions import ProcessingError
++from youtube_clipper.pipeline import run_pipeline
++from youtube_clipper.processor import FFmpegProcessor
++
++
++def _create_real_synthetic_video(output_path: Path, duration: int = 5, size: str = "640x360", rate: int = 30) -> Path:
++    """Helper to generate a real synthetic MP4 video file via ffmpeg lavfi filters."""
++    ffmpeg_bin = shutil.which("ffmpeg")
++    if not ffmpeg_bin:
++        pytest.skip("ffmpeg binary not available on system")
++
++    cmd = [
++        ffmpeg_bin,
++        "-y",
++        "-f", "lavfi", "-i", f"testsrc=duration={duration}:size={size}:rate={rate}",
++        "-f", "lavfi", "-i", f"sine=frequency=440:duration={duration}",
++        "-c:v", "libx264",
++        "-c:a", "aac",
++        "-pix_fmt", "yuv420p",
++        str(output_path),
++    ]
 +    res = run_cmd(cmd, audit=False)
-     assert res.returncode == 0, f"FFmpeg synthetic video creation failed: {res.stderr}"
-     assert output_path.exists()
-     return output_path
-@@ -66,7 +67,7 @@ def test_synthetic_mp4_generation_and_properties(tmp_path: Path) -> None:
-         ffprobe_bin, "-v", "error", "-show_entries", "format=duration",
-         "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)
-     ]
--    res_dur = subprocess.run(dur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
++    assert res.returncode == 0, f"FFmpeg synthetic video creation failed: {res.stderr}"
++    assert output_path.exists()
++    return output_path
++
++
++def test_synthetic_mp4_generation_and_properties(tmp_path: Path) -> None:
++    """Validate synthetic MP4 generation, file size > 1024 bytes, ffprobe duration (~5s), and resolution (640x360)."""
++    video_path = tmp_path / "synthetic_5s.mp4"
++    _create_real_synthetic_video(video_path, duration=5, size="640x360", rate=30)
++
++    # 1. File size check
++    assert video_path.stat().st_size > 1024, f"File size {video_path.stat().st_size} is not > 1024 bytes"
++
++    # 2. ffprobe duration check
++    ffprobe_bin = shutil.which("ffprobe") or "ffprobe"
++    dur_cmd = [
++        ffprobe_bin, "-v", "error", "-show_entries", "format=duration",
++        "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)
++    ]
 +    res_dur = run_cmd(dur_cmd, audit=False)
-     assert res_dur.returncode == 0
-     duration = float(res_dur.stdout.strip())
-     assert abs(duration - 5.0) < 0.5, f"Expected duration ~5.0s, got {duration}s"
-@@ -77,7 +78,7 @@ def test_synthetic_mp4_generation_and_properties(tmp_path: Path) -> None:
-         "-show_entries", "stream=width,height",
-         "-of", "csv=p=0", str(video_path)
-     ]
--    res_res = subprocess.run(res_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
++    assert res_dur.returncode == 0
++    duration = float(res_dur.stdout.strip())
++    assert abs(duration - 5.0) < 0.5, f"Expected duration ~5.0s, got {duration}s"
++
++    # 3. ffprobe resolution check
++    res_cmd = [
++        ffprobe_bin, "-v", "error", "-select_streams", "v:0",
++        "-show_entries", "stream=width,height",
++        "-of", "csv=p=0", str(video_path)
++    ]
 +    res_res = run_cmd(res_cmd, audit=False)
-     assert res_res.returncode == 0
-     dimensions = res_res.stdout.strip()
-     assert "640" in dimensions and "360" in dimensions, f"Expected 640x360 resolution, got {dimensions}"
++    assert res_res.returncode == 0
++    dimensions = res_res.stdout.strip()
++    assert "640" in dimensions and "360" in dimensions, f"Expected 640x360 resolution, got {dimensions}"
++
++
++def test_double_cut_scenario_raises_processing_error(tmp_path: Path) -> None:
++    """Verify out-of-bounds secondary cutting (e.g. start=60, end=70 on a 5s file) raises ProcessingError."""
++    source_video = tmp_path / "short_5s.mp4"
++    _create_real_synthetic_video(source_video, duration=5)
++
++    processor = FFmpegProcessor()
++    output_clip = tmp_path / "double_cut_out.mp4"
++
++    # Attempting to cut start=60.0, end=70.0 from a 5s source file
++    with pytest.raises(ProcessingError) as exc_info:
++        processor.cut_media(input_path=source_video, start=60.0, end=70.0, output_path=output_clip)
++
++    assert exc_info.value.exit_code == 4
++    assert (
++        "invalid or corrupt" in exc_info.value.message.lower()
++        or "completed with code 0 but output file" in exc_info.value.message.lower()
++        or "empty or undersized" in exc_info.value.message.lower()
++    )
++
++
++def test_small_or_corrupt_file_raises_processing_error(tmp_path: Path) -> None:
++    """Verify cut_media validation rejects small (<= 1024 bytes) or empty output files with ProcessingError."""
++    processor = FFmpegProcessor()
++    dummy_input = tmp_path / "dummy_in.mp4"
++    _create_real_synthetic_video(dummy_input, duration=2)
++
++    small_output = tmp_path / "small_out.mp4"
++
++    # Mock subprocess.run to simulate FFmpeg creating a 262-byte corrupted file
++    def mock_corrupt_ffmpeg(cmd: list[str] | str, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
++        cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
++        if cmd_list and ("ffprobe" in cmd_list[0] or Path(cmd_list[0]).name == "ffprobe"):
++            return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="0.0\n", stderr="")
++        if cmd_list and len(cmd_list) > 1 and not cmd_list[-1].startswith("-"):
++            out_p = Path(cmd_list[-1])
++            out_p.parent.mkdir(parents=True, exist_ok=True)
++            out_p.write_bytes(b"\x00" * 262)
++        return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="", stderr="")
++
++    with patch("subprocess.run", side_effect=mock_corrupt_ffmpeg):
++        with pytest.raises(ProcessingError) as exc_info:
++            processor.cut_media(dummy_input, start=0.0, end=2.0, output_path=small_output)
++
++        assert exc_info.value.exit_code == 4
++        assert (
++            "<= 1024 bytes" in exc_info.value.message
++            or "duration <= 0" in exc_info.value.message
++            or "empty or undersized" in exc_info.value.message.lower()
++        )
++
++
++def test_pipeline_youtube_offset_normalization(tmp_path: Path) -> None:
++    """Verify run_pipeline normalizes offsets (cut_start=0.0, cut_end=end-start) for YouTube vs local files."""
++    local_video = tmp_path / "local_source.mp4"
++    _create_real_synthetic_video(local_video, duration=5)
++
++    recorded_cuts: list[dict[str, Any]] = []
++
++    # Intercept cut_media calls to inspect start/end timestamps passed by pipeline
++    def mock_cut_media(input_path: Any, start: float, end: float, output_path: Any, **kwargs: Any) -> str:
++        recorded_cuts.append({
++            "input_path": str(input_path),
++            "start": float(start),
++            "end": float(end),
++            "output_path": str(output_path),
++        })
++        out_p = Path(output_path)
++        out_p.parent.mkdir(parents=True, exist_ok=True)
++        out_p.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
++        return str(out_p)
++
++    # 1. Local file test: start=1.0, end=4.0 -> cut_media should receive start=1.0, end=4.0
++    with patch("youtube_clipper.processor.FFmpegProcessor.cut_media", side_effect=mock_cut_media):
++        out_local = tmp_path / "out_local.mp4"
++        run_pipeline(input_source=str(local_video), start=1.0, end=4.0, output=out_local)
++
++    assert len(recorded_cuts) == 1
++    assert recorded_cuts[0]["start"] == 1.0
++    assert recorded_cuts[0]["end"] == 4.0
++
++    recorded_cuts.clear()
++
++    # 2. YouTube URL test: start=60.0, end=75.0 (duration=15.0) -> cut_media should receive cut_start=0.0, cut_end=15.0
++    yt_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
++    temp_yt_file = tmp_path / "yt_downloaded_segment.mp4"
++    temp_yt_file.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
++
++    with patch("youtube_clipper.downloader.YouTubeDownloader.download_segment", return_value=str(temp_yt_file)), \
++         patch("youtube_clipper.processor.FFmpegProcessor.cut_media", side_effect=mock_cut_media):
++        out_yt = tmp_path / "out_yt.mp4"
++        run_pipeline(input_source=yt_url, start=60.0, end=75.0, output=out_yt)
++
++    assert len(recorded_cuts) == 1
++    assert recorded_cuts[0]["start"] == 0.0
++    assert recorded_cuts[0]["end"] == 15.0
 diff --git a/tests/test_render.py b/tests/test_render.py
 new file mode 100644
 index 0000000..144b28d

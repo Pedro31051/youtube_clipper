@@ -35,3 +35,9 @@
 - **Decisão**: Aplicar scanner estático AST (`tests/test_contracts.py`) banindo chamadas diretas a `subprocess`, `os.system`, `os.popen`, `exec`/`eval`, `importlib`, `pty`, `ctypes` e `asyncio` subprocess fora de `src/cortes/log.py`.
 - **Alternativas Descartadas**: Confiar apenas em convenções de código por revisão manual.
 - **Justificativa**: Garante auditoria total e rastreabilidade 100% à prova de evasão.
+
+## 7. Separação entre CI Portátil e Validação Empírica CUDA
+- **Contexto**: GitHub-hosted runners não expõem uma GPU NVIDIA compatível, mas três testes E2E solicitavam `device="cuda"` e falhavam antes de verificar o pipeline.
+- **Decisão**: Executar os mesmos cenários em CPU no CI padrão por meio de `YOUTUBE_CLIPPER_E2E_DEVICE=cpu` e disponibilizar um workflow manual, direcionado a runner self-hosted rotulado `gpu`, que define o dispositivo como `cuda`.
+- **Alternativas Descartadas**: Ignorar os testes no CI, aplicar fallback CUDA silencioso ou exigir GPU em todo pull request.
+- **Justificativa**: Mantém o pipeline completo coberto em qualquer PR, torna a dependência de hardware explícita e preserva uma prova CUDA real sem falso positivo.

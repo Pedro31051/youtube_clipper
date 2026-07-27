@@ -12,3 +12,6 @@
 
 ## 4. Alocação de Memória RAM/VRAM em Fontes 4K
 - A execução do filtergraph complexo em passada única direta a partir de arquivos fonte em resolução 4K (2160p) exige maior alocação de memória RAM e VRAM na GPU. Recomenda-se pré-dimensionamento de buffers para fontes de altíssima resolução.
+
+## 5. Disponibilidade do Runner para a Validação CUDA
+- O workflow manual `GPU validation` requer um runner self-hosted com os rótulos `linux`, `x64` e `gpu`, driver NVIDIA compatível e FFmpeg instalado. Sem esse runner, a suíte portátil em CPU continua verificável, mas uma nova medição CUDA não pode ser produzida pelo GitHub Actions.
