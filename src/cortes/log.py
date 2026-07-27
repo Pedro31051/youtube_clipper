@@ -347,6 +347,8 @@ def run_cmd(
     video_id: str = "unknown",
     clip_id: Optional[str] = None,
     audit: bool = True,
+    evidence: Optional[Dict[str, Any]] = None,
+    evidence_paths: Optional[List[Union[str, pathlib.Path]]] = None,
 ) -> subprocess.CompletedProcess:
     """Sole authorized function in the repository for invoking external subprocesses.
 
@@ -415,6 +417,16 @@ def run_cmd(
 
     cmd_hash = f"sha256:{hashlib.sha256(cmd_str.encode('utf-8')).hexdigest()}"
 
+    if evidence is None and evidence_paths:
+        ev_paths, ev_hashes, ev_bytes = [], [], []
+        for p in evidence_paths:
+            path = pathlib.Path(p)
+            if path.exists():
+                ev_paths.append(str(path))
+                ev_hashes.append(compute_sha256(path))
+                ev_bytes.append(path.stat().st_size)
+        evidence = {"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes}
+
     emit_event(
         stage=effective_stage,
         agent=agent,
@@ -428,6 +440,7 @@ def run_cmd(
         args_hash=cmd_hash,
         outcome=outcome,
         error=error_msg,
+        evidence=evidence,
         ts=start_ts,
     )
 
