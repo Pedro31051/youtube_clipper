@@ -68,7 +68,7 @@ ENVIRONMENT_CHECKS: Sequence[EnvironmentCheck] = (
     ),
     EnvironmentCheck(
         "fonts_available",
-        'fc-list | grep -ci "inter|roboto|noto"',
+        'fc-list | grep -Eci "inter|roboto|noto"',
         _integer_at_least(1),
     ),
     EnvironmentCheck(

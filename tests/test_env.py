@@ -24,7 +24,7 @@ PASSING_OUTPUTS = {
     ),
     "ffprobe -version": "ffprobe version 6.1\n",
     'python3 -c "import soundfile"': "",
-    'fc-list | grep -ci "inter|roboto|noto"': "4\n",
+    'fc-list | grep -Eci "inter|roboto|noto"': "4\n",
     "nvidia-smi --query-gpu=name,memory.total --format=csv": (
         "name, memory.total [MiB]\nTesla T4, 15360 MiB\n"
     ),
@@ -59,6 +59,15 @@ def test_environment_phase_writes_all_literal_checks(
         (tmp_path / "runs/run_t1_test_all_pass/env_check.json").read_text()
     )
     assert stored == result
+
+
+def test_fonts_check_uses_regex_alternation() -> None:
+    """The documented alternatives must not be treated as a literal pipe."""
+    fonts = next(
+        check for check in ENVIRONMENT_CHECKS
+        if check.check_id == "fonts_available"
+    )
+    assert fonts.cmd == 'fc-list | grep -Eci "inter|roboto|noto"'
 
 
 def test_environment_phase_retries_failure_and_records_install(
