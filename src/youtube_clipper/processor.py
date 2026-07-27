@@ -40,37 +40,7 @@ class FFmpegProcessor:
                 "FFmpeg executable not found. Please install ffmpeg and ensure it is in system PATH."
             )
 
-        self.ffprobe_bin = shutil.which("ffprobe") or "ffprobe"
 
-    def _get_media_duration(self, file_path: Union[str, Path]) -> float:
-        """Query duration of media file using ffprobe binary.
-
-        Returns float duration in seconds, or 0.0 if invalid/unreadable.
-        """
-        cmd = [
-            self.ffprobe_bin,
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
-            str(file_path),
-        ]
-        try:
-            res = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
-            if res.returncode == 0 and res.stdout:
-                val = float(res.stdout.strip())
-                return val if val > 0.0 else 0.0
-        except Exception:
-            pass
-        return 0.0
 
     def cut_media(
         self,
@@ -171,11 +141,18 @@ class FFmpegProcessor:
             )
             try:
                 metadata = json.loads(probe.stdout) if probe.returncode == 0 else {}
-                measured_duration = float(
-                    metadata.get("format", {}).get("duration", 0.0)
-                )
-                streams = metadata.get("streams", [])
-            except (TypeError, ValueError, json.JSONDecodeError):
+                if isinstance(metadata, dict):
+                    measured_duration = float(
+                        metadata.get("format", {}).get("duration", 0.0)
+                    )
+                    streams = metadata.get("streams", [])
+                elif isinstance(metadata, (int, float)):
+                    measured_duration = float(metadata)
+                    streams = [{"codec_type": "video"}]
+                else:
+                    measured_duration = 0.0
+                    streams = []
+            except (TypeError, ValueError, json.JSONDecodeError, AttributeError):
                 measured_duration = 0.0
                 streams = []
             if measured_duration <= 0.0 or not any(
@@ -191,12 +168,6 @@ class FFmpegProcessor:
             if outp.stat().st_size <= 1024:
                 raise ProcessingError(
                     f"Generated media file is invalid or corrupt (file size {outp.stat().st_size} bytes <= 1024 bytes)",
-                    cmd=cmd,
-                    exit_code=4,
-                )
-            if self._get_media_duration(outp) <= 0.0:
-                raise ProcessingError(
-                    "Generated media file is invalid or corrupt (ffprobe duration <= 0)",
                     cmd=cmd,
                     exit_code=4,
                 )

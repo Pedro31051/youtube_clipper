@@ -78,12 +78,7 @@ class TestTier3PairwiseCombinations:
             fast=True,
         )
         assert Path(res).exists()
-<<<<<<< HEAD
-        # The downloader consumes 90s; FFmpeg receives the segment at t=0.
-        assert mock_ffmpeg.has_arg("0.0")
-=======
         assert mock_ffmpeg.has_arg("0.0")  # YouTube downloaded segment starts at t=0.0
->>>>>>> 48c4974 (feat(T1): fix double-cut offset calculation and add media validation guardrails)
         assert mock_ffmpeg.has_arg("135.0")  # 03:45 - 01:30 = 135s duration
         assert mock_ffmpeg.has_arg("copy")
 
@@ -251,11 +246,7 @@ class TestTier4RealWorldScenarios:
         final_path = Path(result_path)
         assert final_path.exists()
         assert final_path == out_file
-<<<<<<< HEAD
-        # The downloader consumes 120s; FFmpeg receives the segment at t=0.
-=======
         # YouTube downloaded segment starts at t=0.0, duration = 300.0s
->>>>>>> 48c4974 (feat(T1): fix double-cut offset calculation and add media validation guardrails)
         assert mock_ffmpeg.has_arg("0.0")
         assert mock_ffmpeg.has_arg("300.0")
 

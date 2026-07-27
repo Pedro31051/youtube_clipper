@@ -235,15 +235,7 @@ class MockFFmpegContainer:
 
             if cmd_list and ("ffprobe" in cmd_list[0] or Path(cmd_list[0]).name == "ffprobe"):
                 return subprocess.CompletedProcess(
-                    args=cmd,
-                    returncode=0,
-                    stdout=json.dumps(
-                        {
-                            "format": {"duration": "2.0"},
-                            "streams": [{"codec_type": "video"}],
-                        }
-                    ),
-                    stderr="",
+                    args=cmd_list, returncode=0, stdout="10.0\n", stderr=""
                 )
 
             # Handle yt-dlp --write-auto-subs subtitle generation

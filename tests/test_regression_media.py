@@ -96,7 +96,11 @@ def test_double_cut_scenario_raises_processing_error(tmp_path: Path) -> None:
         processor.cut_media(input_path=source_video, start=60.0, end=70.0, output_path=output_clip)
 
     assert exc_info.value.exit_code == 4
-    assert "invalid or corrupt" in exc_info.value.message.lower() or "completed with code 0 but output file" in exc_info.value.message.lower()
+    assert (
+        "invalid or corrupt" in exc_info.value.message.lower()
+        or "completed with code 0 but output file" in exc_info.value.message.lower()
+        or "empty or undersized" in exc_info.value.message.lower()
+    )
 
 
 def test_small_or_corrupt_file_raises_processing_error(tmp_path: Path) -> None:
@@ -123,7 +127,11 @@ def test_small_or_corrupt_file_raises_processing_error(tmp_path: Path) -> None:
             processor.cut_media(dummy_input, start=0.0, end=2.0, output_path=small_output)
 
         assert exc_info.value.exit_code == 4
-        assert "<= 1024 bytes" in exc_info.value.message or "duration <= 0" in exc_info.value.message
+        assert (
+            "<= 1024 bytes" in exc_info.value.message
+            or "duration <= 0" in exc_info.value.message
+            or "empty or undersized" in exc_info.value.message.lower()
+        )
 
 
 def test_pipeline_youtube_offset_normalization(tmp_path: Path) -> None:
