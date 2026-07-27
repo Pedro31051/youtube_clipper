@@ -1,0 +1,13 @@
+# Inventário da auditoria
+
+- Run: `audit_t0_20260727T022339Z`
+- Baseline: `fbe8cc5462537dbcaa44ddf6c9182ac218b22c25`
+- Branch: `agent/refazer-auditoria-independente-t0`
+- Plataforma: `Linux-6.17.0-1021-gcp-x86_64-with-glibc2.39`
+- Python do gerador: `3.12.3`
+- Evidências de ambiente e dependências: `evidencias/01-ambiente.txt`
+- Árvore e hashes do pacote oficial: `evidencias/02-arquivos-relevantes.txt`
+- Testes coletados/aprovados: 462/462
+- Hipóteses adversariais: 8
+- Findings formais: 9
+- Scripts reproduzíveis: `scratch/runner.py`, `scratch/h01.py` a `scratch/h07_mutacao.py`

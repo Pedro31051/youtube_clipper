@@ -1,0 +1,81 @@
+== H03.1 — inventário de caminhos no pacote oficial review/T0/runs/run_t0_golden ==
+  [events.jsonl] referências absolutas: 8
+  [verify_result.json] referências absolutas: 13
+  [commands.log] referências absolutas: 11
+  [report.md] referências absolutas: 22
+  TOTAL de referências absolutas: 54
+  TOTAL de referências relativas ao próprio run: 0
+
+== H03.2 — procedência dos artefatos declarados ==
+  caminhos de artefato declarados (únicos): 5
+    /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/cut_info.json
+      absoluto=True  dentro_do_pacote_review=False  existe_agora=True  versionado_no_git=False
+    /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/render/short.mp4
+      absoluto=True  dentro_do_pacote_review=False  existe_agora=True  versionado_no_git=False
+    /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/source_metadata.json
+      absoluto=True  dentro_do_pacote_review=False  existe_agora=True  versionado_no_git=False
+    /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/subtitles.ass
+      absoluto=True  dentro_do_pacote_review=False  existe_agora=True  versionado_no_git=False
+    /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/transcript.json
+      absoluto=True  dentro_do_pacote_review=False  existe_agora=True  versionado_no_git=False
+  artefatos declarados que apontam para dentro do pacote oficial: 0/5
+
+== H03.3 — relocação com PROVA DE CONTROLE ==
+  (a) cópia íntegra em /tmp/h03__8p4wgna/a_intacta/run_t0_golden
+      exit=0
+  (b) cópia SEM os próprios artefatos em /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden
+      exit=0
+
+  [a_intacta] {"exit": 0, "overall_passed": true, "passed": "14/14", "checks_apontando_para_FORA_da_copia": "0/14"}
+      events_file_exists           passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      events_schema_valid          passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      seq_integrity                passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      ts_monotonic                 passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      commands_log_sync            passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/commands.log
+      exit_codes_zero              passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      producer_evidence_required   passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      artifact_exists              passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      artifact_sha256              passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      artifact_bytes               passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/events.jsonl
+      video_resolution             passed=True  [FORA-da-copia] run_t0_golden/artifacts/render/short.mp4
+      audio_stream_count           passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/artifacts/render/short.mp4
+      video_duration_range         passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/artifacts/render/short.mp4
+      audio_lufs_loudness          passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/a_intacta/run_t0_golden/artifacts/render/short.mp4
+
+  [b_artefatos_destruidos] {"exit": 0, "overall_passed": true, "passed": "10/10", "checks_apontando_para_FORA_da_copia": "0/10"}
+      events_file_exists           passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      events_schema_valid          passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      seq_integrity                passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      ts_monotonic                 passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      commands_log_sync            passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/commands.log
+      exit_codes_zero              passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      producer_evidence_required   passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      artifact_exists              passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      artifact_sha256              passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+      artifact_bytes               passed=True  [DENTRO-da-copia] /tmp/h03__8p4wgna/b_artefatos_destruidos/run_t0_golden/events.jsonl
+
+== H03.4 — máquina limpa: clone versionado, contêiner sem /home ==
+  git clone exit=0 
+  artefatos presentes no clone (só versionados): ['cut_info.json', 'short.mp4', 'source_metadata.json', 'subtitles.ass', 'transcript.json']
+  runs/ existe no clone? False  (o caminho declarado nos eventos é <repo>/runs/run_t0_golden/...)
+  docker exit=0
+  --- saída do contêiner (máquina sem os caminhos originais) ---
+  {
+    "overall_passed": false,
+    "passed": 11,
+    "total": 14,
+    "falhas": [
+      "artifact_exists :: Artifact /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/render/short.mp4 does not exist",
+      "artifact_sha256 :: Artifact /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/render/short.mp4 missing for hash check",
+      "artifact_bytes :: Artifact /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/render/short.mp4 missing for byte check"
+    ]
+  }
+
+== H03 — síntese ==
+  cópia íntegra ...................... 14/14 overall=True
+  cópia com artefatos destruídos ..... 10/10 overall=True
+  checks apontando para fora da cópia. 0/14
+  H03_VERIFICADOR_INSENSIVEL_A_DESTRUICAO_DA_COPIA=True
+  H03_MAQUINA_LIMPA_FALHOU=True
+H03_ESTADO=CONFIRMADA
+H03_SANDBOX=/tmp/h03__8p4wgna

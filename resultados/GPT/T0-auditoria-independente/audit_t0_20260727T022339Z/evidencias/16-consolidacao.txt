@@ -1,0 +1,16 @@
+{
+  "run_id": "audit_t0_20260727T022339Z",
+  "verdict": "NAO_APTA_PARA_T1",
+  "pytest": "462/462",
+  "hypotheses": {
+    "H01": "CONFIRMADA",
+    "H02": "CONFIRMADA",
+    "H03": "CONFIRMADA",
+    "H04": "CONFIRMADA",
+    "H05": "CONFIRMADA",
+    "H06": "CONFIRMADA",
+    "H07": "CONFIRMADA",
+    "H08": "CONFIRMADA"
+  },
+  "findings": 9
+}

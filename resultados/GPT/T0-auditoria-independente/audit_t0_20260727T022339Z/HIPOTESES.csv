@@ -1,0 +1,9 @@
+id,hipotese,estado,evidencia,command_id
+H01,Scanner AST não cobre todo o código produtivo,CONFIRMADA,evidencias/06-subprocess-scan.txt,8
+H02,Módulos de estágio ausentes são ignorados silenciosamente,CONFIRMADA,evidencias/07-stage-modules.txt,9
+H03,Golden run não é portável,CONFIRMADA,evidencias/08-portabilidade.txt,10
+H04,Verificador modifica estado,CONFIRMADA,evidencias/09-verificador-readonly.txt,11
+H05,Pipeline aplica offset duas vezes,CONFIRMADA,evidencias/10-corte-duplo.txt,12
+H06,Dashboard exposto possui superfície insegura,CONFIRMADA,evidencias/11-dashboard-superficie.txt,13
+H07,Não existe CI independente,CONFIRMADA,evidencias/12-ci-e-branches.txt,15
+H08,Disciplina de branch T0 foi descumprida,CONFIRMADA,evidencias/12-ci-e-branches.txt,15

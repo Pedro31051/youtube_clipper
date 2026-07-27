@@ -1,0 +1,42 @@
+== H05.1 — fonte sintética local de 30 s (ffmpeg lavfi, sem YouTube) ==
+  ffmpeg exit=0 stderr=<vazio>
+  fonte: bytes=444027 duração_ffprobe=30.000s
+
+== H05.2 — monkeypatch: downloader devolve o trecho já recortado em t=0 ==
+  URL de entrada (nunca acessada em rede): https://www.youtube.com/watch?v=dQw4w9WgXcQ
+  intervalo absoluto solicitado: start=60 end=90
+
+== H05.3 — execução do pipeline real ==
+  chamadas a download_segment: [
+  {
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "start": 60.0,
+    "end": 90.0,
+    "retorno": "/tmp/yt_clipper_rbfooqk4/segmento_ja_recortado.mp4",
+    "duracao_retornada_s": 30.0
+  }
+]
+  comandos FFmpeg efetivamente construídos (1):
+    /usr/bin/ffmpeg -y -ss 60.0 -i /tmp/yt_clipper_rbfooqk4/segmento_ja_recortado.mp4 -t 30.0 -c:v libx264 -c:a aac -avoid_negative_ts make_zero /tmp/h05_tz88ru2b/clip_saida.mp4
+  retorno do pipeline: /tmp/h05_tz88ru2b/clip_saida.mp4
+  exceção levantada: <nenhuma>
+
+== H05.4 — medição do artefato produzido ==
+  arquivo de saída existe: True
+  bytes: 262
+  ffprobe exit=0 stderr=<vazio>
+  streams detectados: 0 -> []
+  duração medida: 0.000s (esperado por um usuário: 30.000s)
+
+== H05.4b — CONTROLE: mesmo pipeline com intervalo 0–10 s ==
+  (serve para distinguir defeito do pipeline de defeito do próprio ensaio)
+    /usr/bin/ffmpeg -y -ss 0.0 -i /tmp/yt_clipper_oydi09hj/segmento_ja_recortado.mp4 -t 10.0 -c:v libx264 -c:a aac -avoid_negative_ts make_zero /tmp/h05_tz88ru2b/clip_controle.mp4
+  exceção: <nenhuma>
+  saída existe=True duração_medida=10.024s (esperado 10.000s)
+  H05_CONTROLE_OK=True
+
+== H05.5 — classificação ==
+  o pipeline reaplicou o offset absoluto a um arquivo que já começa em t=0: True
+  H05_CLASSIFICACAO=ARQUIVO_INVALIDO_ACEITO_COMO_SUCESSO
+H05_ESTADO=CONFIRMADA
+H05_SANDBOX=/tmp/h05_tz88ru2b

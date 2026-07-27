@@ -1,0 +1,6 @@
+commands_contiguous=1..17
+command_uids_unique=17
+report_references_valid=15
+findings_valid=9
+unexpected_git_paths=[]
+verdict=NAO_APTA_PARA_T1

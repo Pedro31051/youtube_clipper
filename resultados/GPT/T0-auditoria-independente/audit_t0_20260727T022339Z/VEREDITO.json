@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.0",
+  "repository": "Pedro31051/youtube_clipper",
+  "baseline_sha": "fbe8cc5462537dbcaa44ddf6c9182ac218b22c25",
+  "run_id": "audit_t0_20260727T022339Z",
+  "verdict": "NAO_APTA_PARA_T1",
+  "pytest": {
+    "exit_code": 0,
+    "collected": 462,
+    "passed": 462,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "hypotheses": {
+    "confirmed": [
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06",
+      "H07",
+      "H08"
+    ],
+    "refuted": [],
+    "inconclusive": [],
+    "blocked": []
+  },
+  "findings": [
+    {
+      "id": "AUD-T0-001",
+      "severity": "CRÍTICA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/10-corte-duplo.txt"
+      ],
+      "reproduction_command_ids": [
+        12
+      ]
+    },
+    {
+      "id": "AUD-T0-002",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/06-subprocess-scan.txt"
+      ],
+      "reproduction_command_ids": [
+        8
+      ]
+    },
+    {
+      "id": "AUD-T0-003",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/08-portabilidade.txt"
+      ],
+      "reproduction_command_ids": [
+        10
+      ]
+    },
+    {
+      "id": "AUD-T0-004",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/09-verificador-readonly.txt"
+      ],
+      "reproduction_command_ids": [
+        11
+      ]
+    },
+    {
+      "id": "AUD-T0-005",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/12-mutacao-cobertura.txt"
+      ],
+      "reproduction_command_ids": [
+        14
+      ]
+    },
+    {
+      "id": "AUD-T0-006",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/11-dashboard-superficie.txt"
+      ],
+      "reproduction_command_ids": [
+        13
+      ]
+    },
+    {
+      "id": "AUD-T0-007",
+      "severity": "MÉDIA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/07-stage-modules.txt"
+      ],
+      "reproduction_command_ids": [
+        9
+      ]
+    },
+    {
+      "id": "AUD-T0-008",
+      "severity": "MÉDIA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/12-ci-e-branches.txt"
+      ],
+      "reproduction_command_ids": [
+        15
+      ]
+    },
+    {
+      "id": "AUD-T0-009",
+      "severity": "MÉDIA",
+      "status": "CONFIRMADO",
+      "evidence_paths": [
+        "evidencias/12-ci-e-branches.txt"
+      ],
+      "reproduction_command_ids": [
+        15
+      ]
+    }
+  ],
+  "finding_counts": {
+    "critical": 1,
+    "high": 5,
+    "medium": 3,
+    "low": 0
+  },
+  "limitations": [
+    "Sem acesso a vídeo de terceiros, YouTube real, Google Drive ou credenciais.",
+    "Dashboard vivo restrito a loopback.",
+    "Suíte contém mocks e não prova integrações externas."
+  ],
+  "generated_at_utc": "2026-07-27T02:31:25.513406+00:00"
+}

@@ -1,0 +1,45 @@
+== H01.1 — raiz varrida pelo teste de contrato (extraída do AST do teste) ==
+  test_ast_stage_functions_have_audited_decorator: componentes de caminho literais = ['cortes', 'src']
+  test_ast_prohibit_subprocess_outside_run_cmd: componentes de caminho literais = ['cortes', 'src']
+
+== H01.2 — scanner do teste reaplicado a TODO o src/ ==
+
+  --- pacote src/cortes/ : 4 ocorrências ---
+    [AUTORIZADA (log.py é o ponto único permitido)] src/cortes/log.py:12 - Direct import of 'subprocess'
+    [AUTORIZADA (log.py é o ponto único permitido)] src/cortes/log.py:338 - Access to 'subprocess.CompletedProcess'
+    [AUTORIZADA (log.py é o ponto único permitido)] src/cortes/log.py:355 - Access to 'subprocess.run'
+    [AUTORIZADA (log.py é o ponto único permitido)] src/cortes/log.py:411 - Access to 'subprocess.CalledProcessError'
+
+  --- pacote src/youtube_clipper/ : 13 ocorrências ---
+    [PROIBIDA pelo contrato] src/youtube_clipper/analyzer.py:10 - Direct import of 'subprocess'
+    [PROIBIDA pelo contrato] src/youtube_clipper/analyzer.py:289 - Access to 'subprocess.run'
+    [PROIBIDA pelo contrato] src/youtube_clipper/analyzer.py:289 - Access to 'subprocess.PIPE'
+    [PROIBIDA pelo contrato] src/youtube_clipper/analyzer.py:289 - Access to 'subprocess.PIPE'
+    [PROIBIDA pelo contrato] src/youtube_clipper/processor.py:9 - Direct import of 'subprocess'
+    [PROIBIDA pelo contrato] src/youtube_clipper/processor.py:109 - Access to 'subprocess.run'
+    [PROIBIDA pelo contrato] src/youtube_clipper/processor.py:111 - Access to 'subprocess.PIPE'
+    [PROIBIDA pelo contrato] src/youtube_clipper/processor.py:112 - Access to 'subprocess.PIPE'
+    [PROIBIDA pelo contrato] src/youtube_clipper/video_formatter.py:8 - Direct import of 'subprocess'
+    [PROIBIDA pelo contrato] src/youtube_clipper/video_formatter.py:78 - Access to 'subprocess.run'
+    [PROIBIDA pelo contrato] src/youtube_clipper/video_formatter.py:78 - Access to 'subprocess.PIPE'
+    [PROIBIDA pelo contrato] src/youtube_clipper/video_formatter.py:78 - Access to 'subprocess.PIPE'
+    [PROIBIDA pelo contrato] src/youtube_clipper/web_dashboard.py:10 - Direct import of 'subprocess'
+
+== H01.3 — cobertura efetiva ==
+  arquivos DENTRO do escopo do teste (4): ['src/cortes/__init__.py', 'src/cortes/log.py', 'src/cortes/report.py', 'src/cortes/verify.py']
+  arquivos FORA do escopo do teste (12):
+    src/youtube_clipper/__init__.py
+    src/youtube_clipper/__main__.py
+    src/youtube_clipper/analyzer.py
+    src/youtube_clipper/cli.py
+    src/youtube_clipper/downloader.py
+    src/youtube_clipper/exceptions.py
+    src/youtube_clipper/gdrive_uploader.py
+    src/youtube_clipper/pipeline.py
+    src/youtube_clipper/processor.py
+    src/youtube_clipper/validator.py
+    src/youtube_clipper/video_formatter.py
+    src/youtube_clipper/web_dashboard.py
+
+H01_OCORRENCIAS_PROIBIDAS_FORA_DO_ESCOPO=13
+H01_ESTADO=CONFIRMADA

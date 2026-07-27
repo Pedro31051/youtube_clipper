@@ -1,0 +1,57 @@
+Obtaining file:///tmp/youtube-clipper-audit-t0-022339
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Collecting pytest
+  Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting iniconfig>=1.0.1 (from pytest)
+  Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting packaging>=22 (from pytest)
+  Using cached packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+Collecting pluggy<2,>=1.5 (from pytest)
+  Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting pygments>=2.7.2 (from pytest)
+  Using cached pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+Requirement already satisfied: yt-dlp>=2023.3.4 in ./.venv/lib/python3.12/site-packages (from youtube-clipper==0.1.0) (2026.7.4)
+Requirement already satisfied: google-api-python-client>=2.100.0 in ./.venv/lib/python3.12/site-packages (from youtube-clipper==0.1.0) (2.198.0)
+Requirement already satisfied: google-auth>=2.20.0 in ./.venv/lib/python3.12/site-packages (from youtube-clipper==0.1.0) (2.56.2)
+Requirement already satisfied: httplib2<1.0.0,>=0.19.0 in ./.venv/lib/python3.12/site-packages (from google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (0.32.0)
+Requirement already satisfied: google-auth-httplib2<1.0.0,>=0.2.0 in ./.venv/lib/python3.12/site-packages (from google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (0.4.0)
+Requirement already satisfied: google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5 in ./.venv/lib/python3.12/site-packages (from google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (2.33.0)
+Requirement already satisfied: uritemplate<5,>=3.0.1 in ./.venv/lib/python3.12/site-packages (from google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (4.2.0)
+Requirement already satisfied: pyasn1-modules>=0.2.1 in ./.venv/lib/python3.12/site-packages (from google-auth>=2.20.0->youtube-clipper==0.1.0) (0.4.2)
+Requirement already satisfied: cryptography>=38.0.3 in ./.venv/lib/python3.12/site-packages (from google-auth>=2.20.0->youtube-clipper==0.1.0) (49.0.0)
+Requirement already satisfied: cffi>=2.0.0 in ./.venv/lib/python3.12/site-packages (from cryptography>=38.0.3->google-auth>=2.20.0->youtube-clipper==0.1.0) (2.1.0)
+Requirement already satisfied: googleapis-common-protos<2.0.0,>=1.63.2 in ./.venv/lib/python3.12/site-packages (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (1.75.0)
+Requirement already satisfied: protobuf<8.0.0,>=5.29.6 in ./.venv/lib/python3.12/site-packages (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (7.35.1)
+Requirement already satisfied: proto-plus<2.0.0,>=1.24.0 in ./.venv/lib/python3.12/site-packages (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (1.28.2)
+Requirement already satisfied: requests<3.0.0,>=2.33.0 in ./.venv/lib/python3.12/site-packages (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (2.34.2)
+Requirement already satisfied: pyparsing<4,>=3.1 in ./.venv/lib/python3.12/site-packages (from httplib2<1.0.0,>=0.19.0->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (3.3.2)
+Requirement already satisfied: pyasn1<0.7.0,>=0.6.1 in ./.venv/lib/python3.12/site-packages (from pyasn1-modules>=0.2.1->google-auth>=2.20.0->youtube-clipper==0.1.0) (0.6.4)
+Requirement already satisfied: pycparser in ./.venv/lib/python3.12/site-packages (from cffi>=2.0.0->cryptography>=38.0.3->google-auth>=2.20.0->youtube-clipper==0.1.0) (3.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in ./.venv/lib/python3.12/site-packages (from requests<3.0.0,>=2.33.0->google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (3.4.9)
+Requirement already satisfied: idna<4,>=2.5 in ./.venv/lib/python3.12/site-packages (from requests<3.0.0,>=2.33.0->google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (3.18)
+Requirement already satisfied: urllib3<3,>=1.26 in ./.venv/lib/python3.12/site-packages (from requests<3.0.0,>=2.33.0->google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (2.7.0)
+Requirement already satisfied: certifi>=2023.5.7 in ./.venv/lib/python3.12/site-packages (from requests<3.0.0,>=2.33.0->google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->youtube-clipper==0.1.0) (2026.7.22)
+Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+Using cached packaging-26.2-py3-none-any.whl (100 kB)
+Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+Using cached pygments-2.20.0-py3-none-any.whl (1.2 MB)
+Building wheels for collected packages: youtube-clipper
+  Building editable for youtube-clipper (pyproject.toml): started
+  Building editable for youtube-clipper (pyproject.toml): finished with status 'done'
+  Created wheel for youtube-clipper: filename=youtube_clipper-0.1.0-0.editable-py3-none-any.whl size=2770 sha256=310c46349ce9c0d05b2dd414b570b5001441a023fcb28896a0fa89caf731f288
+  Stored in directory: /tmp/pip-ephem-wheel-cache-7hp18m6w/wheels/bc/c4/a2/48cef1274392bb0ee2af595d1ba66b126c168d4fb1a250071e
+Successfully built youtube-clipper
+Installing collected packages: pygments, pluggy, packaging, iniconfig, pytest, youtube-clipper
+  Attempting uninstall: youtube-clipper
+    Found existing installation: youtube-clipper 0.1.0
+    Uninstalling youtube-clipper-0.1.0:
+      Successfully uninstalled youtube-clipper-0.1.0
+Successfully installed iniconfig-2.3.0 packaging-26.2 pluggy-1.6.0 pygments-2.20.0 pytest-9.1.1 youtube-clipper-0.1.0
