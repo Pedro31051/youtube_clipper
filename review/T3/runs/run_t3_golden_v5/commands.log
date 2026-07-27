@@ -1,0 +1,638 @@
+================================================================================
+[2026-07-27T18:19:59.361247+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 2450.03ms]
+COMMAND: ffmpeg -y -f lavfi -i testsrc=duration=30:size=640x360:rate=30 -f lavfi -i flite=text=This original technical demonstration explains reliable video processing with speech transcription scene detection deterministic selection accurate subtitles audio normalization and vertical rendering. Every spoken word receives a timestamp so an independent verifier can prove synchronization selection boundaries frame rate loudness and artifact integrity. This final sentence provides enough continuous speech for a complete technical short. -af apad -c:v libx264 -c:a aac -pix_fmt yuv420p -t 30 runs/run_t3_golden_v5/scratch/source_original_cc0.mp4
+--- STDOUT ---
+
+--- STDERR ---
+ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+  configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+Input #0, lavfi, from 'testsrc=duration=30:size=640x360:rate=30':
+  Duration: N/A, start: 0.000000, bitrate: N/A
+  Stream #0:0: Video: wrapped_avframe, rgb24, 640x360 [SAR 1:1 DAR 16:9], 30 fps, 30 tbr, 30 tbn
+Input #1, lavfi, from 'flite=text=This original technical demonstration explains reliable video processing with speech transcription scene detection deterministic selection accurate subtitles audio normalization and vertical rendering. Every spoken word receives a timestamp so an independent verifier can prove synchronization selection boundaries frame rate loudness and artifact integrity. This final sentence provides enough continuous speech for a complete technical short.':
+  Duration: N/A, start: 0.000000, bitrate: 128 kb/s
+  Stream #1:0: Audio: pcm_s16le, 8000 Hz, mono, s16, 128 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (wrapped_avframe (native) -> h264 (libx264))
+  Stream #1:0 -> #0:1 (pcm_s16le (native) -> aac (native))
+Press [q] to stop, [?] for help
+[libx264 @ 0x626342ac7680] using SAR=1/1
+[libx264 @ 0x626342ac7680] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 0x626342ac7680] profile High, level 3.0, 4:2:0, 8-bit
+[libx264 @ 0x626342ac7680] 264 - core 164 r3108 31e19f9 - H.264/MPEG-4 AVC codec - Copyleft 2003-2023 - http://www.videolan.org/x264.html - options: cabac=1 ref=3 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=7 psy=1 psy_rd=1.00:0.00 mixed_ref=1 me_range=16 chroma_me=1 trellis=1 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=-2 threads=11 lookahead_threads=1 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=2 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=40 rc=crf mbtree=1 crf=23.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+[aac @ 0x626342acaac0] Too many bits 8832.000000 > 6144 per frame requested, clamping to max
+Output #0, mp4, to 'runs/run_t3_golden_v5/scratch/source_original_cc0.mp4':
+  Metadata:
+    encoder         : Lavf60.16.100
+  Stream #0:0: Video: h264 (avc1 / 0x31637661), yuv420p(tv, progressive), 640x360 [SAR 1:1 DAR 16:9], q=2-31, 30 fps, 15360 tbn
+    Metadata:
+      encoder         : Lavc60.31.102 libx264
+    Side data:
+      cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1: Audio: aac (LC) (mp4a / 0x6134706D), 8000 Hz, mono, fltp, 48 kb/s
+    Metadata:
+      encoder         : Lavc60.31.102 aac
+frame=    0 fps=0.0 q=0.0 size=       0kB time=N/A bitrate=N/A speed=N/A    
+frame=  130 fps=0.0 q=29.0 size=       0kB time=00:00:05.76 bitrate=   0.1kbits/s speed=11.2x    
+frame=  329 fps=325 q=29.0 size=       0kB time=00:00:12.41 bitrate=   0.0kbits/s speed=12.2x    
+frame=  531 fps=351 q=29.0 size=       0kB time=00:00:19.20 bitrate=   0.0kbits/s speed=12.7x    
+[Parsed_flite_0 @ 0x626342abcf40] EOF timestamp not reliable
+frame=  740 fps=366 q=26.0 size=     256kB time=00:00:27.00 bitrate=  77.7kbits/s speed=13.4x    
+[out#0/mp4 @ 0x626342b278c0] video:176kB audio:136kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 5.001723%
+frame=  900 fps=393 q=-1.0 Lsize=     327kB time=00:00:29.95 bitrate=  89.5kbits/s speed=13.1x    
+[libx264 @ 0x626342ac7680] frame I:4     Avg QP:11.92  size:  5090
+[libx264 @ 0x626342ac7680] frame P:227   Avg QP:15.85  size:   514
+[libx264 @ 0x626342ac7680] frame B:669   Avg QP:15.64  size:    64
+[libx264 @ 0x626342ac7680] consecutive B-frames:  0.9%  0.0%  0.0% 99.1%
+[libx264 @ 0x626342ac7680] mb I  I16..4: 80.7%  5.6% 13.7%
+[libx264 @ 0x626342ac7680] mb P  I16..4:  1.8%  1.1%  0.7%  P16..4:  8.4%  1.1%  0.2%  0.0%  0.0%    skip:86.6%
+[libx264 @ 0x626342ac7680] mb B  I16..4:  0.2%  0.0%  0.0%  B16..8:  2.3%  0.0%  0.0%  direct: 0.0%  skip:97.5%  L0:47.9% L1:50.3% BI: 1.8%
+[libx264 @ 0x626342ac7680] 8x8 transform intra:20.7% inter:34.6%
+[libx264 @ 0x626342ac7680] coded y,uvDC,uvAC intra: 8.2% 38.6% 28.8% inter: 0.1% 0.7% 0.3%
+[libx264 @ 0x626342ac7680] i16 v,h,dc,p: 65% 23%  2% 10%
+[libx264 @ 0x626342ac7680] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 27% 36% 36%  0%  0%  0%  0%  0%  0%
+[libx264 @ 0x626342ac7680] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 30% 24% 45%  0%  0%  0%  0%  0%  0%
+[libx264 @ 0x626342ac7680] i8c dc,h,v,p: 33% 38% 22%  7%
+[libx264 @ 0x626342ac7680] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 0x626342ac7680] ref P L0: 76.2%  1.6% 18.1%  4.1%
+[libx264 @ 0x626342ac7680] ref B L0: 77.2% 20.2%  2.6%
+[libx264 @ 0x626342ac7680] ref B L1: 94.5%  5.5%
+[libx264 @ 0x626342ac7680] kb/s:47.91
+[aac @ 0x626342acaac0] Qavg: 62864.266
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:01.817125+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 117.11ms]
+COMMAND: ffmpeg -y -f lavfi -i flite=textfile=runs/run_t3_golden_v5/scratch/editorial_narration.txt -af apad -t 10 -c:a pcm_s16le runs/run_t3_golden_v5/scratch/editorial_narration.wav
+--- STDOUT ---
+
+--- STDERR ---
+ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+  configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+Input #0, lavfi, from 'flite=textfile=runs/run_t3_golden_v5/scratch/editorial_narration.txt':
+  Duration: N/A, start: 0.000000, bitrate: 128 kb/s
+  Stream #0:0: Audio: pcm_s16le, 8000 Hz, mono, s16, 128 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+Output #0, wav, to 'runs/run_t3_golden_v5/scratch/editorial_narration.wav':
+  Metadata:
+    ISFT            : Lavf60.16.100
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 8000 Hz, mono, s16, 128 kb/s
+    Metadata:
+      encoder         : Lavc60.31.102 pcm_s16le
+size=       0kB time=00:00:00.00 bitrate=N/A speed=N/A    
+[out#0/wav @ 0x631f761d5b80] video:0kB audio:156kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.048750%
+size=     156kB time=00:00:09.98 bitrate= 128.3kbits/s speed=1.07e+03x    
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:01.944622+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 73.47ms]
+COMMAND: ffprobe -v error -show_format -show_streams -of json /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4
+--- STDOUT ---
+{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+            "profile": "High",
+            "codec_type": "video",
+            "codec_tag_string": "avc1",
+            "codec_tag": "0x31637661",
+            "width": 640,
+            "height": 360,
+            "coded_width": 640,
+            "coded_height": 360,
+            "closed_captions": 0,
+            "film_grain": 0,
+            "has_b_frames": 2,
+            "sample_aspect_ratio": "1:1",
+            "display_aspect_ratio": "16:9",
+            "pix_fmt": "yuv420p",
+            "level": 30,
+            "chroma_location": "left",
+            "field_order": "progressive",
+            "refs": 1,
+            "is_avc": "true",
+            "nal_length_size": "4",
+            "id": "0x1",
+            "r_frame_rate": "30/1",
+            "avg_frame_rate": "30/1",
+            "time_base": "1/15360",
+            "start_pts": 0,
+            "start_time": "0.000000",
+            "duration_ts": 460800,
+            "duration": "30.000000",
+            "bit_rate": "48098",
+            "bits_per_raw_sample": "8",
+            "nb_frames": "900",
+            "extradata_size": 47,
+            "disposition": {
+                "default": 1,
+                "dub": 0,
+                "original": 0,
+                "comment": 0,
+                "lyrics": 0,
+                "karaoke": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "visual_impaired": 0,
+                "clean_effects": 0,
+                "attached_pic": 0,
+                "timed_thumbnails": 0,
+                "non_diegetic": 0,
+                "captions": 0,
+                "descriptions": 0,
+                "metadata": 0,
+                "dependent": 0,
+                "still_image": 0
+            },
+            "tags": {
+                "language": "und",
+                "handler_name": "VideoHandler",
+                "vendor_id": "[0][0][0][0]",
+                "encoder": "Lavc60.31.102 libx264"
+            }
+        },
+        {
+            "index": 1,
+            "codec_name": "aac",
+            "codec_long_name": "AAC (Advanced Audio Coding)",
+            "profile": "LC",
+            "codec_type": "audio",
+            "codec_tag_string": "mp4a",
+            "codec_tag": "0x6134706d",
+            "sample_fmt": "fltp",
+            "sample_rate": "8000",
+            "channels": 1,
+            "channel_layout": "mono",
+            "bits_per_sample": 0,
+            "initial_padding": 0,
+            "id": "0x2",
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "0/0",
+            "time_base": "1/8000",
+            "start_pts": 0,
+            "start_time": "0.000000",
+            "duration_ts": 240000,
+            "duration": "30.000000",
+            "bit_rate": "36866",
+            "nb_frames": "236",
+            "extradata_size": 5,
+            "disposition": {
+                "default": 1,
+                "dub": 0,
+                "original": 0,
+                "comment": 0,
+                "lyrics": 0,
+                "karaoke": 0,
+                "forced": 0,
+                "hearing_impaired": 0,
+                "visual_impaired": 0,
+                "clean_effects": 0,
+                "attached_pic": 0,
+                "timed_thumbnails": 0,
+                "non_diegetic": 0,
+                "captions": 0,
+                "descriptions": 0,
+                "metadata": 0,
+                "dependent": 0,
+                "still_image": 0
+            },
+            "tags": {
+                "language": "und",
+                "handler_name": "SoundHandler",
+                "vendor_id": "[0][0][0][0]"
+            }
+        }
+    ],
+    "format": {
+        "filename": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4",
+        "nb_streams": 2,
+        "nb_programs": 0,
+        "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+        "format_long_name": "QuickTime / MOV",
+        "start_time": "0.000000",
+        "duration": "30.000000",
+        "size": "335176",
+        "bit_rate": "89380",
+        "probe_score": 100,
+        "tags": {
+            "major_brand": "isom",
+            "minor_version": "512",
+            "compatible_brands": "isomiso2avc1mp41",
+            "encoder": "Lavf60.16.100"
+        }
+    }
+}
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:02.031665+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 95.91ms]
+COMMAND: ffmpeg -y -nostdin -v error -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4 -vn -ac 1 -ar 16000 -c:a pcm_s16le /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/transcribe/audio_16k.wav
+--- STDOUT ---
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:02.139314+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 3423.0ms]
+COMMAND: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/.venv/bin/python -m cortes.whisper_worker --audio /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/transcribe/audio_16k.wav --model small --device cuda --compute-type float16
+--- STDOUT ---
+{"schema_version": "1.0.0", "device_requested": "cuda", "device_used": "cuda", "compute_type": "float16", "model_size": "small", "language": "en", "language_probability": 0.9868, "duration": 30.08, "text": "This original technical demonstration explains reliable video processing with speech transcription, scene detection, deterministic selection, accurate subtitles, audio normalization and vertical rendering. Every spoken word receives a timestamp so an independent verifier can prove synchronization, selection boundaries, framerate loudness and artifact integrity. This final sentence provides enough continuous speech for a complete technical short.", "segments": [{"id": 0, "start": 0.0, "end": 11.72, "start_ms": 0, "end_ms": 11720, "text": "This original technical demonstration explains reliable video processing with speech transcription, scene detection, deterministic selection, accurate subtitles, audio normalization and vertical rendering.", "words": [{"word": " This", "start": 0.0, "end": 0.38, "start_ms": 0, "end_ms": 380, "probability": 0.9341}, {"word": " original", "start": 0.38, "end": 0.76, "start_ms": 380, "end_ms": 760, "probability": 0.9585}, {"word": " technical", "start": 0.76, "end": 1.3, "start_ms": 760, "end_ms": 1300, "probability": 0.9355}, {"word": " demonstration", "start": 1.3, "end": 2.2, "start_ms": 1300, "end_ms": 2200, "probability": 0.998}, {"word": " explains", "start": 2.2, "end": 2.66, "start_ms": 2200, "end_ms": 2660, "probability": 0.9966}, {"word": " reliable", "start": 2.66, "end": 3.28, "start_ms": 2660, "end_ms": 3280, "probability": 0.9873}, {"word": " video", "start": 3.28, "end": 3.74, "start_ms": 3280, "end_ms": 3740, "probability": 0.9878}, {"word": " processing", "start": 3.74, "end": 4.46, "start_ms": 3740, "end_ms": 4460, "probability": 0.9722}, {"word": " with", "start": 4.46, "end": 4.76, "start_ms": 4460, "end_ms": 4760, "probability": 0.9917}, {"word": " speech", "start": 4.76, "end": 5.06, "start_ms": 4760, "end_ms": 5060, "probability": 0.978}, {"word": " transcription,", "start": 5.06, "end": 5.78, "start_ms": 5060, "end_ms": 5780, "probability": 0.9458}, {"word": " scene", "start": 6.1, "end": 6.24, "start_ms": 6100, "end_ms": 6240, "probability": 0.9561}, {"word": " detection,", "start": 6.24, "end": 6.64, "start_ms": 6240, "end_ms": 6640, "probability": 0.9834}, {"word": " deterministic", "start": 6.88, "end": 7.48, "start_ms": 6880, "end_ms": 7480, "probability": 0.9946}, {"word": " selection,", "start": 7.48, "end": 8.1, "start_ms": 7480, "end_ms": 8100, "probability": 0.9858}, {"word": " accurate", "start": 8.26, "end": 8.48, "start_ms": 8260, "end_ms": 8480, "probability": 0.9702}, {"word": " subtitles,", "start": 8.48, "end": 8.96, "start_ms": 8480, "end_ms": 8960, "probability": 0.8975}, {"word": " audio", "start": 9.38, "end": 9.64, "start_ms": 9380, "end_ms": 9640, "probability": 0.9785}, {"word": " normalization", "start": 9.64, "end": 10.48, "start_ms": 9640, "end_ms": 10480, "probability": 0.9636}, {"word": " and", "start": 10.48, "end": 10.74, "start_ms": 10480, "end_ms": 10740, "probability": 0.6572}, {"word": " vertical", "start": 10.74, "end": 11.22, "start_ms": 10740, "end_ms": 11220, "probability": 0.998}, {"word": " rendering.", "start": 11.22, "end": 11.72, "start_ms": 11220, "end_ms": 11720, "probability": 0.999}]}, {"id": 1, "start": 12.04, "end": 20.92, "start_ms": 12040, "end_ms": 20920, "text": "Every spoken word receives a timestamp so an independent verifier can prove synchronization, selection boundaries, framerate loudness and artifact integrity.", "words": [{"word": " Every", "start": 12.04, "end": 12.26, "start_ms": 12040, "end_ms": 12260, "probability": 0.9268}, {"word": " spoken", "start": 12.26, "end": 12.78, "start_ms": 12260, "end_ms": 12780, "probability": 0.9893}, {"word": " word", "start": 12.78, "end": 13.06, "start_ms": 12780, "end_ms": 13060, "probability": 0.7686}, {"word": " receives", "start": 13.06, "end": 13.44, "start_ms": 13060, "end_ms": 13440, "probability": 0.9424}, {"word": " a", "start": 13.44, "end": 13.68, "start_ms": 13440, "end_ms": 13680, "probability": 0.9961}, {"word": " timestamp", "start": 13.68, "end": 14.24, "start_ms": 13680, "end_ms": 14240, "probability": 0.9045}, {"word": " so", "start": 14.24, "end": 14.5, "start_ms": 14240, "end_ms": 14500, "probability": 0.7134}, {"word": " an", "start": 14.5, "end": 14.68, "start_ms": 14500, "end_ms": 14680, "probability": 0.9922}, {"word": " independent", "start": 14.68, "end": 15.12, "start_ms": 14680, "end_ms": 15120, "probability": 0.9917}, {"word": " verifier", "start": 15.12, "end": 15.8, "start_ms": 15120, "end_ms": 15800, "probability": 0.9585}, {"word": " can", "start": 15.8, "end": 16.14, "start_ms": 15800, "end_ms": 16140, "probability": 0.9985}, {"word": " prove", "start": 16.14, "end": 16.4, "start_ms": 16140, "end_ms": 16400, "probability": 0.7471}, {"word": " synchronization,", "start": 16.4, "end": 17.34, "start_ms": 16400, "end_ms": 17340, "probability": 0.9834}, {"word": " selection", "start": 17.5, "end": 17.9, "start_ms": 17500, "end_ms": 17900, "probability": 0.9883}, {"word": " boundaries,", "start": 17.9, "end": 18.46, "start_ms": 17900, "end_ms": 18460, "probability": 0.9878}, {"word": " framerate", "start": 18.7, "end": 19.08, "start_ms": 18700, "end_ms": 19080, "probability": 0.8351}, {"word": " loudness", "start": 19.08, "end": 19.54, "start_ms": 19080, "end_ms": 19540, "probability": 0.8831}, {"word": " and", "start": 19.54, "end": 19.74, "start_ms": 19540, "end_ms": 19740, "probability": 0.8623}, {"word": " artifact", "start": 19.74, "end": 20.14, "start_ms": 19740, "end_ms": 20140, "probability": 0.981}, {"word": " integrity.", "start": 20.14, "end": 20.92, "start_ms": 20140, "end_ms": 20920, "probability": 0.9985}]}, {"id": 2, "start": 21.34, "end": 26.12, "start_ms": 21340, "end_ms": 26120, "text": "This final sentence provides enough continuous speech for a complete technical short.", "words": [{"word": " This", "start": 21.34, "end": 21.54, "start_ms": 21340, "end_ms": 21540, "probability": 0.9941}, {"word": " final", "start": 21.54, "end": 21.92, "start_ms": 21540, "end_ms": 21920, "probability": 0.999}, {"word": " sentence", "start": 21.92, "end": 22.34, "start_ms": 21920, "end_ms": 22340, "probability": 0.9961}, {"word": " provides", "start": 22.34, "end": 22.88, "start_ms": 22340, "end_ms": 22880, "probability": 0.9849}, {"word": " enough", "start": 22.88, "end": 23.2, "start_ms": 22880, "end_ms": 23200, "probability": 0.9238}, {"word": " continuous", "start": 23.2, "end": 23.72, "start_ms": 23200, "end_ms": 23720, "probability": 0.9932}, {"word": " speech", "start": 23.72, "end": 24.32, "start_ms": 23720, "end_ms": 24320, "probability": 0.9951}, {"word": " for", "start": 24.32, "end": 24.62, "start_ms": 24320, "end_ms": 24620, "probability": 0.9971}, {"word": " a", "start": 24.62, "end": 24.78, "start_ms": 24620, "end_ms": 24780, "probability": 0.9951}, {"word": " complete", "start": 24.78, "end": 25.08, "start_ms": 24780, "end_ms": 25080, "probability": 0.9932}, {"word": " technical", "start": 25.08, "end": 25.66, "start_ms": 25080, "end_ms": 25660, "probability": 0.9966}, {"word": " short.", "start": 25.66, "end": 26.12, "start_ms": 25660, "end_ms": 26120, "probability": 0.9473}]}], "words": [{"word": " This", "start": 0.0, "end": 0.38, "start_ms": 0, "end_ms": 380, "probability": 0.9341}, {"word": " original", "start": 0.38, "end": 0.76, "start_ms": 380, "end_ms": 760, "probability": 0.9585}, {"word": " technical", "start": 0.76, "end": 1.3, "start_ms": 760, "end_ms": 1300, "probability": 0.9355}, {"word": " demonstration", "start": 1.3, "end": 2.2, "start_ms": 1300, "end_ms": 2200, "probability": 0.998}, {"word": " explains", "start": 2.2, "end": 2.66, "start_ms": 2200, "end_ms": 2660, "probability": 0.9966}, {"word": " reliable", "start": 2.66, "end": 3.28, "start_ms": 2660, "end_ms": 3280, "probability": 0.9873}, {"word": " video", "start": 3.28, "end": 3.74, "start_ms": 3280, "end_ms": 3740, "probability": 0.9878}, {"word": " processing", "start": 3.74, "end": 4.46, "start_ms": 3740, "end_ms": 4460, "probability": 0.9722}, {"word": " with", "start": 4.46, "end": 4.76, "start_ms": 4460, "end_ms": 4760, "probability": 0.9917}, {"word": " speech", "start": 4.76, "end": 5.06, "start_ms": 4760, "end_ms": 5060, "probability": 0.978}, {"word": " transcription,", "start": 5.06, "end": 5.78, "start_ms": 5060, "end_ms": 5780, "probability": 0.9458}, {"word": " scene", "start": 6.1, "end": 6.24, "start_ms": 6100, "end_ms": 6240, "probability": 0.9561}, {"word": " detection,", "start": 6.24, "end": 6.64, "start_ms": 6240, "end_ms": 6640, "probability": 0.9834}, {"word": " deterministic", "start": 6.88, "end": 7.48, "start_ms": 6880, "end_ms": 7480, "probability": 0.9946}, {"word": " selection,", "start": 7.48, "end": 8.1, "start_ms": 7480, "end_ms": 8100, "probability": 0.9858}, {"word": " accurate", "start": 8.26, "end": 8.48, "start_ms": 8260, "end_ms": 8480, "probability": 0.9702}, {"word": " subtitles,", "start": 8.48, "end": 8.96, "start_ms": 8480, "end_ms": 8960, "probability": 0.8975}, {"word": " audio", "start": 9.38, "end": 9.64, "start_ms": 9380, "end_ms": 9640, "probability": 0.9785}, {"word": " normalization", "start": 9.64, "end": 10.48, "start_ms": 9640, "end_ms": 10480, "probability": 0.9636}, {"word": " and", "start": 10.48, "end": 10.74, "start_ms": 10480, "end_ms": 10740, "probability": 0.6572}, {"word": " vertical", "start": 10.74, "end": 11.22, "start_ms": 10740, "end_ms": 11220, "probability": 0.998}, {"word": " rendering.", "start": 11.22, "end": 11.72, "start_ms": 11220, "end_ms": 11720, "probability": 0.999}, {"word": " Every", "start": 12.04, "end": 12.26, "start_ms": 12040, "end_ms": 12260, "probability": 0.9268}, {"word": " spoken", "start": 12.26, "end": 12.78, "start_ms": 12260, "end_ms": 12780, "probability": 0.9893}, {"word": " word", "start": 12.78, "end": 13.06, "start_ms": 12780, "end_ms": 13060, "probability": 0.7686}, {"word": " receives", "start": 13.06, "end": 13.44, "start_ms": 13060, "end_ms": 13440, "probability": 0.9424}, {"word": " a", "start": 13.44, "end": 13.68, "start_ms": 13440, "end_ms": 13680, "probability": 0.9961}, {"word": " timestamp", "start": 13.68, "end": 14.24, "start_ms": 13680, "end_ms": 14240, "probability": 0.9045}, {"word": " so", "start": 14.24, "end": 14.5, "start_ms": 14240, "end_ms": 14500, "probability": 0.7134}, {"word": " an", "start": 14.5, "end": 14.68, "start_ms": 14500, "end_ms": 14680, "probability": 0.9922}, {"word": " independent", "start": 14.68, "end": 15.12, "start_ms": 14680, "end_ms": 15120, "probability": 0.9917}, {"word": " verifier", "start": 15.12, "end": 15.8, "start_ms": 15120, "end_ms": 15800, "probability": 0.9585}, {"word": " can", "start": 15.8, "end": 16.14, "start_ms": 15800, "end_ms": 16140, "probability": 0.9985}, {"word": " prove", "start": 16.14, "end": 16.4, "start_ms": 16140, "end_ms": 16400, "probability": 0.7471}, {"word": " synchronization,", "start": 16.4, "end": 17.34, "start_ms": 16400, "end_ms": 17340, "probability": 0.9834}, {"word": " selection", "start": 17.5, "end": 17.9, "start_ms": 17500, "end_ms": 17900, "probability": 0.9883}, {"word": " boundaries,", "start": 17.9, "end": 18.46, "start_ms": 17900, "end_ms": 18460, "probability": 0.9878}, {"word": " framerate", "start": 18.7, "end": 19.08, "start_ms": 18700, "end_ms": 19080, "probability": 0.8351}, {"word": " loudness", "start": 19.08, "end": 19.54, "start_ms": 19080, "end_ms": 19540, "probability": 0.8831}, {"word": " and", "start": 19.54, "end": 19.74, "start_ms": 19540, "end_ms": 19740, "probability": 0.8623}, {"word": " artifact", "start": 19.74, "end": 20.14, "start_ms": 19740, "end_ms": 20140, "probability": 0.981}, {"word": " integrity.", "start": 20.14, "end": 20.92, "start_ms": 20140, "end_ms": 20920, "probability": 0.9985}, {"word": " This", "start": 21.34, "end": 21.54, "start_ms": 21340, "end_ms": 21540, "probability": 0.9941}, {"word": " final", "start": 21.54, "end": 21.92, "start_ms": 21540, "end_ms": 21920, "probability": 0.999}, {"word": " sentence", "start": 21.92, "end": 22.34, "start_ms": 21920, "end_ms": 22340, "probability": 0.9961}, {"word": " provides", "start": 22.34, "end": 22.88, "start_ms": 22340, "end_ms": 22880, "probability": 0.9849}, {"word": " enough", "start": 22.88, "end": 23.2, "start_ms": 22880, "end_ms": 23200, "probability": 0.9238}, {"word": " continuous", "start": 23.2, "end": 23.72, "start_ms": 23200, "end_ms": 23720, "probability": 0.9932}, {"word": " speech", "start": 23.72, "end": 24.32, "start_ms": 23720, "end_ms": 24320, "probability": 0.9951}, {"word": " for", "start": 24.32, "end": 24.62, "start_ms": 24320, "end_ms": 24620, "probability": 0.9971}, {"word": " a", "start": 24.62, "end": 24.78, "start_ms": 24620, "end_ms": 24780, "probability": 0.9951}, {"word": " complete", "start": 24.78, "end": 25.08, "start_ms": 24780, "end_ms": 25080, "probability": 0.9932}, {"word": " technical", "start": 25.08, "end": 25.66, "start_ms": 25080, "end_ms": 25660, "probability": 0.9966}, {"word": " short.", "start": 25.66, "end": 26.12, "start_ms": 25660, "end_ms": 26120, "probability": 0.9473}]}
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:05.579002+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 1206.67ms]
+COMMAND: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/.venv/bin/scenedetect -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4 -o /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/scenes detect-content -t 27.0 -m 0.6s list-scenes
+--- STDOUT ---
+[PySceneDetect] PySceneDetect 0.7.1
+[PySceneDetect] Detecting scenes...
+[PySceneDetect] Processed 900 frames in 0.6 seconds (average 1437.65 FPS).
+[PySceneDetect] Detected 1 scenes, average shot length 30.0 seconds.
+[PySceneDetect] Writing scene list to CSV file:
+  /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/scenes/source-Scenes.csv
+[PySceneDetect] Scene List:
+-----------------------------------------------------------------------
+ | Scene # | Start Frame |  Start Time  |  End Frame  |   End Time   |
+-----------------------------------------------------------------------
+ |      1  |           1 | 00:00:00.000 |         900 | 00:00:30.000 |
+-----------------------------------------------------------------------
+
+--- STDERR ---
+
+  Detected: 0 | Progress:   0%|          | 0/900 [00:00<?, ?frames/s]
+                                                                     
+
+  Detected: 0 | Progress:   0%|          | 0/900 [00:00<?, ?frames/s]
+  Detected: 0 | Progress:  14%|█▍        | 128/900 [00:00<00:00, 1279.21frames/s]
+  Detected: 0 | Progress:  31%|███       | 278/900 [00:00<00:00, 1407.19frames/s]
+  Detected: 0 | Progress:  47%|████▋     | 425/900 [00:00<00:00, 1432.00frames/s]
+  Detected: 0 | Progress:  63%|██████▎   | 569/900 [00:00<00:00, 1427.30frames/s]
+  Detected: 0 | Progress:  79%|███████▉  | 715/900 [00:00<00:00, 1436.55frames/s]
+  Detected: 0 | Progress:  97%|█████████▋| 874/900 [00:00<00:00, 1488.13frames/s]
+  Detected: 0 | Progress: 100%|██████████| 900/900 [00:00<00:00, 1488.13frames/s]
+  Detected: 0 | Progress: 100%|██████████| 900/900 [00:00<00:00, 1452.39frames/s]
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:06.791995+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 79.12ms]
+COMMAND: ffprobe -v error -show_entries format=duration -of json /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4
+--- STDOUT ---
+{
+    "format": {
+        "duration": "30.000000"
+    }
+}
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:06.890164+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 76.99ms]
+COMMAND: ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4
+--- STDOUT ---
+30.000000
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:06.973055+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 86.15ms]
+COMMAND: ffmpeg -y -ss 0.0 -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4 -t 26.12 -c copy -avoid_negative_ts make_zero runs/run_t3_golden_v5/artifacts/cut/clip.mp4
+--- STDOUT ---
+
+--- STDERR ---
+ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+  built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
+  configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
+  libavutil      58. 29.100 / 58. 29.100
+  libavcodec     60. 31.102 / 60. 31.102
+  libavformat    60. 16.100 / 60. 16.100
+  libavdevice    60.  3.100 / 60.  3.100
+  libavfilter     9. 12.100 /  9. 12.100
+  libswscale      7.  5.100 /  7.  5.100
+  libswresample   4. 12.100 /  4. 12.100
+  libpostproc    57.  3.100 / 57.  3.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:30.00, start: 0.000000, bitrate: 89 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 8000 Hz, mono, fltp, 36 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Output #0, mp4, to 'runs/run_t3_golden_v5/artifacts/cut/clip.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], q=2-31, 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 8000 Hz, mono, fltp, 36 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Stream mapping:
+  Stream #0:0 -> #0:0 (copy)
+  Stream #0:1 -> #0:1 (copy)
+Press [q] to stop, [?] for help
+size=       0kB time=-00:00:00.12 bitrate=  -0.0kbits/s speed=N/A    
+[out#0/mp4 @ 0x5bed34c2ac80] video:157kB audio:135kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 4.730294%
+size=     305kB time=00:00:26.11 bitrate=  95.7kbits/s speed=2.24e+03x    
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:07.064759+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 73.52ms]
+COMMAND: ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 runs/run_t3_golden_v5/artifacts/cut/clip.mp4
+--- STDOUT ---
+26.368000
+
+--- STDERR ---
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:07.172746+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 943.49ms]
+COMMAND: ffmpeg -y -nostdin -hide_banner -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/cut/clip.mp4 -af loudnorm=I=-14.0:LRA=11.0:TP=-0.1:print_format=json -f null -
+--- STDOUT ---
+
+--- STDERR ---
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/cut/clip.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:26.37, start: 0.000000, bitrate: 94 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 8000 Hz, mono, fltp, 41 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> wrapped_avframe (native))
+  Stream #0:1 -> #0:1 (aac (native) -> pcm_s16le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Stream #0:0(und): Video: wrapped_avframe, yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], q=2-31, 200 kb/s, 30 fps, 30 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 wrapped_avframe
+  Stream #0:1(und): Audio: pcm_s16le, 192000 Hz, mono, s16, 3072 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 pcm_s16le
+frame=   75 fps=0.0 q=-0.0 size=N/A time=00:00:02.66 bitrate=N/A speed=42.1x    
+frame=  541 fps=0.0 q=-0.0 size=N/A time=00:00:18.16 bitrate=N/A speed=32.2x    
+[out#0/null @ 0x5784c702dec0] video:368kB audio:9888kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: unknown
+frame=  786 fps=0.0 q=-0.0 Lsize=N/A time=00:00:26.33 bitrate=N/A speed=  31x    
+[Parsed_loudnorm_0 @ 0x5784c70db6c0] 
+{
+	"input_i" : "-21.40",
+	"input_tp" : "-0.85",
+	"input_lra" : "2.10",
+	"input_thresh" : "-31.40",
+	"output_i" : "-15.84",
+	"output_tp" : "-0.10",
+	"output_lra" : "1.20",
+	"output_thresh" : "-25.84",
+	"normalization_type" : "dynamic",
+	"target_offset" : "1.84"
+}
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:08.124167+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 2505.91ms]
+COMMAND: ffmpeg -y -nostdin -hide_banner -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/cut/clip.mp4 -af loudnorm=I=-14.0:LRA=11.0:TP=-0.1:measured_I=-21.40:measured_LRA=2.10:measured_TP=-0.85:measured_thresh=-31.40:offset=1.84:linear=true -c:v copy -c:a aac -b:a 192k /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/audio/audio_normalized.mp4
+--- STDOUT ---
+
+--- STDERR ---
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/cut/clip.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:26.37, start: 0.000000, bitrate: 94 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 8000 Hz, mono, fltp, 41 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Stream mapping:
+  Stream #0:0 -> #0:0 (copy)
+  Stream #0:1 -> #0:1 (aac (native) -> aac (native))
+Output #0, mp4, to '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/audio/audio_normalized.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], q=2-31, 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 96000 Hz, mono, fltp, 192 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 aac
+size=       0kB time=00:00:02.92 bitrate=   0.1kbits/s speed= 143x    
+size=       0kB time=00:00:08.16 bitrate=   0.0kbits/s speed=15.6x    
+size=     256kB time=00:00:13.72 bitrate= 152.8kbits/s speed=13.4x    
+size=     256kB time=00:00:19.22 bitrate= 109.1kbits/s speed=12.6x    
+size=     512kB time=00:00:24.96 bitrate= 168.0kbits/s speed=12.3x    
+[out#0/mp4 @ 0x59d461771ec0] video:157kB audio:636kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 3.629573%
+size=     822kB time=00:00:26.38 bitrate= 255.1kbits/s speed=10.9x    
+[aac @ 0x59d46184e2c0] Qavg: 9029.955
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:11.604701+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 944.39ms]
+COMMAND: ffmpeg -y -nostdin -hide_banner -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/audio/audio_normalized.mp4 -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/editorial/narration.wav -filter_complex [0:a]volume=0.35[base_audio];[1:a]volume=1.0[narration_audio];[base_audio][narration_audio]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed_measure];[mixed_measure]loudnorm=I=-14.0:LRA=11:TP=-1.0:print_format=json[audio_measure] -map [audio_measure] -f null -
+--- STDOUT ---
+
+--- STDERR ---
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/audio/audio_normalized.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:26.40, start: 0.000000, bitrate: 254 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 96000 Hz, mono, fltp, 197 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+[aist#1:0/pcm_s16le @ 0x65051c118180] Guessed Channel Layout: mono
+Input #1, wav, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/editorial/narration.wav':
+  Metadata:
+    encoder         : Lavf60.16.100
+  Duration: 00:00:10.00, bitrate: 128 kb/s
+  Stream #1:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 8000 Hz, 1 channels, s16, 128 kb/s
+Stream mapping:
+  Stream #0:1 (aac) -> volume:default
+  Stream #1:0 (pcm_s16le) -> volume:default
+  loudnorm:default -> Stream #0:0 (pcm_s16le)
+Output #0, null, to 'pipe:':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Stream #0:0: Audio: pcm_s16le, 192000 Hz, mono, s16, 3072 kb/s
+    Metadata:
+      encoder         : Lavc60.31.102 pcm_s16le
+size=       0kB time=00:00:00.00 bitrate=N/A speed=   0x    
+size=N/A time=00:00:15.30 bitrate=N/A speed=28.4x    
+[out#0/null @ 0x65051c17af80] video:0kB audio:9888kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: unknown
+size=N/A time=00:00:23.53 bitrate=N/A speed=27.7x    
+[Parsed_loudnorm_3 @ 0x65051c1000c0] 
+{
+	"input_i" : "-22.09",
+	"input_tp" : "-1.05",
+	"input_lra" : "5.70",
+	"input_thresh" : "-32.09",
+	"output_i" : "-16.56",
+	"output_tp" : "-1.00",
+	"output_lra" : "3.50",
+	"output_thresh" : "-26.56",
+	"normalization_type" : "dynamic",
+	"target_offset" : "2.56"
+}
+
+================================================================================
+================================================================================
+[2026-07-27T18:20:12.556414+00:00] [AGENT: worker] [CWD: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper] [EXIT: 0] [DURATION: 9778.12ms]
+COMMAND: ffmpeg -y -nostdin -hide_banner -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/audio/audio_normalized.mp4 -i /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/editorial/narration.wav -filter_complex split[bg][fg];[bg]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,gblur=sigma=12.0,scale=1080:1920[blurred];[fg]scale=1080:-2[scaled_fg];[blurred][scaled_fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2,drawbox=x=40:y=60:w=1000:h=100:color=black@0.6:t=fill,drawtext=text='ANALYTICAL OVERLAY | VIRAL HOOK SCORE\: 9.8':x=60:y=95:fontsize=36:fontcolor=yellow,subtitles=/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/subtitles/subtitles.ass[vout];[0:a]volume=0.35[base_audio];[1:a]volume=1.0[narration_audio];[base_audio][narration_audio]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed_audio];[mixed_audio]loudnorm=I=-14.0:LRA=11:TP=-1.0:measured_I=-22.09:measured_LRA=5.70:measured_TP=-1.05:measured_thresh=-32.09:offset=2.56:linear=true[aout] -map [vout] -map [aout] -c:v h264_nvenc -preset p4 -c:a aac -b:a 192k -pix_fmt yuv420p /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/clip_f6be54249092/short.mp4
+--- STDOUT ---
+
+--- STDERR ---
+[Parsed_subtitles_9 @ 0x63a5939f0640] libass API version: 0x1701000
+[Parsed_subtitles_9 @ 0x63a5939f0640] libass source: tarball: 0.17.1
+[Parsed_subtitles_9 @ 0x63a5939f0640] Shaper: FriBidi 1.0.13 (SIMPLE) HarfBuzz-ng 8.3.0 (COMPLEX)
+[Parsed_subtitles_9 @ 0x63a5939f0640] Using font provider fontconfig
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/audio/audio_normalized.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Duration: 00:00:26.40, start: 0.000000, bitrate: 254 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 48 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : [0][0][0][0]
+      encoder         : Lavc60.31.102 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 96000 Hz, mono, fltp, 197 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+[aist#1:0/pcm_s16le @ 0x63a5939c59c0] Guessed Channel Layout: mono
+Input #1, wav, from '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/editorial/narration.wav':
+  Metadata:
+    encoder         : Lavf60.16.100
+  Duration: 00:00:10.00, bitrate: 128 kb/s
+  Stream #1:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 8000 Hz, 1 channels, s16, 128 kb/s
+Stream mapping:
+  Stream #0:0 (h264) -> split:default
+  Stream #0:1 (aac) -> volume:default
+  Stream #1:0 (pcm_s16le) -> volume:default
+  subtitles:default -> Stream #0:0 (h264_nvenc)
+  loudnorm:default -> Stream #0:1 (aac)
+[Parsed_subtitles_9 @ 0x63a59444a300] libass API version: 0x1701000
+[Parsed_subtitles_9 @ 0x63a59444a300] libass source: tarball: 0.17.1
+[Parsed_subtitles_9 @ 0x63a59444a300] Shaper: FriBidi 1.0.13 (SIMPLE) HarfBuzz-ng 8.3.0 (COMPLEX)
+[Parsed_subtitles_9 @ 0x63a59444a300] Using font provider fontconfig
+[Parsed_subtitles_9 @ 0x63a59444a300] fontselect: (Roboto, 700, 0) -> /usr/share/fonts/truetype/noto/NotoSans-Bold.ttf, 0, NotoSans-Bold
+Output #0, mp4, to '/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/clip_f6be54249092/short.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf60.16.100
+  Stream #0:0: Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, progressive), 1080x1920 [SAR 2560:2559 DAR 480:853], q=2-31, 2000 kb/s, 30 fps, 15360 tbn
+    Metadata:
+      encoder         : Lavc60.31.102 h264_nvenc
+    Side data:
+      cpb: bitrate max/min/avg: 0/0/2000000 buffer size: 4000000 vbv_delay: N/A
+  Stream #0:1: Audio: aac (LC) (mp4a / 0x6134706D), 96000 Hz, mono, fltp, 192 kb/s
+    Metadata:
+      encoder         : Lavc60.31.102 aac
+frame=   69 fps= 54 q=24.0 size=       0kB time=00:00:02.16 bitrate=   0.2kbits/s dup=4 drop=0 speed= 1.7x    
+frame=  114 fps= 64 q=9.0 size=     256kB time=00:00:03.66 bitrate= 572.1kbits/s dup=4 drop=0 speed=2.06x    
+frame=  159 fps= 70 q=22.0 size=     512kB time=00:00:05.16 bitrate= 811.9kbits/s dup=4 drop=0 speed=2.26x    
+frame=  207 fps= 74 q=22.0 size=     768kB time=00:00:06.76 bitrate= 929.8kbits/s dup=4 drop=0 speed=2.43x    
+frame=  254 fps= 77 q=24.0 size=    1280kB time=00:00:08.33 bitrate=1258.3kbits/s dup=4 drop=0 speed=2.53x    
+frame=  301 fps= 79 q=21.0 size=    1792kB time=00:00:09.90 bitrate=1482.9kbits/s dup=4 drop=0 speed=2.61x    
+frame=  348 fps= 81 q=8.0 size=    2048kB time=00:00:11.46 bitrate=1463.2kbits/s dup=4 drop=0 speed=2.67x    
+frame=  396 fps= 83 q=9.0 size=    2560kB time=00:00:13.06 bitrate=1605.0kbits/s dup=4 drop=0 speed=2.72x    
+frame=  440 fps= 83 q=8.0 size=    3072kB time=00:00:14.53 bitrate=1731.6kbits/s dup=4 drop=0 speed=2.74x    
+frame=  482 fps= 83 q=24.0 size=    3328kB time=00:00:15.93 bitrate=1711.1kbits/s dup=4 drop=0 speed=2.74x    
+frame=  524 fps= 83 q=24.0 size=    3840kB time=00:00:17.33 bitrate=1814.9kbits/s dup=4 drop=0 speed=2.74x    
+frame=  569 fps= 83 q=24.0 size=    4096kB time=00:00:18.83 bitrate=1781.7kbits/s dup=4 drop=0 speed=2.76x    
+frame=  615 fps= 84 q=22.0 size=    4608kB time=00:00:20.36 bitrate=1853.5kbits/s dup=4 drop=0 speed=2.78x    
+frame=  663 fps= 85 q=22.0 size=    5120kB time=00:00:21.96 bitrate=1909.4kbits/s dup=4 drop=0 speed= 2.8x    
+frame=  707 fps= 85 q=22.0 size=    5376kB time=00:00:23.43 bitrate=1879.4kbits/s dup=4 drop=0 speed=2.81x    
+frame=  752 fps= 85 q=15.0 size=    5888kB time=00:00:24.93 bitrate=1934.6kbits/s dup=4 drop=0 speed=2.82x    
+frame=  777 fps= 83 q=22.0 size=    6656kB time=00:00:26.40 bitrate=2065.4kbits/s dup=5 drop=0 speed=2.81x    
+[out#0/mp4 @ 0x63a59432f780] video:6287kB audio:636kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.416872%
+frame=  791 fps= 84 q=24.0 Lsize=    6952kB time=00:00:26.42 bitrate=2155.4kbits/s dup=5 drop=0 speed=2.81x    
+[aac @ 0x63a59434c780] Qavg: 5812.338
+
+================================================================================

@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "video_id": "source",
+  "video_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t3_golden_v5/artifacts/ingest/source.mp4",
+  "detector": "ContentDetector",
+  "parameters": {
+    "threshold": 27.0,
+    "min_scene_len": 0.6
+  },
+  "total_scenes": 1,
+  "video_duration_sec": 30.0,
+  "scenes": [
+    {
+      "scene_id": 1,
+      "start_time": 0.0,
+      "end_time": 30.0,
+      "start_frame": 1,
+      "end_frame": 900,
+      "start_timecode": "00:00:00.000",
+      "end_timecode": "00:00:30.000",
+      "duration_sec": 30.0,
+      "duration_frames": 900,
+      "start_ms": 0,
+      "end_ms": 30000
+    }
+  ],
+  "scene_list": [
+    {
+      "scene_id": 1,
+      "start_time": 0.0,
+      "end_time": 30.0,
+      "start_frame": 1,
+      "end_frame": 900,
+      "start_timecode": "00:00:00.000",
+      "end_timecode": "00:00:30.000",
+      "duration_sec": 30.0,
+      "duration_frames": 900,
+      "start_ms": 0,
+      "end_ms": 30000
+    }
+  ],
+  "cut_timestamps_sec": [
+    0.0,
+    30.0
+  ],
+  "cut_timestamps_ms": [
+    0,
+    30000
+  ]
+}
