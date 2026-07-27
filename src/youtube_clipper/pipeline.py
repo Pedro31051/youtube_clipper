@@ -131,7 +131,8 @@ def run_pipeline(
     temp_dir_obj = None
 
     try:
-        if is_youtube_url(clean_input):
+        youtube_source = is_youtube_url(clean_input)
+        if youtube_source:
             downloader = YouTubeDownloader()
             temp_dir_obj = tempfile.TemporaryDirectory(prefix="yt_clipper_")
             temp_dir = Path(temp_dir_obj.name)
@@ -141,8 +142,13 @@ def run_pipeline(
                 end=end_sec,
                 output_dir=temp_dir,
             )
+            # download_segment already consumes the absolute source offset.
+            cut_start = 0.0
+            cut_end = end_sec - start_sec
         else:
             media_source_path = clean_input
+            cut_start = start_sec
+            cut_end = end_sec
 
         if vertical:
             if temp_dir_obj is None:
@@ -150,8 +156,8 @@ def run_pipeline(
             temp_cut_path = os.path.join(temp_dir_obj.name, "temp_horizontal_cut.mp4")
             processor.cut_media(
                 input_path=media_source_path,
-                start=start_sec,
-                end=end_sec,
+                start=cut_start,
+                end=cut_end,
                 output_path=temp_cut_path,
                 fast_copy=False,
             )
@@ -173,8 +179,8 @@ def run_pipeline(
         else:
             result_path = processor.cut_media(
                 input_path=media_source_path,
-                start=start_sec,
-                end=end_sec,
+                start=cut_start,
+                end=cut_end,
                 output_path=final_output_path,
                 fast_copy=fast,
             )

@@ -217,7 +217,7 @@ def emit_event(
                     "parent_span_id": trace.get("parent_span_id"),
                 },
                 "evidence": {
-                    "paths": [str(p) for p in evidence.get("paths", [])],
+                    "paths": [],
                     "sha256": [str(h) for h in evidence.get("sha256", [])],
                     "bytes": [int(b) for b in evidence.get("bytes", [])],
                 },
@@ -225,6 +225,17 @@ def emit_event(
                 "error": error,
                 "claim": claim,
             }
+
+            run_root = run_dir.resolve()
+            for raw_path in evidence.get("paths", []):
+                resolved = pathlib.Path(raw_path).resolve()
+                try:
+                    relative = resolved.relative_to(run_root)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Evidence path must be inside its run directory: {resolved}"
+                    ) from exc
+                event_dict["evidence"]["paths"].append(str(relative))
 
             validate_event_dict(event_dict)
 
@@ -335,8 +346,14 @@ def run_cmd(
     env: Optional[Dict[str, str]] = None,
     video_id: str = "unknown",
     clip_id: Optional[str] = None,
+    audit: bool = True,
 ) -> subprocess.CompletedProcess:
-    """Sole authorized function in the repository for invoking external subprocesses."""
+    """Sole authorized function in the repository for invoking external subprocesses.
+
+    ``audit=False`` is reserved for read-only verification.  It executes through
+    this controlled boundary without creating a new run or mutating the run that
+    is being inspected.
+    """
     if isinstance(cmd, list):
         cmd_list = cmd
         cmd_str = " ".join(cmd)
@@ -362,6 +379,13 @@ def run_cmd(
     )
 
     duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+    if not audit:
+        if check and proc.returncode != 0:
+            raise subprocess.CalledProcessError(
+                proc.returncode, cmd, proc.stdout, proc.stderr
+            )
+        return proc
 
     # Append to commands.log with locking
     run_dir = get_run_dir()

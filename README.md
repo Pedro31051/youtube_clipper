@@ -80,6 +80,18 @@ python3 -m youtube_clipper.web_dashboard --port 8080
 
 Open your browser and navigate to `http://localhost:8080` to access the interactive dashboard.
 
+The dashboard binds to `127.0.0.1` by default and stores generated/downloadable
+clips in the dedicated `output/` directory. To expose it beyond the local
+machine, an explicit bearer token is mandatory:
+
+```bash
+python3 -m youtube_clipper --dashboard --host 0.0.0.0 \
+  --api-token 'replace-with-a-strong-token' --output-dir ./output
+```
+
+Remote clients must send `Authorization: Bearer <token>`. The upload endpoint
+accepts only files inside the configured output directory.
+
 ## Pytest Test Suite
 
 Execute the test suite using `pytest`:

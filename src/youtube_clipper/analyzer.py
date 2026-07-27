@@ -7,10 +7,12 @@ best clip window selection, and viral title/hashtag generation.
 import re
 import os
 import tempfile
-import subprocess
+import sys
+from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Any, Optional
 
+from cortes.log import run_cmd
 
 @dataclass
 class TranscriptSegment:
@@ -252,7 +254,7 @@ class VideoContentAnalyzer:
 
 def extract_transcript_and_analyze(
     url_or_file: str,
-    python_env_bin: str = ".venv/bin",
+    python_env_bin: Optional[str] = None,
     max_clips: int = 5,
     cookies_file: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -262,7 +264,8 @@ def extract_transcript_and_analyze(
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         vtt_output_template = os.path.join(tmpdir, "subtitle")
-        yt_dlp_bin = os.path.join(python_env_bin, "yt-dlp")
+        env_bin = Path(python_env_bin) if python_env_bin else Path(sys.executable).parent
+        yt_dlp_bin = str(env_bin / "yt-dlp")
         if not os.path.exists(yt_dlp_bin):
             yt_dlp_bin = "yt-dlp"
 
@@ -286,7 +289,7 @@ def extract_transcript_and_analyze(
 
         cmd.append(url_or_file)
 
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        result = run_cmd(cmd, stage="transcribe")
 
         # Find generated VTT file
         vtt_file = None
@@ -296,9 +299,18 @@ def extract_transcript_and_analyze(
                 break
 
         if not vtt_file or not os.path.exists(vtt_file):
+            detail = (result.stderr or "").strip()
+            detail_lower = detail.lower()
+            if "sign in to confirm" in detail_lower or "not a bot" in detail_lower:
+                message = "YouTube exigiu autenticação; forneça cookies válidos."
+            elif "video unavailable" in detail_lower:
+                message = "Vídeo indisponível, privado ou removido."
+            else:
+                message = "Legendas automáticas não encontradas para o vídeo."
             return {
                 "success": False,
-                "error": "Legendas automáticas não encontradas para o vídeo.",
+                "error": message,
+                "detail": detail,
                 "clips": []
             }
 

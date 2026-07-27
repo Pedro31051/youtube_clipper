@@ -59,8 +59,7 @@ def test_ast_stage_functions_have_audited_decorator():
 
     for stage_name in STAGE_MODULES:
         stage_file = src_dir / f"{stage_name}.py"
-        if not stage_file.exists():
-            continue
+        assert stage_file.exists(), f"Required audited stage module is missing: {stage_file}"
 
         tree = ast.parse(stage_file.read_text(encoding="utf-8"), filename=str(stage_file))
 
@@ -183,18 +182,22 @@ def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
 
 def test_ast_prohibit_subprocess_outside_run_cmd():
     """Requirement (b): AST scan fails if subprocess, os.system/popen/posix_spawn, importlib/subprocess, __import__('subprocess'), eval/exec, or asyncio subprocess is used outside src/cortes/log.py."""
-    src_dir = pathlib.Path(__file__).parent.parent / "src" / "cortes"
-    assert src_dir.exists(), "src/cortes directory must exist"
+    src_dir = pathlib.Path(__file__).parent.parent / "src"
+    assert src_dir.exists(), "src directory must exist"
 
     violations = []
 
     for py_file in src_dir.rglob("*.py"):
         # Exempt log.py as it is the sole authorized module for subprocess invocation
-        if py_file.name == "log.py":
+        if py_file == src_dir / "cortes" / "log.py":
             continue
 
         tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
-        violations.extend(scan_ast_for_violations(tree, py_file.name))
+        violations.extend(
+            scan_ast_for_violations(
+                tree, str(py_file.relative_to(src_dir.parent))
+            )
+        )
 
     assert not violations, (
         "Prohibited subprocess/system usage detected outside src/cortes/log.py:\n" + "\n".join(violations)
@@ -272,7 +275,9 @@ def test_audited_decorator_functionality(tmp_path):
     run_id = f"test_audited_run_{tmp_path.name}"
     set_run_id(run_id)
 
-    dummy_file = tmp_path / "output.txt"
+    run_dir = get_run_dir(run_id)
+    dummy_file = run_dir / "artifacts" / "output.txt"
+    dummy_file.parent.mkdir(parents=True, exist_ok=True)
     dummy_file.write_text("hello world")
 
     @audited(stage="ingest")
@@ -290,7 +295,7 @@ def test_audited_decorator_functionality(tmp_path):
     assert event["stage"] == "ingest"
     assert event["outcome"] == "ok"
     assert len(event["evidence"]["paths"]) == 1
-    assert event["evidence"]["paths"][0] == str(dummy_file)
+    assert event["evidence"]["paths"][0] == "artifacts/output.txt"
     assert event["evidence"]["sha256"][0].startswith("sha256:")
     assert event["evidence"]["bytes"][0] == 11
 

@@ -6,15 +6,15 @@ previewing AI recommended viral clips, generating vertical Shorts (9:16), and sa
 
 import os
 import json
-import tempfile
-import subprocess
 import urllib.parse
+import hmac
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from youtube_clipper.analyzer import extract_transcript_and_analyze
 from youtube_clipper.pipeline import run_pipeline
 from youtube_clipper.gdrive_uploader import upload_clip_to_gdrive
-from youtube_clipper.exceptions import ClipperError, ValidationError, DownloadError, ProcessingError
+from youtube_clipper.exceptions import ClipperError, ValidationError, DownloadError
+from youtube_clipper.validator import is_youtube_url, validate_input_source
 
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -654,6 +654,33 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
     GET_ROUTES = {"/", "/index.html"}
     POST_ROUTES = {"/api/analyze", "/api/generate-clip", "/api/gdrive-upload"}
 
+    def _output_dir(self) -> Path:
+        configured = getattr(self.server, "output_dir", Path.cwd() / "output")
+        return Path(configured).resolve()
+
+    def _is_authorized(self) -> bool:
+        expected = getattr(self.server, "api_token", None)
+        bound_host = str(self.server.server_address[0])
+        loopback = bound_host in {"127.0.0.1", "::1", "localhost"}
+        if not expected:
+            return loopback
+        supplied = self.headers.get("Authorization", "")
+        prefix = "Bearer "
+        return supplied.startswith(prefix) and hmac.compare_digest(
+            supplied[len(prefix):], str(expected)
+        )
+
+    def _require_authorization(self) -> bool:
+        if self._is_authorized():
+            return True
+        self.send_json(401, {"success": False, "error": "Unauthorized"})
+        return False
+
+    def _resolve_output_file(self, raw_path: str) -> Path:
+        candidate = Path(raw_path).expanduser().resolve()
+        candidate.relative_to(self._output_dir())
+        return candidate
+
     def log_message(self, format, *args):
         pass
 
@@ -664,6 +691,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
     def do_GET(self):
+        if not self._require_authorization():
+            return
         if self.path in self.GET_ROUTES:
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -681,23 +710,15 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 self.send_json(400, {"success": False, "error": "Invalid filename"})
                 return
 
-            allowed_base_dirs = [
-                (Path.cwd() / "output").resolve(),
-                Path.cwd().resolve(),
-                (Path.cwd() / "media_workspace").resolve(),
-                Path(tempfile.gettempdir()).resolve(),
-            ]
-
+            base_dir = self._output_dir()
+            candidate = (base_dir / filename).resolve()
             target_path = None
-            for base_dir in allowed_base_dirs:
-                candidate = (base_dir / filename).resolve()
+            try:
+                candidate.relative_to(base_dir)
                 if candidate.exists() and candidate.is_file():
-                    try:
-                        candidate.relative_to(base_dir)
-                        target_path = candidate
-                        break
-                    except ValueError:
-                        continue
+                    target_path = candidate
+            except ValueError:
+                target_path = None
 
             if target_path and target_path.exists():
                 file_size = target_path.stat().st_size
@@ -716,6 +737,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
             self.send_error(404, "File Not Found")
 
     def do_POST(self):
+        if not self._require_authorization():
+            return
         if self.path in self.GET_ROUTES or self.path.startswith("/api/download/"):
             self.send_error(405, "Method Not Allowed")
             return
@@ -747,9 +770,12 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 self.send_json(400, {"success": False, "error": "URL parameter required"})
                 return
             try:
-                if cookies:
-                    os.environ["YOUTUBE_COOKIES_FILE"] = str(cookies)
-                analysis_result = extract_transcript_and_analyze(url, cookies_file=cookies)
+                clean_url = validate_input_source(url)
+                if not is_youtube_url(clean_url):
+                    raise ValidationError("Dashboard analysis accepts only YouTube URLs")
+                analysis_result = extract_transcript_and_analyze(
+                    clean_url, cookies_file=cookies
+                )
                 if isinstance(analysis_result, dict):
                     clips = analysis_result.get("clips", [])
                     all_transcripts = " ".join(c.get("transcript", "") for c in clips)
@@ -787,12 +813,16 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                if cookies:
-                    os.environ["YOUTUBE_COOKIES_FILE"] = str(cookies)
+                clean_url = validate_input_source(url)
+                if not is_youtube_url(clean_url):
+                    raise ValidationError("Dashboard generation accepts only YouTube URLs")
+                output_dir = self._output_dir()
+                output_dir.mkdir(parents=True, exist_ok=True)
                 output_path = run_pipeline(
-                    input_source=url,
+                    input_source=clean_url,
                     start=start,
                     end=end,
+                    output=str(output_dir) + os.sep,
                     vertical=True,
                     mode=fmt_mode,
                     cookies=cookies,
@@ -832,12 +862,25 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 self.send_json(400, {"success": False, "error": "file_path parameter required"})
                 return
 
-            if not os.path.exists(file_path):
+            try:
+                allowed_file = self._resolve_output_file(file_path)
+            except (ValueError, OSError):
+                self.send_json(
+                    403,
+                    {
+                        "status": "error",
+                        "success": False,
+                        "error": "file_path must be inside the dashboard output directory",
+                    },
+                )
+                return
+
+            if not allowed_file.exists() or not allowed_file.is_file():
                 self.send_json(404, {"status": "error", "success": False, "error": f"File not found: {file_path}"})
                 return
 
             try:
-                res = upload_clip_to_gdrive(file_path, folder_id=folder_id)
+                res = upload_clip_to_gdrive(str(allowed_file), folder_id=folder_id)
                 if res.get("success"):
                     res["status"] = "success"
                     res["link"] = res.get("web_view_link")
@@ -870,6 +913,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
         self._handle_unsupported_method()
 
     def _handle_unsupported_method(self):
+        if not self._require_authorization():
+            return
         all_routes = self.GET_ROUTES | self.POST_ROUTES
         if self.path in all_routes or self.path.startswith("/api/download/"):
             self.send_error(405, "Method Not Allowed")
@@ -877,11 +922,25 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
 
-def start_dashboard_server(port: int = 8080):
-    """Starts the multi-threaded HTTP dashboard server on specified port."""
-    server_address = ("", port)
+def start_dashboard_server(
+    port: int = 8080,
+    host: str = "127.0.0.1",
+    api_token: str | None = None,
+    output_dir: str | Path | None = None,
+):
+    """Start the dashboard with explicit exposure and a dedicated output root."""
+    normalized_host = host.strip() or "127.0.0.1"
+    if normalized_host not in {"127.0.0.1", "::1", "localhost"} and not api_token:
+        raise ValueError("A bearer API token is required when binding beyond loopback")
+    server_address = (normalized_host, port)
     httpd = ThreadingHTTPServer(server_address, ClipperDashboardHandler)
-    print(f"🚀 Dashboard Server do YouTube Clipper rodando em: http://localhost:{port}")
+    httpd.api_token = api_token
+    httpd.output_dir = Path(output_dir or (Path.cwd() / "output")).resolve()
+    httpd.output_dir.mkdir(parents=True, exist_ok=True)
+    print(
+        "🚀 Dashboard Server do YouTube Clipper rodando em: "
+        f"http://{normalized_host}:{port}"
+    )
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

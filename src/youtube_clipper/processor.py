@@ -6,10 +6,11 @@ Provides FFmpegProcessor for clipping and re-encoding video files via FFmpeg sub
 from __future__ import annotations
 
 import shutil
-import subprocess
+import json
 from pathlib import Path
 from typing import List, Optional, Union
 
+from cortes.log import run_cmd
 from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError
 
 
@@ -106,13 +107,7 @@ class FFmpegProcessor:
         cmd.append(str(outp))
 
         try:
-            res = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
+            res = run_cmd(cmd, stage="cut")
             if res.returncode != 0:
                 raise ProcessingError(
                     f"FFmpeg command execution failed with returncode {res.returncode}",
@@ -121,9 +116,43 @@ class FFmpegProcessor:
                     cmd=cmd,
                     exit_code=4,
                 )
-            if not outp.exists():
+            if not outp.exists() or outp.stat().st_size <= 1024:
                 raise ProcessingError(
-                    f"FFmpeg execution completed with code 0 but output file was not created: {outp}",
+                    f"FFmpeg completed but produced an empty or undersized output: {outp}",
+                    cmd=cmd,
+                    exit_code=4,
+                )
+            probe = run_cmd(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-show_entries",
+                    "stream=codec_type",
+                    "-of",
+                    "json",
+                    str(outp),
+                ],
+                stage="verify",
+            )
+            try:
+                metadata = json.loads(probe.stdout) if probe.returncode == 0 else {}
+                measured_duration = float(
+                    metadata.get("format", {}).get("duration", 0.0)
+                )
+                streams = metadata.get("streams", [])
+            except (TypeError, ValueError, json.JSONDecodeError):
+                measured_duration = 0.0
+                streams = []
+            if measured_duration <= 0.0 or not any(
+                stream.get("codec_type") == "video" for stream in streams
+            ):
+                raise ProcessingError(
+                    f"FFmpeg output is not a valid video with positive duration: {outp}",
+                    returncode=probe.returncode,
+                    stderr=probe.stderr,
                     cmd=cmd,
                     exit_code=4,
                 )

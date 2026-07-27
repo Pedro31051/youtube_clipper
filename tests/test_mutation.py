@@ -243,7 +243,7 @@ def test_mutation_4_wrong_video_resolution(golden_run, tmp_path):
     res = verify_run(mut_dir)
     assert res["overall_passed"] is False
     failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
-    assert "video_resolution" in failed_checks
+    assert any(check.startswith("video_resolution::") for check in failed_checks)
 
 
 def test_mutation_5_audio_loudness_out_of_bounds(golden_run, tmp_path):
@@ -290,7 +290,7 @@ def test_mutation_5_audio_loudness_out_of_bounds(golden_run, tmp_path):
     res = verify_run(mut_dir)
     assert res["overall_passed"] is False
     failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
-    assert "audio_lufs_loudness" in failed_checks
+    assert any(check.startswith("audio_lufs_loudness::") for check in failed_checks)
 
 
 def test_mutation_6_video_duration_out_of_bounds(golden_run, tmp_path):
@@ -337,7 +337,7 @@ def test_mutation_6_video_duration_out_of_bounds(golden_run, tmp_path):
     res = verify_run(mut_dir)
     assert res["overall_passed"] is False
     failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
-    assert "video_duration_range" in failed_checks
+    assert any(check.startswith("video_duration_range::") for check in failed_checks)
 
 
 def test_mutation_7_missing_evidence_artifact(golden_run, tmp_path):
@@ -500,4 +500,4 @@ def test_mutation_16_audio_stream_count_mismatch(golden_run, tmp_path):
     res = verify_run(mut_dir)
     assert res["overall_passed"] is False
     failed_checks = [c["check_id"] for c in res["checks"] if not c["passed"]]
-    assert "audio_stream_count" in failed_checks
+    assert any(check.startswith("audio_stream_count::") for check in failed_checks)

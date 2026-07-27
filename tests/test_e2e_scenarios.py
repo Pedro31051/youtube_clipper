@@ -78,7 +78,8 @@ class TestTier3PairwiseCombinations:
             fast=True,
         )
         assert Path(res).exists()
-        assert mock_ffmpeg.has_arg("90.0")  # 01:30 = 90s
+        # The downloader consumes 90s; FFmpeg receives the segment at t=0.
+        assert mock_ffmpeg.has_arg("0.0")
         assert mock_ffmpeg.has_arg("135.0")  # 03:45 - 01:30 = 135s duration
         assert mock_ffmpeg.has_arg("copy")
 
@@ -96,7 +97,7 @@ class TestTier3PairwiseCombinations:
             verbose=True,
         )
         assert Path(res).exists()
-        assert mock_ffmpeg.has_arg("10.5")
+        assert mock_ffmpeg.has_arg("0.0")
         assert mock_ffmpeg.has_arg("14.75")
 
     def test_pairwise_invalid_options_end_and_duration_conflict(
@@ -246,8 +247,8 @@ class TestTier4RealWorldScenarios:
         final_path = Path(result_path)
         assert final_path.exists()
         assert final_path == out_file
-        # 00:02:00 = 120s start, 00:07:00 - 00:02:00 = 300s duration
-        assert mock_ffmpeg.has_arg("120.0")
+        # The downloader consumes 120s; FFmpeg receives the segment at t=0.
+        assert mock_ffmpeg.has_arg("0.0")
         assert mock_ffmpeg.has_arg("300.0")
 
     def test_scenario_3_fast_stream_copying(
