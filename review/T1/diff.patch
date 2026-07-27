@@ -1,0 +1,632 @@
+diff --git a/src/cortes/env.py b/src/cortes/env.py
+new file mode 100644
+index 0000000..891f70e
+--- /dev/null
++++ b/src/cortes/env.py
+@@ -0,0 +1,364 @@
++"""Phase T1 environment checks and independent re-verification."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import pathlib
++import re
++from dataclasses import dataclass
++from datetime import datetime, timezone
++from typing import Any, Callable, Dict, List, Sequence
++
++from cortes.log import audited, run_cmd, set_run_id
++
++
++@dataclass(frozen=True)
++class EnvironmentCheck:
++    """One literal T1 command and its acceptance predicate."""
++
++    check_id: str
++    cmd: str
++    predicate: Callable[[int, str], bool]
++
++
++def _version_at_least_3_11(exit_code: int, stdout: str) -> bool:
++    match = re.search(r"Python\s+(\d+)\.(\d+)", stdout)
++    return bool(
++        exit_code == 0
++        and match
++        and (int(match.group(1)), int(match.group(2))) >= (3, 11)
++    )
++
++
++def _ffmpeg_has_required_libraries(exit_code: int, stdout: str) -> bool:
++    return (
++        exit_code == 0
++        and "--enable-libass" in stdout
++        and "--enable-libfreetype" in stdout
++    )
++
++
++def _exit_zero(exit_code: int, _stdout: str) -> bool:
++    return exit_code == 0
++
++
++def _integer_at_least(minimum: int) -> Callable[[int, str], bool]:
++    def predicate(exit_code: int, stdout: str) -> bool:
++        try:
++            return exit_code == 0 and int(stdout.strip()) >= minimum
++        except ValueError:
++            return False
++
++    return predicate
++
++
++ENVIRONMENT_CHECKS: Sequence[EnvironmentCheck] = (
++    EnvironmentCheck("python_version", "python3 --version", _version_at_least_3_11),
++    EnvironmentCheck(
++        "ffmpeg_libraries",
++        "ffmpeg -version",
++        _ffmpeg_has_required_libraries,
++    ),
++    EnvironmentCheck("ffprobe_available", "ffprobe -version", _exit_zero),
++    EnvironmentCheck(
++        "soundfile_import",
++        'python3 -c "import soundfile"',
++        _exit_zero,
++    ),
++    EnvironmentCheck(
++        "fonts_available",
++        'fc-list | grep -ci "inter|roboto|noto"',
++        _integer_at_least(1),
++    ),
++    EnvironmentCheck(
++        "nvidia_gpu",
++        "nvidia-smi --query-gpu=name,memory.total --format=csv",
++        _exit_zero,
++    ),
++    EnvironmentCheck(
++        "disk_available_gib",
++        "df -B1G --output=avail . | tail -1",
++        _integer_at_least(20),
++    ),
++    EnvironmentCheck("git_available", "git --version", _exit_zero),
++)
++
++INSTALLABLE_CHECKS: Dict[str, str] = {
++    "soundfile_import": "python3-soundfile",
++    "fonts_available": "fonts-noto-core",
++}
++
++
++def _run_one(
++    check: EnvironmentCheck,
++    *,
++    attempt: int,
++    audit: bool,
++    agent: str,
++) -> Dict[str, Any]:
++    proc = run_cmd(
++        check.cmd,
++        stage="env",
++        agent=agent,
++        attempt=attempt,
++        audit=audit,
++    )
++    return {
++        "check_id": check.check_id,
++        "cmd": check.cmd,
++        "stdout": proc.stdout,
++        "exit_code": proc.returncode,
++        "pass": check.predicate(proc.returncode, proc.stdout),
++    }
++
++
++def _validate_run_id(run_id: str) -> None:
++    if not re.fullmatch(r"run_t1_[A-Za-z0-9_-]+", run_id):
++        raise ValueError("T1 run_id must match run_t1_[A-Za-z0-9_-]+")
++
++
++@audited(stage="env", agent="worker_t1")
++def _execute_environment_phase(
++    run_id: str,
++    *,
++    install_missing: bool = False,
++    agent: str = "worker_t1",
++) -> Dict[str, Any]:
++    """Execute checks after the public entry point reserves a fresh run."""
++    run_dir = pathlib.Path("runs") / run_id
++    first_attempt = [
++        _run_one(check, attempt=1, audit=True, agent=agent)
++        for check in ENVIRONMENT_CHECKS
++    ]
++    failed_ids = {
++        result["check_id"] for result in first_attempt if not result["pass"]
++    }
++    history: List[Dict[str, Any]] = [
++        {**result, "attempt": 1} for result in first_attempt
++    ]
++    final_by_id = {result["check_id"]: result for result in first_attempt}
++
++    packages = sorted(
++        {
++            INSTALLABLE_CHECKS[check_id]
++            for check_id in failed_ids
++            if check_id in INSTALLABLE_CHECKS
++        }
++    )
++    if install_missing and packages:
++        run_cmd(
++            ["sudo", "-n", "apt-get", "update"],
++            stage="env",
++            agent=agent,
++            attempt=1,
++        )
++        run_cmd(
++            ["sudo", "-n", "apt-get", "install", "--yes", *packages],
++            stage="env",
++            agent=agent,
++            attempt=1,
++        )
++
++    if failed_ids:
++        for check in ENVIRONMENT_CHECKS:
++            if check.check_id not in failed_ids:
++                continue
++            second = _run_one(check, attempt=2, audit=True, agent=agent)
++            history.append({**second, "attempt": 2})
++            final_by_id[check.check_id] = second
++
++    final_checks = [
++        final_by_id[check.check_id] for check in ENVIRONMENT_CHECKS
++    ]
++    result = {
++        "schema_version": "1.0.0",
++        "run_id": run_id,
++        "overall_passed": all(item["pass"] for item in final_checks),
++        "checks": final_checks,
++        "attempt_history": history,
++    }
++    run_dir.mkdir(parents=True, exist_ok=True)
++    output_path = run_dir / "env_check.json"
++    output_path.write_text(
++        json.dumps(result, indent=2, ensure_ascii=False) + "\n",
++        encoding="utf-8",
++    )
++    return {"result": result, "evidence_paths": [str(output_path)]}
++
++
++def run_environment_phase(
++    run_id: str,
++    *,
++    install_missing: bool = False,
++    agent: str = "worker_t1",
++) -> Dict[str, Any]:
++    """Reserve a fresh immutable run and execute the audited T1 phase."""
++    _validate_run_id(run_id)
++    run_dir = pathlib.Path("runs") / run_id
++    if run_dir.exists() and any(run_dir.iterdir()):
++        raise FileExistsError(f"Refusing to modify existing run: {run_dir}")
++    set_run_id(run_id)
++    return _execute_environment_phase(
++        run_id,
++        install_missing=install_missing,
++        agent=agent,
++    )
++
++
++def verify_environment_run(
++    run_dir: pathlib.Path | str,
++    *,
++    agent: str = "auditor_t1",
++) -> Dict[str, Any]:
++    """Re-run all literal checks without mutating the supplied run."""
++    run_path = pathlib.Path(run_dir).resolve()
++    env_file = run_path / "env_check.json"
++    declared: Dict[str, Any] = {}
++    if env_file.exists():
++        declared = json.loads(env_file.read_text(encoding="utf-8"))
++    declared_by_id = {
++        item.get("check_id"): item for item in declared.get("checks", [])
++    }
++
++    checks: List[Dict[str, Any]] = []
++    for specification in ENVIRONMENT_CHECKS:
++        measured = _run_one(
++            specification,
++            attempt=1,
++            audit=False,
++            agent=agent,
++        )
++        declared_item = declared_by_id.get(specification.check_id)
++        declared_consistent = bool(
++            declared_item
++            and declared_item.get("cmd") == specification.cmd
++            and declared_item.get("pass") is True
++            and specification.predicate(
++                declared_item.get("exit_code", -1),
++                declared_item.get("stdout", ""),
++            )
++        )
++        passed = bool(measured["pass"] and declared_consistent)
++        checks.append(
++            {
++                "check_id": specification.check_id,
++                "passed": passed,
++                "measured": measured["stdout"].strip(),
++                "expected": (
++                    "literal command passes and env_check.json declares the same command"
++                ),
++                "evidence_path": "env_check.json",
++            }
++        )
++
++    passed_count = sum(1 for check in checks if check["passed"])
++    return {
++        "schema_version": "1.0.0",
++        "run_id": run_path.name,
++        "verified_at": datetime.now(timezone.utc).isoformat(),
++        "overall_passed": passed_count == len(checks),
++        "total_checks": len(checks),
++        "passed_checks": passed_count,
++        "failed_checks": len(checks) - passed_count,
++        "checks": checks,
++    }
++
++
++def summarize_environment_run(run_dir: pathlib.Path | str) -> Dict[str, Any]:
++    """Convert the final recorded attempts into a deterministic blocked verdict."""
++    run_path = pathlib.Path(run_dir).resolve()
++    env_file = run_path / "env_check.json"
++    declared = json.loads(env_file.read_text(encoding="utf-8"))
++    events_file = run_path / "events.jsonl"
++    event_rows = (
++        [
++            json.loads(line)
++            for line in events_file.read_text(encoding="utf-8").splitlines()
++            if line.strip()
++        ]
++        if events_file.exists()
++        else []
++    )
++    declared_by_id = {
++        item.get("check_id"): item for item in declared.get("checks", [])
++    }
++    checks: List[Dict[str, Any]] = []
++    for specification in ENVIRONMENT_CHECKS:
++        item = declared_by_id.get(specification.check_id, {})
++        passed = bool(
++            item.get("cmd") == specification.cmd
++            and specification.predicate(
++                item.get("exit_code", -1),
++                item.get("stdout", ""),
++            )
++            and item.get("pass") is True
++        )
++        checks.append(
++            {
++                "check_id": specification.check_id,
++                "passed": passed,
++                "measured": item.get("stdout", "").strip() or "(empty stdout)",
++                "expected": "recorded final attempt satisfies the T1 criterion",
++                "evidence_path": "env_check.json",
++            }
++        )
++
++    passed_count = sum(1 for check in checks if check["passed"])
++    return {
++        "schema_version": "1.0.0",
++        "run_id": run_path.name,
++        "verified_at": (
++            max(
++                event_rows,
++                key=lambda item: datetime.fromisoformat(
++                    item["ts"].replace("Z", "+00:00")
++                ),
++            )["ts"]
++            if event_rows
++            else "N/A"
++        ),
++        "overall_passed": passed_count == len(checks),
++        "total_checks": len(checks),
++        "passed_checks": passed_count,
++        "failed_checks": len(checks) - passed_count,
++        "checks": checks,
++    }
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description="Execute or verify Phase T1")
++    parser.add_argument("--run-id")
++    parser.add_argument("--install-missing", action="store_true")
++    parser.add_argument("--verify", type=pathlib.Path)
++    parser.add_argument("--summarize", type=pathlib.Path)
++    parser.add_argument("--output", type=pathlib.Path)
++    args = parser.parse_args()
++
++    if args.verify or args.summarize:
++        source = args.verify or args.summarize
++        result = (
++            verify_environment_run(source)
++            if args.verify
++            else summarize_environment_run(source)
++        )
++        payload = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
++        if args.output:
++            args.output.parent.mkdir(parents=True, exist_ok=True)
++            args.output.write_text(payload, encoding="utf-8")
++        else:
++            print(payload, end="")
++        raise SystemExit(0 if result["overall_passed"] else 1)
++
++    if not args.run_id:
++        parser.error("--run-id is required for phase execution")
++    phase = run_environment_phase(
++        args.run_id,
++        install_missing=args.install_missing,
++    )
++    print(json.dumps(phase["result"], indent=2, ensure_ascii=False))
++    raise SystemExit(0 if phase["result"]["overall_passed"] else 1)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/cortes/log.py b/src/cortes/log.py
+index 83f74fe..8856e3e 100644
+--- a/src/cortes/log.py
++++ b/src/cortes/log.py
+@@ -260,7 +260,6 @@ def audited(
+         @functools.wraps(func)
+         def wrapper(*args, **kwargs) -> Any:
+             start_time = time.perf_counter()
+-            start_ts = datetime.now(timezone.utc).isoformat()
+             span_id = uuid.uuid4().hex[:16]
+ 
+             # Calculate deterministic args_hash
+@@ -329,7 +328,6 @@ def audited(
+                     evidence={"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes},
+                     outcome=outcome,
+                     error=error_msg,
+-                    ts=start_ts,
+                 )
+ 
+         return wrapper
+@@ -342,6 +340,7 @@ def run_cmd(
+     cwd: Optional[str] = None,
+     agent: str = "worker",
+     stage: str = "cmd",
++    attempt: int = 1,
+     check: bool = False,
+     env: Optional[Dict[str, str]] = None,
+     video_id: str = "unknown",
+@@ -420,6 +419,7 @@ def run_cmd(
+         agent=agent,
+         video_id=video_id,
+         clip_id=clip_id,
++        attempt=attempt,
+         severity=severity,
+         duration_ms=duration_ms,
+         tool=tool_name,
+diff --git a/tests/test_contracts.py b/tests/test_contracts.py
+index 8e7a896..a10bee0 100644
+--- a/tests/test_contracts.py
++++ b/tests/test_contracts.py
+@@ -11,6 +11,7 @@ import ast
+ import pathlib
+ import pytest
+ import json
++from datetime import datetime
+ from typing import List
+ from cortes.log import (
+     audited,
+@@ -77,6 +78,19 @@ def test_ast_stage_functions_have_audited_decorator():
+     )
+ 
+ 
++def test_t1_environment_execution_is_audited():
++    """The T1 execution boundary must emit an audited env-stage event."""
++    env_file = pathlib.Path(__file__).parent.parent / "src" / "cortes" / "env.py"
++    tree = ast.parse(env_file.read_text(encoding="utf-8"), filename=str(env_file))
++    runner = next(
++        node
++        for node in tree.body
++        if isinstance(node, ast.FunctionDef)
++        and node.name == "_execute_environment_phase"
++    )
++    assert any(is_audited_decorator(dec) for dec in runner.decorator_list)
++
++
+ def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
+     """Helper to scan an AST tree for prohibited subprocess, system, eval/exec, and dynamic import patterns."""
+     violations = []
+@@ -321,3 +335,28 @@ def test_run_cmd_subprocesses_logged(tmp_path):
+     assert event["tool"] == "echo"
+     assert event["cmd"] == "echo hello_world"
+     assert event["exit_code"] == 0
++
++
++def test_audited_final_event_timestamp_follows_nested_commands(
++    tmp_path, monkeypatch
++):
++    """A decorator's final event cannot predate commands emitted inside it."""
++    monkeypatch.chdir(tmp_path)
++    set_run_id("run_t1_nested_timestamp")
++
++    @audited(stage="env")
++    def stage_with_command():
++        run_cmd(["echo", "nested"], stage="env")
++
++    stage_with_command()
++    events_file = get_run_dir("run_t1_nested_timestamp") / "events.jsonl"
++    events = [
++        json.loads(line)
++        for line in events_file.read_text(encoding="utf-8").splitlines()
++        if line.strip()
++    ]
++    timestamps = [
++        datetime.fromisoformat(event["ts"].replace("Z", "+00:00"))
++        for event in events
++    ]
++    assert timestamps == sorted(timestamps)
+diff --git a/tests/test_env.py b/tests/test_env.py
+new file mode 100644
+index 0000000..af02999
+--- /dev/null
++++ b/tests/test_env.py
+@@ -0,0 +1,159 @@
++"""Regression tests for the formal Phase T1 environment contract."""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import patch
++
++import pytest
++
++from cortes.env import (
++    ENVIRONMENT_CHECKS,
++    run_environment_phase,
++    summarize_environment_run,
++    verify_environment_run,
++)
++
++
++PASSING_OUTPUTS = {
++    "python3 --version": "Python 3.12.3\n",
++    "ffmpeg -version": (
++        "ffmpeg version 6.1 --enable-libass --enable-libfreetype\n"
++    ),
++    "ffprobe -version": "ffprobe version 6.1\n",
++    'python3 -c "import soundfile"': "",
++    'fc-list | grep -ci "inter|roboto|noto"': "4\n",
++    "nvidia-smi --query-gpu=name,memory.total --format=csv": (
++        "name, memory.total [MiB]\nTesla T4, 15360 MiB\n"
++    ),
++    "df -B1G --output=avail . | tail -1": "20\n",
++    "git --version": "git version 2.43.0\n",
++}
++
++
++def _passing_run_cmd(cmd, **_kwargs):
++    command = cmd if isinstance(cmd, str) else " ".join(cmd)
++    return SimpleNamespace(
++        returncode=0,
++        stdout=PASSING_OUTPUTS.get(command, ""),
++        stderr="",
++    )
++
++
++def test_environment_phase_writes_all_literal_checks(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.chdir(tmp_path)
++    with patch("cortes.env.run_cmd", side_effect=_passing_run_cmd):
++        phase = run_environment_phase("run_t1_test_all_pass")
++
++    result = phase["result"]
++    assert result["overall_passed"] is True
++    assert len(result["checks"]) == 8
++    assert [item["cmd"] for item in result["checks"]] == [
++        check.cmd for check in ENVIRONMENT_CHECKS
++    ]
++    stored = json.loads(
++        (tmp_path / "runs/run_t1_test_all_pass/env_check.json").read_text()
++    )
++    assert stored == result
++
++
++def test_environment_phase_retries_failure_and_records_install(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.chdir(tmp_path)
++    soundfile_attempts = 0
++    commands = []
++
++    def fake_run(cmd, **kwargs):
++        nonlocal soundfile_attempts
++        command = cmd if isinstance(cmd, str) else " ".join(cmd)
++        commands.append((command, kwargs.get("attempt")))
++        if command == 'python3 -c "import soundfile"':
++            soundfile_attempts += 1
++            if soundfile_attempts == 1:
++                return SimpleNamespace(
++                    returncode=1,
++                    stdout="",
++                    stderr="ModuleNotFoundError: soundfile\n",
++                )
++        return _passing_run_cmd(cmd, **kwargs)
++
++    with patch("cortes.env.run_cmd", side_effect=fake_run):
++        phase = run_environment_phase(
++            "run_t1_test_install",
++            install_missing=True,
++        )
++
++    assert phase["result"]["overall_passed"] is True
++    assert soundfile_attempts == 2
++    assert any("apt-get install --yes python3-soundfile" in cmd for cmd, _ in commands)
++    history = phase["result"]["attempt_history"]
++    assert [item["attempt"] for item in history if item["check_id"] == "soundfile_import"] == [1, 2]
++
++
++def test_environment_phase_refuses_to_modify_existing_run(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.chdir(tmp_path)
++    existing = tmp_path / "runs/run_t1_existing"
++    existing.mkdir(parents=True)
++    (existing / "events.jsonl").write_text("{}\n")
++
++    with pytest.raises(FileExistsError, match="Refusing to modify existing run"):
++        run_environment_phase("run_t1_existing")
++
++
++def test_verifier_rejects_tampered_declaration(
++    tmp_path: Path,
++) -> None:
++    run_dir = tmp_path / "run_t1_verify"
++    run_dir.mkdir()
++    declared = {
++        "checks": [
++            {
++                "check_id": check.check_id,
++                "cmd": check.cmd,
++                "stdout": PASSING_OUTPUTS[check.cmd],
++                "exit_code": 0,
++                "pass": True,
++            }
++            for check in ENVIRONMENT_CHECKS
++        ]
++    }
++    declared["checks"][0]["cmd"] = "python --version"
++    (run_dir / "env_check.json").write_text(json.dumps(declared))
++
++    with patch("cortes.env.run_cmd", side_effect=_passing_run_cmd):
++        result = verify_environment_run(run_dir)
++
++    assert result["overall_passed"] is False
++    failed = [check["check_id"] for check in result["checks"] if not check["passed"]]
++    assert failed == ["python_version"]
++
++
++def test_summary_preserves_recorded_failure(tmp_path: Path) -> None:
++    run_dir = tmp_path / "run_t1_blocked"
++    run_dir.mkdir()
++    checks = [
++        {
++            "check_id": check.check_id,
++            "cmd": check.cmd,
++            "stdout": PASSING_OUTPUTS[check.cmd],
++            "exit_code": 0,
++            "pass": True,
++        }
++        for check in ENVIRONMENT_CHECKS
++    ]
++    fonts = next(item for item in checks if item["check_id"] == "fonts_available")
++    fonts.update({"stdout": "0\n", "exit_code": 1, "pass": False})
++    (run_dir / "env_check.json").write_text(json.dumps({"checks": checks}))
++
++    result = summarize_environment_run(run_dir)
++
++    assert result["overall_passed"] is False
++    assert result["passed_checks"] == 7
++    assert result["failed_checks"] == 1

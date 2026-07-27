@@ -1,0 +1,8 @@
+# Files Changed — T1 implementation commit d782b61
+
+| Path | Before SHA-256 | After SHA-256 | After bytes |
+|---|---|---|---:|
+| `src/cortes/env.py` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` | `dddf4a15a2b505358c8e6a814b46c3abde0197cce5876dfd754794f698caa973` | 11248 |
+| `src/cortes/log.py` | `2daf635f2847fa4f5ada13cb08ad267f7bb4bf67d25307becf30ba58399813a4` | `ec3a15bcd46fe4571741c61b1c51432f627ae86c0530b2d4fb1519a41b75156b` | 14732 |
+| `tests/test_contracts.py` | `f0dd681b5e645879392ebe369483fa30b1b32084c17d9a0bdf3fd6239f5ecab4` | `c548ae20b1d98a206ac08fc3d0ca5f0b30ab66a47a0480346cbf8918a12f74c0` | 15199 |
+| `tests/test_env.py` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` | `22c9cd544f69f2a3795a1f6748954ef1ded87b0bcda5d14ef51a56eb1008cbe7` | 5114 |
