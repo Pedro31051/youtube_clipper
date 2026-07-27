@@ -1,0 +1,11 @@
++ date -u +%Y-%m-%dT%H:%M:%SZ
++ git status --short --branch
++ git remote -v
++ git rev-parse HEAD
++ git branch --show-current
++ git log -10 --oneline --decorate
++ git rev-parse origin/main
++ git fetch --dry-run origin
++ head -5
++ git diff --stat fbe8cc5462537dbcaa44ddf6c9182ac218b22c25 HEAD -- src tests review
++ echo DIFF_SRC_TESTS_REVIEW_VS_BASELINE_EMPTY=0

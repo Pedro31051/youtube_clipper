@@ -1,0 +1,54 @@
+ls: cannot access '.github': No such file or directory
+ls: cannot access '.github/workflows': No such file or directory
+* f35a751 (origin/agent/fiscalizacao-chatgpt-t0) docs: add mandatory T0 audit redo instructions
+* b82be63 audit: add ChatGPT T0 fiscal review
+* 4ffe6f4 (HEAD -> agent/auditoria-independente-t0, origin/agent/auditoria-independente-t0) docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+| * 696be7c (origin/agent/plano-revisao-independente-t0) docs: remove superseded GPT review folder
+| * d46d4ec docs: remove plan from review area
+| * 406edb9 docs: define GPT resultados area
+| * c19a7b2 docs: move GPT review plan to resultados
+| * 303265a docs: remove superseded plan outside GPT area
+| * 5717ef8 docs: define isolated GPT review area
+| * 1b5264a docs: move independent review plan under GPT area
+| * feb3781 docs: add independent T0 review plan
+|/  
+* fbe8cc5 (origin/main, main) feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+* f4f13a3 Phase T0: Implementation of cortes evidence logging, verification engine, report generator, contracts, and mutation tests
+* 8be03ac Initial base commit before Phase T0
+--- commits que introduziram T0 e em que branch estao ---
+fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+f4f13a3 Phase T0: Implementation of cortes evidence logging, verification engine, report generator, contracts, and mutation tests
+8be03ac Initial base commit before Phase T0
+--- branches que contem cada commit T0 ---
+commit fbe8cc5462537dbcaa44ddf6c9182ac218b22c25:
+    * agent/auditoria-independente-t0
+      main
+      remotes/origin/agent/auditoria-independente-t0
+      remotes/origin/agent/fiscalizacao-chatgpt-t0
+      remotes/origin/agent/plano-revisao-independente-t0
+      remotes/origin/main
+commit f4f13a34df1067678a36602336881774023b4d8a:
+    * agent/auditoria-independente-t0
+      main
+      remotes/origin/agent/auditoria-independente-t0
+      remotes/origin/agent/fiscalizacao-chatgpt-t0
+      remotes/origin/agent/plano-revisao-independente-t0
+      remotes/origin/main
+commit 8be03ac9ab63199a3a205e245d0d112489fa380c:
+    * agent/auditoria-independente-t0
+      main
+      remotes/origin/agent/auditoria-independente-t0
+      remotes/origin/agent/fiscalizacao-chatgpt-t0
+      remotes/origin/agent/plano-revisao-independente-t0
+      remotes/origin/main
+--- PRs no repositorio ---
+1	Fiscalização ChatGPT da auditoria T0	agent/fiscalizacao-chatgpt-t0	DRAFT	2026-07-27T00:46:50Z
+--- check runs do commit baseline ---
+{"total_count":0,"check_runs":[]}--- status do commit baseline ---
+{"state":"pending","statuses":[],"sha":"fbe8cc5462537dbcaa44ddf6c9182ac218b22c25","total_count":0,"repository":{"id":1313231058,"node_id":"R_kgDOTkZQ0g","name":"youtube_clipper","full_name":"Pedro31051/youtube_clipper","private":true,"owner":{"login":"Pedro31051","id":214898302,"node_id":"U_kgDODM8Wfg","avatar_url":"https://avatars.githubusercontent.com/u/214898302?v=4","gravatar_id":"","url":"https://api.github.com/users/Pedro31051","html_url":"https://github.com/Pedro31051","followers_url":"https://api.github.com/users/Pedro31051/followers","following_url":"https://api.github.com/users/Pedro31051/following{/other_user}","gists_url":"https://api.github.com/users/Pedro31051/gists{/gist_id}","starred_url":"https://api.github.com/users/Pedro31051/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/Pedro31051/subscriptions","organizations_url":"https://api.github.com/users/Pedro31051/orgs","repos_url":"https://api.github.com/users/Pedro31051/repos","events_url":"https://api.github.com/users/Pedro31051/events{/privacy}","received_events_url":"https://api.github.com/users/Pedro31051/received_events","type":"User","user_view_type":"public","site_admin":false},"html_url":"https://github.com/Pedro31051/youtube_clipper","description":null,"fork":false,"url":"https://api.github.com/repos/Pedro31051/youtube_clipper","forks_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/forks","keys_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/keys{/key_id}","collaborators_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/collaborators{/collaborator}","teams_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/teams","hooks_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/hooks","issue_events_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/issues/events{/number}","events_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/events","assignees_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/assignees{/user}","branches_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/branches{/branch}","tags_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/tags","blobs_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/git/blobs{/sha}","git_tags_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/git/tags{/sha}","git_refs_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/git/refs{/sha}","trees_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/git/trees{/sha}","statuses_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/statuses/{sha}","languages_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/languages","stargazers_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/stargazers","contributors_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/contributors","subscribers_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/subscribers","subscription_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/subscription","commits_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/commits{/sha}","git_commits_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/git/commits{/sha}","comments_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/comments{/number}","issue_comment_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/issues/comments{/number}","contents_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/contents/{+path}","compare_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/compare/{base}...{head}","merges_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/merges","archive_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/{archive_format}{/ref}","downloads_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/downloads","issues_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/issues{/number}","pulls_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/pulls{/number}","milestones_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/milestones{/number}","notifications_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/notifications{?since,all,participating}","labels_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/labels{/name}","releases_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/releases{/id}","deployments_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/deployments"},"commit_url":"https://api.github.com/repos/Pedro31051/youtube_clipper/commits/fbe8cc5462537dbcaa44ddf6c9182ac218b22c25","url":"https://api.github.com/repos/Pedro31051/youtube_clipper/commits/fbe8cc5462537dbcaa44ddf6c9182ac218b22c25/status"}--- workflows registrados no GitHub ---
+{"total_count":0,"workflows":[]}--- branches remotas ---
+agent/auditoria-independente-t0
+agent/fiscalizacao-chatgpt-t0
+agent/plano-revisao-independente-t0
+main
+--- contagem documentada x coletada ---

@@ -1,0 +1,36 @@
++ ls -la .github
++ ls -la .github/workflows
++ git log --all --oneline --decorate --graph
++ head -20
++ echo '--- commits que introduziram T0 e em que branch estao ---'
++ git log --oneline origin/main
++ echo '--- branches que contem cada commit T0 ---'
+++ git log --format=%H origin/main
++ for c in $(git log --format=%H origin/main)
++ echo 'commit fbe8cc5462537dbcaa44ddf6c9182ac218b22c25:'
++ git branch -a --contains fbe8cc5462537dbcaa44ddf6c9182ac218b22c25
++ sed 's/^/    /'
++ for c in $(git log --format=%H origin/main)
++ echo 'commit f4f13a34df1067678a36602336881774023b4d8a:'
++ git branch -a --contains f4f13a34df1067678a36602336881774023b4d8a
++ sed 's/^/    /'
++ for c in $(git log --format=%H origin/main)
++ echo 'commit 8be03ac9ab63199a3a205e245d0d112489fa380c:'
++ git branch -a --contains 8be03ac9ab63199a3a205e245d0d112489fa380c
++ sed 's/^/    /'
++ echo '--- PRs no repositorio ---'
++ gh pr list --state all --limit 20
++ echo '--- check runs do commit baseline ---'
++ gh api repos/Pedro31051/youtube_clipper/commits/fbe8cc5462537dbcaa44ddf6c9182ac218b22c25/check-runs
++ head -20
++ echo '--- status do commit baseline ---'
++ gh api repos/Pedro31051/youtube_clipper/commits/fbe8cc5462537dbcaa44ddf6c9182ac218b22c25/status
++ head -20
++ echo '--- workflows registrados no GitHub ---'
++ gh api repos/Pedro31051/youtube_clipper/actions/workflows
++ head -20
++ echo '--- branches remotas ---'
++ gh api repos/Pedro31051/youtube_clipper/branches --jq '.[].name'
++ echo '--- contagem documentada x coletada ---'
++ grep -rno '4[0-9][0-9] \(testes\|tests\|passed\)' review/T0/CRITICA_INTERNA.md review/T0/DECISOES.md review/T0/LIMITACOES.md review/T0/PACOTE.md review/T0/report.md PROJECT.md TEST_READY.md
++ head -20

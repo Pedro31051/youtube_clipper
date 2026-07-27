@@ -1,0 +1,34 @@
++ ls -la .github
++ ls -la .github/workflows
++ git ls-files '.github/*'
++ wc -l
++ gh api repos/Pedro31051/youtube_clipper/actions/workflows --jq .total_count
++ gh api repos/Pedro31051/youtube_clipper/actions/runs --jq .total_count
++ gh api repos/Pedro31051/youtube_clipper/commits/fbe8cc5462537dbcaa44ddf6c9182ac218b22c25/check-runs --jq '{total: .total_count}'
++ gh api repos/Pedro31051/youtube_clipper/commits/fbe8cc5462537dbcaa44ddf6c9182ac218b22c25/status --jq '{state: .state, total: (.statuses|length)}'
++ gh pr list --repo Pedro31051/youtube_clipper --state all --json number,title,headRefName,state
++ gh api repos/Pedro31051/youtube_clipper/branches --jq '[.[] | {name: .name, protected: .protected}]'
++ echo '--- COMMITS T0: em qual branch foram feitos ---'
++ git log --oneline --decorate --all --graph
++ echo '--- branches que contem cada commit T0 ---'
++ for c in 8be03ac f4f13a3 fbe8cc5 4ffe6f4
++ echo 'commit 8be03ac ->'
++ git branch -a --contains 8be03ac
++ for c in 8be03ac f4f13a3 fbe8cc5 4ffe6f4
++ echo 'commit f4f13a3 ->'
++ git branch -a --contains f4f13a3
++ for c in 8be03ac f4f13a3 fbe8cc5 4ffe6f4
++ echo 'commit fbe8cc5 ->'
++ git branch -a --contains fbe8cc5
++ for c in 8be03ac f4f13a3 fbe8cc5 4ffe6f4
++ echo 'commit 4ffe6f4 ->'
++ git branch -a --contains 4ffe6f4
++ echo '--- primeiro commit de cada branch remota ---'
++ git log origin/main --oneline
++ echo '--- regra escrita sobre commits na main ---'
++ grep -rn main agents.md PROJECT.md
++ grep -i 'branch\|commit\|nao\|não\|proib'
++ head -20
++ echo '--- contagem de testes documentada x coletada ---'
++ grep -rno '4[0-9][0-9] \(testes\|tests\|passed\)' ORIGINAL_REQUEST.md PLANO_MELHORIAS.md PROJECT.md README.md TEST_INFRA.md TEST_READY.md agents.md review/T0/CRITICA_INTERNA.md review/T0/DECISOES.md review/T0/LIMITACOES.md review/T0/PACOTE.md review/T0/report.md
++ head -20

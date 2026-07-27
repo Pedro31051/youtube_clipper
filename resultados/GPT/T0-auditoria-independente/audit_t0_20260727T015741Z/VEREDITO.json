@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "repository": "Pedro31051/youtube_clipper",
+  "baseline_sha": "fbe8cc5462537dbcaa44ddf6c9182ac218b22c25",
+  "branch_head_at_start": "4ffe6f4f5220654d7e315e5a5c893a749a43f721",
+  "run_id": "audit_t0_20260727T015741Z",
+  "supersedes_run_id": "audit_t0_20260726T234421Z",
+  "supersede_reason": "Run anterior reprovado pelo Parecer de Fiscalizacao ChatGPT (FISC-GPT-001 a FISC-GPT-009). O run reprovado permanece preservado e intacto.",
+  "verdict": "NAO_APTA_PARA_T1",
+  "pytest": {
+    "exit_code": 0,
+    "collected": 462,
+    "passed": 462,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "duration_seconds": 109.98,
+    "contracts": { "collected": 7, "passed": 7 },
+    "mutation": { "collected": 17, "passed": 17 }
+  },
+  "hypotheses": {
+    "confirmed": ["H01", "H02", "H03", "H04", "H05", "H06", "H07", "H08"],
+    "refuted": [],
+    "inconclusive": [],
+    "blocked": []
+  },
+  "findings": [
+    {
+      "id": "AUD-T0-003",
+      "title": "Golden run nao e verificavel fora da maquina original; artefatos declarados nao estao no pacote nem versionados",
+      "severity": "CRITICA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H03",
+      "evidence_paths": ["evidencias/08-portabilidade.txt", "evidencias/08-portabilidade.stderr.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0009"]
+    },
+    {
+      "id": "AUD-T0-005",
+      "title": "Pipeline reaplica o offset absoluto e aceita MP4 invalido como sucesso",
+      "severity": "CRITICA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H05",
+      "evidence_paths": ["evidencias/10-corte-duplo.att3.txt", "evidencias/10-corte-duplo.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0014", "audit_t0_20260727T015741Z#0012"]
+    },
+    {
+      "id": "AUD-T0-001",
+      "title": "Scanner AST de exclusividade de run_cmd() varre apenas src/cortes/",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H01",
+      "evidence_paths": ["evidencias/06-subprocess-scan.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0007"]
+    },
+    {
+      "id": "AUD-T0-002",
+      "title": "Contrato de decorador @audited passa por vacuidade: nenhum modulo de estagio existe",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H02",
+      "evidence_paths": ["evidencias/07-stage-modules.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0008"]
+    },
+    {
+      "id": "AUD-T0-004",
+      "title": "cortes.verify nao e read-only e cria run colateral no diretorio de trabalho",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H04",
+      "evidence_paths": ["evidencias/09-verificador-readonly.txt", "evidencias/09-verificador-readonly.att2.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0010", "audit_t0_20260727T015741Z#0011"]
+    },
+    {
+      "id": "AUD-T0-006",
+      "title": "Dashboard sem autenticacao expoe leitura de arquivos, upload de caminho arbitrario e estado global mutavel",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H06",
+      "evidence_paths": ["evidencias/11-dashboard-superficie.att3.txt", "evidencias/11-dashboard-superficie.stderr.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0018", "audit_t0_20260727T015741Z#0015"]
+    },
+    {
+      "id": "AUD-T0-009",
+      "title": "Ausencia de artefatos reduz silenciosamente total_checks e e aprovada como sucesso",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "hypothesis": "E4",
+      "evidence_paths": ["evidencias/14-mutacao-cobertura.att3.txt", "evidencias/08-portabilidade.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0022", "audit_t0_20260727T015741Z#0009"]
+    },
+    {
+      "id": "AUD-T0-007",
+      "title": "Nao existe integracao continua comprovando a suite",
+      "severity": "MEDIA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H07",
+      "evidence_paths": ["evidencias/12-ci-e-branches.att2.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0019"]
+    },
+    {
+      "id": "AUD-T0-008",
+      "title": "Commits de implementacao da T0 feitos diretamente em main",
+      "severity": "MEDIA",
+      "status": "CONFIRMADO",
+      "hypothesis": "H08",
+      "evidence_paths": ["evidencias/12-ci-e-branches.att2.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0019"]
+    },
+    {
+      "id": "AUD-T0-010",
+      "title": "check_id duplicado torna o resultado ambiguo com multiplos MP4s",
+      "severity": "BAIXA",
+      "status": "CONFIRMADO",
+      "hypothesis": "E4",
+      "evidence_paths": ["evidencias/14-mutacao-cobertura.att3.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0022"]
+    },
+    {
+      "id": "AUD-T0-011",
+      "title": "Contagem de testes documentada (406) diverge da coletada (462)",
+      "severity": "BAIXA",
+      "status": "CONFIRMADO",
+      "hypothesis": null,
+      "evidence_paths": ["evidencias/12-ci-e-branches.att2.txt", "evidencias/03-pytest-completo.txt"],
+      "reproduction_command_ids": ["audit_t0_20260727T015741Z#0019", "audit_t0_20260727T015741Z#0004"]
+    }
+  ],
+  "blocking_gates_triggered": [
+    "subprocesso produtivo fora do ponto autorizado",
+    "verificador altera o run e depende do diretorio de trabalho",
+    "golden run nao verificavel apos relocacao em maquina limpa",
+    "caminhos absolutos tornam a prova dependente da maquina original",
+    "teste contratual passa por ausencia silenciosa dos modulos examinados",
+    "verificacao nao rejeita corrupcao relevante (remocao de artefatos)",
+    "arquivo de midia invalido aceito como sucesso"
+  ],
+  "counter_evidence": [
+    "Os 14 checks de verify.py tem cobertura de teste de mutacao; nenhum ficou descoberto",
+    "A assercao de test_mutation_1_byte_corruption sustenta o teste (inversao falha, remocao da corrupcao falha)",
+    "Corrupcao de bytes do MP4 e adulteracao do SHA declarado sao rejeitadas",
+    "Travessia de caminho no dashboard e bloqueada com HTTP 400",
+    "Pipeline funciona corretamente no cenario de controle 0-10 s (10,024 s medidos)",
+    "review/T0 permaneceu integra por hash durante toda a auditoria"
+  ],
+  "limitations": [
+    "Nenhum download de midia de terceiros do YouTube; midia de teste gerada localmente com ffmpeg lavfi",
+    "Nenhuma credencial OAuth, cookie ou chave foi lida; o uploader do Google Drive foi substituido por duble e nenhum envio real ocorreu",
+    "O dashboard foi executado apenas em 127.0.0.1 com porta efemera; nenhuma interface publica foi aberta",
+    "A simulacao de maquina limpa usa contêiner Docker local sem acesso a /home; nao equivale a validacao em hardware de terceiros",
+    "A auditoria nao corrige codigo: todos os achados permanecem apenas documentados"
+  ],
+  "generated_at_utc": "2026-07-27T02:30:00Z"
+}

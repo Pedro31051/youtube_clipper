@@ -1,0 +1,52 @@
+== H04.1 — impressão digital da área oficial review/T0 ANTES ==
+  arquivos: 17
+    2d76d0d12df7525ef162ac98b21b90d7158e04dd69978b537a1a164f640c391c  CRITICA_INTERNA.md
+    7b2dda7938b89077b3fa4048f489eb9c5dacd0a03abfbfc6539d716ff285dd98  DECISOES.md
+    3db21760a110657a8289e96647ffe56f05abadefa0380ac686fad74c8cce7351  LIMITACOES.md
+    9d363faf29de07202a7a4040ded55a13405a59df79788f4d12655d0c434bca5e  PACOTE.md
+    512724afc9e59af109baed29d13c979e29af8a99efda6502d113968393732ffe  diff.patch
+    4aab359d145eca5ae182ffd4b935462f556d68a50db0cfcac65bd6014287e56e  files_changed.txt
+    23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  report.md
+    7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42  runs/run_t0_golden/artifacts/cut_info.json
+    c8c886a6a541d92d72951272385b53498b892ee5371b7722087b9e8f1d7f1a43  runs/run_t0_golden/artifacts/render/short.mp4
+    64843e0582af8f24f157bf734145bcd4a91996bce321a78d70fc55b581e69941  runs/run_t0_golden/artifacts/source_metadata.json
+    82bfb89f5930876de3e47fb768de1606b8d5d3ecc763de1a5a199f5bf8c38b2a  runs/run_t0_golden/artifacts/subtitles.ass
+    4076c13c0f0dd87d686d34085c0239b1360c3fd1e49d670516b72528c905bffe  runs/run_t0_golden/artifacts/transcript.json
+    23c40f9b64444ff5eeac285c48b8fdf0dd3f1cf25690d23f673894f86f209aa3  runs/run_t0_golden/commands.log
+    e5d558f16274326f7df8a941dffb07c1ef20d93808c2bce1a20f24bca2f77d95  runs/run_t0_golden/events.jsonl
+    23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  runs/run_t0_golden/report.md
+    be66ac1b31530efef5b274f206424fd967a020824f91dc8d86d2511b350631a9  runs/run_t0_golden/verify_result.json
+    5562691cec75bca732cdc8a5d91ad2a52763b3e1618524c60bf47991d6c55ddb  verify_result.json
+
+== H04.2 — estado da CÓPIA e do CWD antes ==
+  arquivos na cópia: 9
+  entradas no CWD do verificador: 0 -> []
+  CORTES_RUN_ID definido no ambiente? False
+
+== H04.3 — execução do verificador sobre a cópia isolada ==
+  comando: python -m cortes.verify <copia>   (cwd=/tmp/h04_x0f7lt65/cwd_sandbox)
+  exit_code=0
+  stderr=<vazio>
+
+== H04.4 — efeitos colaterais medidos ==
+  DENTRO do run verificado:
+    criados     (0): []
+    modificados (1): ['verify_result.json']
+    apagados    (0): []
+      verify_result.json: be66ac1b31530efe... -> 2476f4658ab44eed...
+  FORA do run verificado, no diretório de trabalho (4):
+    runs
+    runs/run_20260727_021245
+    runs/run_20260727_021245/commands.log
+    runs/run_20260727_021245/events.jsonl
+    -> runs colaterais criados pelo próprio verificador: ['runs/run_20260727_021245']
+       runs/run_20260727_021245/events.jsonl -> 2 eventos gravados pelo verificador
+  H04_VERIFICADOR_READONLY=False
+
+== H04.5 — a área oficial review/T0 permaneceu intacta? ==
+  hashes idênticos antes/depois: True
+  git status --short review/ runs/ ->
+    <limpo>
+
+H04_ESTADO=CONFIRMADA
+H04_AREA_OFICIAL_PRESERVADA=True

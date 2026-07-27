@@ -1,0 +1,21 @@
++ git status --short
++ git status --short --untracked-files=all -- src tests review runs
++ echo '--- diff --stat contra HEAD ---'
++ git diff --stat
++ echo '--- diff --stat contra a baseline, restrito a codigo e pacote oficial ---'
++ git diff --stat fbe8cc5462537dbcaa44ddf6c9182ac218b22c25 HEAD -- src tests review
++ echo '--- arquivos novos, agrupados por area ---'
++ git status --porcelain --untracked-files=all
++ awk '{print $2}'
++ sed 's#/[^/]*$##'
++ sort -u
++ echo '--- integridade da area oficial review/T0 ---'
++ find review/T0 -type f -print0
++ sort -z
++ xargs -0 sha256sum
++ echo '--- run anterior preservado? ---'
++ git log --oneline -1 -- resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z
++ find resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z -type f
++ wc -l
++ git status --short resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z
++ echo '(vazio acima = run anterior intacto)'

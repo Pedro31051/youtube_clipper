@@ -1,0 +1,2 @@
+== H06.1 — endereço de bind (medido no AST, não afirmado) ==
+  web_dashboard.py:882 -> server_address = ('', port)

@@ -1,0 +1,161 @@
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md
+resultados/GPT/README.md
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/COMANDOS.jsonl
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/HIPOTESES.csv
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/INVENTARIO.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/LIMITACOES.md
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/MANIFESTO_SHA256.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/PACOTE.md
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/RELATORIO.md
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/VEREDITO.json
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/00-baseline-git.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/01-ambiente.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/02-arquivos-relevantes.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/03-pytest-completo.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/04-pytest-contracts.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/05-pytest-mutation.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/06-subprocess-scan.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/07-stage-modules.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/08-portabilidade.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/09-verificador-readonly.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/10-corte-duplo.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/11-dashboard-superficie.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/12-ci-e-branches.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/13-git-diff-final.txt
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/evidencias/pytest.xml
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/scratch/h03.py
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/scratch/h04.py
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/scratch/h05.py
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/scratch/h06.py
+resultados/GPT/T0-auditoria-independente/audit_t0_20260726T234421Z/scratch/runner.py
+review/T0/CRITICA_INTERNA.md
+review/T0/DECISOES.md
+review/T0/LIMITACOES.md
+review/T0/PACOTE.md
+review/T0/diff.patch
+review/T0/files_changed.txt
+review/T0/report.md
+review/T0/runs/run_t0_golden/artifacts/cut_info.json
+review/T0/runs/run_t0_golden/artifacts/render/short.mp4
+review/T0/runs/run_t0_golden/artifacts/source_metadata.json
+review/T0/runs/run_t0_golden/artifacts/subtitles.ass
+review/T0/runs/run_t0_golden/artifacts/transcript.json
+review/T0/runs/run_t0_golden/commands.log
+review/T0/runs/run_t0_golden/events.jsonl
+review/T0/runs/run_t0_golden/report.md
+review/T0/runs/run_t0_golden/verify_result.json
+review/T0/verify_result.json
+src/cortes/__init__.py
+src/cortes/log.py
+src/cortes/report.py
+src/cortes/verify.py
+src/youtube_clipper/__init__.py
+src/youtube_clipper/__main__.py
+src/youtube_clipper/analyzer.py
+src/youtube_clipper/cli.py
+src/youtube_clipper/downloader.py
+src/youtube_clipper/exceptions.py
+src/youtube_clipper/gdrive_uploader.py
+src/youtube_clipper/pipeline.py
+src/youtube_clipper/processor.py
+src/youtube_clipper/validator.py
+src/youtube_clipper/video_formatter.py
+src/youtube_clipper/web_dashboard.py
+tests/conftest.py
+tests/test_analyzer.py
+tests/test_cli.py
+tests/test_conftest.py
+tests/test_contracts.py
+tests/test_downloader.py
+tests/test_e2e_cli.py
+tests/test_e2e_downloader.py
+tests/test_e2e_full_pipeline.py
+tests/test_e2e_pipeline.py
+tests/test_e2e_processor.py
+tests/test_e2e_scenarios.py
+tests/test_e2e_validation.py
+tests/test_gdrive_uploader.py
+tests/test_gdrive_uploader_adversarial.py
+tests/test_gdrive_uploader_challenger.py
+tests/test_mutation.py
+tests/test_pipeline.py
+tests/test_processor.py
+tests/test_validator.py
+tests/test_video_formatter.py
+tests/test_web_dashboard.py
+--- runs/ VERSIONADO? ---
+0
+--- runs/ EM DISCO ---
+run_20260726_224215
+run_20260726_224230
+run_20260726_224505
+run_20260726_224512
+run_20260726_224919
+run_20260726_225039
+run_20260726_225042
+run_20260726_225730
+run_20260726_225731
+run_20260726_225738
+run_20260726_225915
+run_20260726_225946
+run_20260726_225950
+run_20260726_230037
+run_20260726_235116
+run_20260726_235120
+run_blank_line
+run_non_monotonic
+run_stage_order
+run_t0_golden
+run_ts_iso
+test_run_blank_line
+test_run_non_monotonic
+test_run_proc_race
+test_run_stage_order
+test_run_thread_race
+test_run_ts_iso
+--- .gitignore ---
+.venv/
+.pytest_cache/
+.coverage
+__pycache__/
+*.pyc
+runs/
+.agents/
+*.egg-info/
+
+--- HASHES PACOTE T0 (review/T0) ---
+2d76d0d12df7525ef162ac98b21b90d7158e04dd69978b537a1a164f640c391c  review/T0/CRITICA_INTERNA.md
+7b2dda7938b89077b3fa4048f489eb9c5dacd0a03abfbfc6539d716ff285dd98  review/T0/DECISOES.md
+3db21760a110657a8289e96647ffe56f05abadefa0380ac686fad74c8cce7351  review/T0/LIMITACOES.md
+9d363faf29de07202a7a4040ded55a13405a59df79788f4d12655d0c434bca5e  review/T0/PACOTE.md
+512724afc9e59af109baed29d13c979e29af8a99efda6502d113968393732ffe  review/T0/diff.patch
+4aab359d145eca5ae182ffd4b935462f556d68a50db0cfcac65bd6014287e56e  review/T0/files_changed.txt
+23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  review/T0/report.md
+7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42  review/T0/runs/run_t0_golden/artifacts/cut_info.json
+c8c886a6a541d92d72951272385b53498b892ee5371b7722087b9e8f1d7f1a43  review/T0/runs/run_t0_golden/artifacts/render/short.mp4
+64843e0582af8f24f157bf734145bcd4a91996bce321a78d70fc55b581e69941  review/T0/runs/run_t0_golden/artifacts/source_metadata.json
+82bfb89f5930876de3e47fb768de1606b8d5d3ecc763de1a5a199f5bf8c38b2a  review/T0/runs/run_t0_golden/artifacts/subtitles.ass
+4076c13c0f0dd87d686d34085c0239b1360c3fd1e49d670516b72528c905bffe  review/T0/runs/run_t0_golden/artifacts/transcript.json
+23c40f9b64444ff5eeac285c48b8fdf0dd3f1cf25690d23f673894f86f209aa3  review/T0/runs/run_t0_golden/commands.log
+e5d558f16274326f7df8a941dffb07c1ef20d93808c2bce1a20f24bca2f77d95  review/T0/runs/run_t0_golden/events.jsonl
+23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  review/T0/runs/run_t0_golden/report.md
+be66ac1b31530efef5b274f206424fd967a020824f91dc8d86d2511b350631a9  review/T0/runs/run_t0_golden/verify_result.json
+5562691cec75bca732cdc8a5d91ad2a52763b3e1618524c60bf47991d6c55ddb  review/T0/verify_result.json
+--- HASHES runs/run_t0_golden (NAO VERSIONADO) ---
+7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42  runs/run_t0_golden/artifacts/cut_info.json
+c8c886a6a541d92d72951272385b53498b892ee5371b7722087b9e8f1d7f1a43  runs/run_t0_golden/artifacts/render/short.mp4
+64843e0582af8f24f157bf734145bcd4a91996bce321a78d70fc55b581e69941  runs/run_t0_golden/artifacts/source_metadata.json
+82bfb89f5930876de3e47fb768de1606b8d5d3ecc763de1a5a199f5bf8c38b2a  runs/run_t0_golden/artifacts/subtitles.ass
+4076c13c0f0dd87d686d34085c0239b1360c3fd1e49d670516b72528c905bffe  runs/run_t0_golden/artifacts/transcript.json
+23c40f9b64444ff5eeac285c48b8fdf0dd3f1cf25690d23f673894f86f209aa3  runs/run_t0_golden/commands.log
+e5d558f16274326f7df8a941dffb07c1ef20d93808c2bce1a20f24bca2f77d95  runs/run_t0_golden/events.jsonl
+350b152c6df53957524dabfae875f29d2ae6b35ba304775c713ab7698e27aa3f  runs/run_t0_golden/report.md
+e29621eb13a60df078b4d5b801a946755b364c074fc49b151633501dcad24476  runs/run_t0_golden/verify_result.json
+--- .github/workflows ---
+ls: cannot access '.github/workflows': No such file or directory
+--- BRANCHES ---
+* agent/auditoria-independente-t0                    4ffe6f4 docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+  main                                               fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+  remotes/origin/agent/auditoria-independente-t0     4ffe6f4 docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+  remotes/origin/agent/plano-revisao-independente-t0 696be7c docs: remove superseded GPT review folder
+  remotes/origin/main                                fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
