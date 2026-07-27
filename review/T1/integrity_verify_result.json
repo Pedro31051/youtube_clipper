@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0.0",
-  "run_id": "run_t1_20260727T122944Z",
-  "verified_at": "2026-07-27T12:35:07.078085+00:00",
-  "overall_passed": false,
+  "run_id": "run_t1_20260727T193302Z",
+  "verified_at": "2026-07-27T19:33:42.510671+00:00",
+  "overall_passed": true,
   "total_checks": 10,
-  "passed_checks": 9,
-  "failed_checks": 1,
+  "passed_checks": 10,
+  "failed_checks": 0,
   "checks": [
     {
       "check_id": "events_file_exists",
@@ -17,7 +17,7 @@
     {
       "check_id": "events_schema_valid",
       "passed": true,
-      "measured": "Validated 14 events",
+      "measured": "Validated 9 events",
       "expected": "Schema Version 1.0.0 valid",
       "evidence_path": "events.jsonl"
     },
@@ -30,8 +30,8 @@
     },
     {
       "check_id": "ts_monotonic",
-      "passed": false,
-      "measured": "Timestamp decreased at seq 14: 2026-07-27T12:29:44.119292+00:00 < 2026-07-27T12:31:19.555090+00:00",
+      "passed": true,
+      "measured": "Timestamps non-decreasing",
       "expected": "Monotonic non-decreasing ISO timestamps",
       "evidence_path": "events.jsonl"
     },

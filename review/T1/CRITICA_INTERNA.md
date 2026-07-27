@@ -17,9 +17,11 @@
 - O executor impede reabertura de runs existentes.
 - Há teste de adulteração da declaração ambiental.
 - Há teste de monotonicidade para evento final com comando interno.
-- Suíte completa final: `482 passed in 110.87s`.
+- O falso negativo de fontes foi reproduzido e corrigido com regex estendida.
+- Run golden: 8/8 checks; rechecagem ambiental: 8/8; integridade: 10/10.
+- Suíte completa final: `483 passed in 107.90s`.
 
-## Discordância não resolvida
+## Conclusão
 
-O pacote é estruturalmente revisável, mas o ambiente não satisfaz T1. A revisão
-interna considera incorreto chamar essa execução de `golden` ou autorizar T2.
+O pacote e o ambiente satisfazem T1. A run bloqueada anterior continua sendo
+evidência histórica válida, mas não é usada como prova de aprovação.

@@ -25,12 +25,12 @@ O executor recusa qualquer run não vazio. O run falho não foi editado após a
 execução. O pacote contém uma cópia para revisão, acrescida apenas dos resultados
 derivados e do relatório.
 
-## Verificação após bloqueio
+## Verificação após correção
 
-Após duas falhas consecutivas, não houve terceira medição ambiental. O
-`verify_result.json` consolida deterministicamente as tentativas finais
-registradas. Uma reexecução zero-trust deverá ocorrer somente em um novo run,
-depois que os bloqueios ambientais forem resolvidos.
+Após duas falhas consecutivas, a run original não foi reutilizada. A correção
+foi comprovada numa nova run imutável. O `verify_result.json` consolida os
+resultados registrados; `environment_reverify_result.json` repete fisicamente
+os oito comandos sem alterar a run.
 
 ## Monotonicidade
 
@@ -38,3 +38,17 @@ Foi corrigido o decorator `@audited`: o evento final agora recebe o horário de
 emissão, não o horário de início. Isso impede que comandos internos apareçam
 cronologicamente depois do evento final. O run já produzido permanece intacto e
 documenta a falha anterior.
+
+## Alternância de famílias de fontes
+
+O comando documentado usava `grep -ci "inter|roboto|noto"`, mas em grep básico
+o caractere `|` não representa alternância. Foi adotado `grep -Eci` para medir
+as alternativas pretendidas sem fabricar uma família ou caminho contendo pipes
+literais. Um teste de regressão fixa essa semântica.
+
+## Recuperação de espaço
+
+O critério de 20 GiB foi atendido removendo somente temporários antigos do
+pytest, caches APT/npm/uv/pip/Hugging Face, imagens/build cache Docker sem uso,
+logs arquivados do journal e uma revisão Snap desativada. Código, runs e
+evidências versionadas foram preservados.

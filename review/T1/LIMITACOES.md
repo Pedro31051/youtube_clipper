@@ -1,19 +1,15 @@
-# Limitações e Bloqueios — T1
+# Limitações e Fronteiras — T1
 
-1. **Fontes**: `fc-list | grep -ci "inter|roboto|noto"` retornou `0` e exit code
-   `1` nas tentativas 1 e 2, mesmo após a instalação registrada de
-   `fonts-noto-core`.
-2. **Disco**: o comando literal retornou `19 GiB` nas duas tentativas; o mínimo
-   exigido é `20 GiB`.
-3. **Run não aprovado**: o resultado final é 6/8. Não existe run golden T1.
-4. **Integridade temporal do run preservado**: a verificação estrutural detecta
-   que o evento final do decorator possui timestamp anterior aos comandos
-   internos. O código foi corrigido, mas o run falho não foi reescrito.
-5. **Instalação no host**: `python3-soundfile`, `fonts-noto-core` e dependências
-   foram instalados no sistema. `soundfile` passou na segunda tentativa.
-6. **CI remoto**: ainda não havia execução do GitHub Actions no momento da
-   construção deste pacote; a suíte foi executada localmente em checkout limpo.
-
-Próxima ação necessária: recuperar pelo menos 1 GiB adicional sem excluir dados
-do projeto e diagnosticar o fontconfig. Depois disso, executar um novo run T1;
-não reutilizar nem editar o run atual.
+1. **Margem de disco**: a run golden mediu exatamente `20 GiB`, o mínimo
+   permitido. Recriar caches grandes ou imagens Docker pode fazer uma execução
+   futura reprovar novamente.
+2. **Dependência de hardware**: o contrato T1 exige `nvidia-smi` funcional; a
+   portabilidade sem GPU é tratada posteriormente, mas não altera este critério.
+3. **Dependência de fontes do host**: a medição requer ao menos uma família
+   Inter, Roboto ou Noto registrada no fontconfig.
+4. **Histórico preservado**: `run_t1_20260727T122944Z` permanece bloqueada em
+   6/8 e com falha temporal. Ela não deve ser confundida com a run golden
+   `run_t1_20260727T193302Z`.
+5. **Caches removidos**: caches e temporários usados para recuperar espaço são
+   recriáveis, mas futuros testes podem precisar baixar novamente modelos e
+   imagens.
