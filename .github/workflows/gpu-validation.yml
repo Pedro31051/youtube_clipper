@@ -1,0 +1,35 @@
+name: GPU validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  empirical-gpu:
+    # This label set intentionally targets an operator-provided NVIDIA runner.
+    # It does not occupy or fail the regular pull-request CI when no GPU runner
+    # is registered.
+    runs-on: [self-hosted, linux, x64, gpu]
+    timeout-minutes: 30
+    env:
+      YOUTUBE_CLIPPER_E2E_DEVICE: cuda
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Verify GPU and FFmpeg
+        run: |
+          nvidia-smi
+          ffmpeg -version
+      - name: Install project
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Empirical CUDA pipeline
+        run: >-
+          python -m pytest
+          tests/test_challenger_m3_4_stress.py
+          tests/test_challenger_m3_e2e.py
+          -q

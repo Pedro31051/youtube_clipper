@@ -13,6 +13,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # GitHub-hosted runners do not expose a supported NVIDIA device. The
+      # empirical pipeline still runs end to end here, using its explicit CPU
+      # mode. CUDA is exercised by the separate, manually dispatched GPU job.
+      YOUTUBE_CLIPPER_E2E_DEVICE: cpu
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6

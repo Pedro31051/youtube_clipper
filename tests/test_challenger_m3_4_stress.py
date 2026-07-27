@@ -10,6 +10,7 @@ Rigorously verifies:
 """
 
 import json
+import os
 import pathlib
 import pytest
 
@@ -17,6 +18,21 @@ from cortes.log import compute_sha256, run_cmd, set_run_id
 from cortes.pipeline import run_full_pipeline
 from cortes.report import run_report
 from cortes.verify import _resolve_evidence_path, verify_run
+
+
+def _e2e_device() -> str:
+    """Select the explicit device for empirical E2E tests.
+
+    CPU is the portable default used by GitHub-hosted runners. A GPU runner
+    opts into the exact same scenarios with
+    ``YOUTUBE_CLIPPER_E2E_DEVICE=cuda``.
+    """
+    device = os.environ.get("YOUTUBE_CLIPPER_E2E_DEVICE", "cpu").strip().lower()
+    if device not in {"cpu", "cuda"}:
+        raise ValueError(
+            "YOUTUBE_CLIPPER_E2E_DEVICE must be either 'cpu' or 'cuda'"
+        )
+    return device
 
 
 @pytest.fixture
@@ -52,7 +68,7 @@ def test_m3_challenger_full_pipeline_end_to_end(synthetic_30s_video, tmp_path):
         input_source=synthetic_30s_video,
         run_id=run_id,
         whisper_model="small",
-        device="cuda",
+        device=_e2e_device(),
         vertical_mode="blur_background",
     )
 
@@ -149,6 +165,7 @@ def test_m3_challenger_mutation_stress(synthetic_30s_video, tmp_path):
     pipeline_res = run_full_pipeline(
         input_source=synthetic_30s_video,
         run_id=run_id,
+        device=_e2e_device(),
     )
     report_path = pathlib.Path(pipeline_res["report_path"])
     run_dir = report_path.parent
@@ -182,7 +199,11 @@ def test_m3_challenger_mutation_stress(synthetic_30s_video, tmp_path):
         assert any(c["check_id"] == "seq_integrity" and not c["passed"] for c in seq_verify["checks"])
     finally:
         # Restore events.jsonl
-        run_full_pipeline(input_source=synthetic_30s_video, run_id=run_id)
+        run_full_pipeline(
+            input_source=synthetic_30s_video,
+            run_id=run_id,
+            device=_e2e_device(),
+        )
 
     # 3. Path escape security test
     with pytest.raises(ValueError, match="Evidence path escapes"):

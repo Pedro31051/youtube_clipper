@@ -7,6 +7,7 @@ verify_run, re-runs report generator, and verifies overall_passed == True.
 """
 
 import json
+import os
 import pathlib
 import pytest
 
@@ -14,6 +15,16 @@ from cortes.log import compute_sha256, run_cmd, set_run_id
 from cortes.pipeline import run_full_pipeline
 from cortes.report import run_report
 from cortes.verify import verify_run
+
+
+def _e2e_device() -> str:
+    """Return the portable E2E device, with explicit CUDA opt-in."""
+    device = os.environ.get("YOUTUBE_CLIPPER_E2E_DEVICE", "cpu").strip().lower()
+    if device not in {"cpu", "cuda"}:
+        raise ValueError(
+            "YOUTUBE_CLIPPER_E2E_DEVICE must be either 'cpu' or 'cuda'"
+        )
+    return device
 
 
 @pytest.fixture
@@ -49,7 +60,7 @@ def test_e2e_full_pipeline_empirical_challenger(synthetic_25s_video, tmp_path):
         input_source=synthetic_25s_video,
         run_id=run_id,
         whisper_model="small",
-        device="cuda",
+        device=_e2e_device(),
         vertical_mode="blur_background",
     )
 
