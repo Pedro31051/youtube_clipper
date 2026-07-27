@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Union
 
+from cortes.editorial import build_clip_id, validate_template_variant
 from cortes.log import compute_sha256, run_cmd
 
 
@@ -624,6 +625,255 @@ def verify_run(
                 expected="[-16.0 LUFS, -13.0 LUFS]",
                 evidence_path=subject,
             )
+
+            # T3 editorial transformation proof is derived from physical
+            # artifacts, the audited FFmpeg command, and immutable metadata.
+            render_metadata_path = video_file.parent / "render_metadata.json"
+            if render_metadata_path.exists():
+                try:
+                    render_metadata = json.loads(
+                        render_metadata_path.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError) as exc:
+                    render_metadata = {}
+                    metadata_valid = False
+                    metadata_msg = f"Invalid render metadata: {exc}"
+                else:
+                    metadata_valid = isinstance(render_metadata, dict)
+                    metadata_msg = (
+                        "Render metadata is valid JSON"
+                        if metadata_valid
+                        else "Render metadata must be an object"
+                    )
+
+                is_t3 = bool(
+                    render_metadata.get("phase") == "T3"
+                    or render_metadata.get("editorial_transformation_required")
+                )
+                if is_t3:
+                    metadata_subject = _relative_evidence_path(
+                        render_metadata_path, r_path
+                    )
+                    add_check(
+                        check_id=f"editorial_metadata::{subject}",
+                        passed=metadata_valid,
+                        measured=metadata_msg,
+                        expected="Valid T3 render_metadata.json",
+                        evidence_path=metadata_subject,
+                    )
+
+                    render_commands = [
+                        str(ev.get("cmd") or "")
+                        for ev in events
+                        if ev.get("stage") == "render" and ev.get("cmd")
+                    ]
+                    requirements = render_metadata.get(
+                        "editorial_requirements", []
+                    )
+                    if not isinstance(requirements, list):
+                        requirements = []
+                    requirements = [str(item) for item in requirements]
+
+                    narration_passed = False
+                    narration_msg = "Narration is not required"
+                    narration_evidence = metadata_subject
+                    if (
+                        "narration" in requirements
+                        or render_metadata.get("narration_required")
+                        or render_metadata.get("narration_mixed")
+                    ):
+                        raw_narration_path = str(
+                            render_metadata.get("narration_source_path") or ""
+                        )
+                        try:
+                            narration_file = _resolve_evidence_path(
+                                raw_narration_path, r_path
+                            )
+                        except ValueError as exc:
+                            narration_msg = str(exc)
+                        else:
+                            narration_evidence = _relative_evidence_path(
+                                narration_file, r_path
+                            )
+                            narration_is_file = (
+                                narration_file.exists()
+                                and narration_file.is_file()
+                            )
+                            narration_info = (
+                                run_ffprobe_json(narration_file)
+                                if narration_is_file
+                                else {}
+                            )
+                            narration_duration = float(
+                                narration_info.get("format", {}).get(
+                                    "duration", 0.0
+                                )
+                                or 0.0
+                            )
+                            expected_hash = render_metadata.get(
+                                "narration_source_sha256"
+                            )
+                            expected_bytes = render_metadata.get(
+                                "narration_source_bytes"
+                            )
+                            real_hash = (
+                                measure_sha256(narration_file)
+                                if narration_is_file
+                                else None
+                            )
+                            real_bytes = (
+                                narration_file.stat().st_size
+                                if narration_is_file
+                                else None
+                            )
+                            command_proves_mix = any(
+                                "amix=inputs=2" in command
+                                and narration_file.name in command
+                                for command in render_commands
+                            )
+                            narration_passed = bool(
+                                render_metadata.get("narration_mixed")
+                                and narration_is_file
+                                and narration_duration >= 8.0
+                                and expected_hash == real_hash
+                                and expected_bytes == real_bytes
+                                and command_proves_mix
+                            )
+                            narration_msg = (
+                                f"exists={narration_is_file}, "
+                                f"duration={narration_duration:.3f}s, "
+                                f"hash_match={expected_hash == real_hash}, "
+                                f"bytes_match={expected_bytes == real_bytes}, "
+                                f"amix_proven={command_proves_mix}"
+                            )
+                        add_check(
+                            check_id=f"editorial_narration::{subject}",
+                            passed=narration_passed,
+                            measured=narration_msg,
+                            expected=(
+                                "Physical narration >= 8.0s with matching hash/bytes "
+                                "and audited amix command"
+                            ),
+                            evidence_path=narration_evidence,
+                        )
+
+                    overlay_passed = False
+                    overlay_msg = "Analytical overlay is not required"
+                    if (
+                        "analytical_overlay" in requirements
+                        or render_metadata.get("analytical_overlay")
+                    ):
+                        overlay_text = str(
+                            render_metadata.get("overlay_text") or ""
+                        ).strip()
+                        overlay_command_proof = any(
+                            "drawbox=" in command
+                            and "drawtext=" in command
+                            and overlay_text
+                            in command.replace("\\:", ":").replace("\\'", "'")
+                            for command in render_commands
+                        )
+                        overlay_passed = bool(
+                            render_metadata.get("analytical_overlay")
+                            and overlay_text
+                            and overlay_command_proof
+                        )
+                        overlay_msg = (
+                            f"metadata_enabled={bool(render_metadata.get('analytical_overlay'))}, "
+                            f"text_present={bool(overlay_text)}, "
+                            f"command_proven={overlay_command_proof}"
+                        )
+                        add_check(
+                            check_id=f"editorial_overlay::{subject}",
+                            passed=overlay_passed,
+                            measured=overlay_msg,
+                            expected="Non-empty analytical overlay burned by drawbox/drawtext",
+                            evidence_path=metadata_subject,
+                        )
+
+                    requirement_results = {
+                        "narration": narration_passed,
+                        "analytical_overlay": overlay_passed,
+                    }
+                    supported_requirements = set(requirement_results)
+                    declared_requirements = set(requirements)
+                    transformation_passed = bool(declared_requirements) and (
+                        declared_requirements <= supported_requirements
+                    ) and all(
+                        requirement_results[item]
+                        for item in declared_requirements
+                    )
+                    add_check(
+                        check_id=f"editorial_transformation::{subject}",
+                        passed=transformation_passed,
+                        measured=(
+                            f"requirements={sorted(declared_requirements)}, "
+                            f"results={requirement_results}"
+                        ),
+                        expected="Every declared T3 editorial requirement is physically proven",
+                        evidence_path=metadata_subject,
+                    )
+
+                    variant = str(
+                        render_metadata.get("template_variant") or ""
+                    ).strip()
+                    history = render_metadata.get(
+                        "template_variant_history", []
+                    )
+                    history_valid = isinstance(history, list) and len(history) <= 5
+                    recent_variants = (
+                        [
+                            str(item.get("template_variant") or "").strip()
+                            for item in history
+                            if isinstance(item, dict)
+                        ]
+                        if isinstance(history, list)
+                        else []
+                    )
+                    try:
+                        normalized_variant = validate_template_variant(variant)
+                    except Exception as exc:
+                        variant_valid = False
+                        variant_msg = str(exc)
+                    else:
+                        variant_valid = (
+                            history_valid
+                            and normalized_variant not in recent_variants
+                        )
+                        variant_msg = (
+                            f"variant={normalized_variant}, "
+                            f"previous_five={recent_variants}"
+                        )
+                    add_check(
+                        check_id=f"template_variant_unique::{subject}",
+                        passed=variant_valid,
+                        measured=variant_msg,
+                        expected="Non-default variant absent from previous five renders",
+                        evidence_path=metadata_subject,
+                    )
+
+                    selection_artifact_path = (
+                        r_path / "artifacts" / "select" / "selection.json"
+                    )
+                    if (
+                        selection_artifact_path.exists()
+                        and render_metadata.get("clip_id")
+                        and variant_valid
+                    ):
+                        expected_clip_id = build_clip_id(
+                            selection_artifact_path.read_bytes(), variant
+                        )
+                        declared_clip_id = str(render_metadata.get("clip_id"))
+                        add_check(
+                            check_id=f"clip_id_binds_variant::{subject}",
+                            passed=declared_clip_id == expected_clip_id,
+                            measured=(
+                                f"declared={declared_clip_id}, "
+                                f"recomputed={expected_clip_id}"
+                            ),
+                            expected="clip_id = SHA256(selection + template_variant)",
+                            evidence_path=metadata_subject,
+                        )
 
         # 10. Selection bounds are re-measured against source/cut metadata.
         selection_path = r_path / "artifacts" / "select" / "selection.json"

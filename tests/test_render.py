@@ -49,7 +49,8 @@ def test_build_render_filtergraph():
     """Test filtergraph construction for blur_background and crop_center modes."""
     fg_blur = build_render_filtergraph(mode="blur_background", width=1080, height=1920)
     assert "split[bg][fg]" in fg_blur
-    assert "boxblur=20:10" in fg_blur
+    assert "scale=270:480" in fg_blur
+    assert "gblur=sigma=12.0" in fg_blur
     assert "scale=1080:1920" in fg_blur
 
     fg_crop = build_render_filtergraph(mode="crop_center", width=1080, height=1920)
@@ -126,3 +127,71 @@ def test_run_render_callback_delegation():
     res = run_render(dummy_action, "test_val")
     assert res == "render_result"
     assert called == ["test_val"]
+
+
+def test_run_render_callback_preserves_keyword_arguments():
+    """Compatibility callbacks receive keywords consumed by the stage API."""
+
+    def dummy_action(*, mode, template_variant):
+        return mode, template_variant
+
+    assert run_render(
+        dummy_action,
+        mode="crop_center",
+        template_variant="variant_callback_1",
+    ) == ("crop_center", "variant_callback_1")
+
+
+def test_run_render_physically_mixes_t3_narration(
+    tmp_path, monkeypatch, synthetic_media_and_subtitles
+):
+    """A T3 render must consume a real >=8s narration source via amix."""
+    monkeypatch.chdir(tmp_path)
+    run_id = "test_t3_narration_mix"
+    set_run_id(run_id)
+    video_path, subtitles_path = synthetic_media_and_subtitles
+    narration_path = tmp_path / "narration.wav"
+    narration_result = run_cmd(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=880:sample_rate=48000",
+            "-t",
+            "9",
+            "-c:a",
+            "pcm_s16le",
+            str(narration_path),
+        ],
+        stage="env",
+    )
+    assert narration_result.returncode == 0
+
+    result = run_render(
+        video_path,
+        subtitles_path=subtitles_path,
+        run_id=run_id,
+        clip_id="clip_editorial",
+        narration_path=narration_path,
+        tts_narration=True,
+        analytical_overlay=True,
+        overlay_text="ORIGINAL ANALYSIS",
+        require_editorial_transformation=True,
+        template_variant="variant_editorial_mix",
+    )
+
+    metadata = json.loads(
+        pathlib.Path(result["metadata_path"]).read_text(encoding="utf-8")
+    )
+    assert metadata["narration_mixed"] is True
+    assert metadata["narration_duration_s"] >= 8.0
+    assert metadata["editorial_requirements"] == [
+        "narration",
+        "analytical_overlay",
+    ]
+    commands = (
+        tmp_path / "runs" / run_id / "commands.log"
+    ).read_text(encoding="utf-8")
+    assert "amix=inputs=2" in commands

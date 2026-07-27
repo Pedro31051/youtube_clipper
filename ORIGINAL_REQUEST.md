@@ -436,4 +436,3 @@ Produce a comprehensive review report with physical evidence logs, pass/fail sta
 - [ ] Single-pass 9:16 vertical render performance verified (< 5s for 5s synthetic clip).
 - [ ] Hardware acceleration (h264_nvenc) and libx264 fallback verified.
 - [ ] Review package review/T3/ created containing PACOTE.md, report.md, and physical evidence.
-

@@ -65,7 +65,10 @@ def generate_report(
     ts_first = events[0]["ts"] if events else "N/A"
     ts_last = events[-1]["ts"] if events else "N/A"
     video_id = events[0].get("video_id", "unknown") if events else "unknown"
-    clip_id = events[0].get("clip_id") if events else None
+    clip_id = next(
+        (event.get("clip_id") for event in events if event.get("clip_id")),
+        None,
+    )
     agent = events[0].get("agent", "worker") if events else "worker"
     total_events = len(events)
     total_duration_ms = sum(float(ev.get("duration_ms", 0.0)) for ev in events)
@@ -210,6 +213,7 @@ def run_report(
     }
 
 
+@audited(stage="report")
 def main() -> None:
     """CLI entrypoint for report generation."""
     import argparse

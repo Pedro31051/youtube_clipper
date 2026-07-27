@@ -42,7 +42,7 @@ def test_tier3_01_subtitles_ass_plus_render_916(dummy_video_file: Path, tmp_medi
     subs = pysubs2.SSAFile()
     subs.events.append(pysubs2.SSAEvent(start=0, end=1500, text="Vertical Short Test"))
     subs.save(str(ass_file))
-    
+
     out_file = tmp_media_dir / "rendered_916_sub.mp4"
     res = convert_to_vertical(str(dummy_video_file), str(out_file), mode="blur_background")
     assert Path(res).exists()
@@ -125,12 +125,12 @@ def test_tier3_06_ingest_cut_render_report_audit_chain(tmp_path: Path, dummy_vid
     run_ingest(lambda: {"input": str(dummy_video_file)})
     run_cut(lambda: str(dummy_video_file))
     run_render(lambda: str(dummy_video_file))
-    
+
     run_dir = get_run_dir(run_id)
     events_file = run_dir / "events.jsonl"
     lines = [l for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
     assert len(lines) == 3
-    
+
     seqs = [json.loads(l)["seq"] for l in lines]
     assert seqs == [1, 2, 3]
 
@@ -160,6 +160,7 @@ def test_tier3_08_youtube_ingest_loudnorm_render_offsets(dummy_video_file: Path,
 
     @classmethod
     def mock_convert_to_vertical(cls, input_path, output_path, mode="blur_background", target_aspect="9:16", **kwargs):
+        cut_calls.append({"start": kwargs.get("start"), "end": kwargs.get("end")})
         outp = Path(output_path)
         outp.parent.mkdir(parents=True, exist_ok=True)
         outp.write_bytes(b"DUMMY_VERTICAL_MEDIA_CONTENT")

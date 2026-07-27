@@ -5,6 +5,9 @@ and FFmpeg conversion execution.
 """
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 from youtube_clipper.exceptions import ProcessingError
 from youtube_clipper.video_formatter import VideoFormatter
@@ -140,6 +143,40 @@ class TestVideoFormatterConversion:
                 end=5.0,
             )
 
+    def test_auto_nvenc_failure_retries_with_libx264(
+        self, dummy_video_file: Path, tmp_media_dir: Path
+    ) -> None:
+        """Automatic NVENC selection must transparently retry on CPU."""
+        output_path = tmp_media_dir / "fallback.mp4"
+        commands = []
+
+        def fake_run_cmd(command, **kwargs):
+            commands.append(command)
+            if len(commands) == 1:
+                return SimpleNamespace(returncode=1, stdout="", stderr="NVENC busy")
+            output_path.write_bytes(b"fallback" * 256)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with (
+            patch(
+                "youtube_clipper.video_formatter.detect_h264_encoder",
+                return_value="h264_nvenc",
+            ),
+            patch(
+                "youtube_clipper.video_formatter.run_cmd",
+                side_effect=fake_run_cmd,
+            ),
+        ):
+            result = VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=str(output_path),
+            )
+
+        assert result == str(output_path)
+        assert len(commands) == 2
+        assert "h264_nvenc" in commands[0]
+        assert "libx264" in commands[1]
+
 
 class TestVideoFormatterConcurrency:
     """Test suite for thread concurrency in VideoFormatter."""
@@ -166,4 +203,3 @@ class TestVideoFormatterConcurrency:
         assert len(results) == 8
         for res_path in results:
             assert Path(res_path).exists()
-

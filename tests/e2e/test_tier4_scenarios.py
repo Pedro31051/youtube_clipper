@@ -54,7 +54,7 @@ def test_tier4_scenario1_technical_short_golden_pipeline(tmp_path: Path, dummy_v
     run_dir = get_run_dir(run_id)
     media_dir = run_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Generate synthetic 25s 1080x1920 input video with -14.0 LUFS audio
     synth_input = media_dir / "t4_golden_input.mp4"
     run_cmd(
@@ -156,7 +156,7 @@ def test_tier4_scenario1_technical_short_golden_pipeline(tmp_path: Path, dummy_v
     if not v_res["overall_passed"]:
         print("V_RES FAILURE CHECKS:", json.dumps(v_res, indent=2))
     assert v_res["overall_passed"] is True
-    
+
     rpt = generate_report(run_dir)
     assert rpt.exists()
     content = rpt.read_text(encoding="utf-8")
@@ -176,7 +176,7 @@ def test_tier4_scenario2_adversarial_media_and_recovery(tmp_path: Path, tmp_medi
     dummy_corrupt = tmp_media_dir / "dummy_corrupt.mp4"
     dummy_corrupt.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 500)
     processor = FFmpegProcessor()
-    
+
     with pytest.raises(ProcessingError) as excinfo:
         processor.cut_media(str(dummy_corrupt), start=100.0, end=200.0, output_path=str(tmp_media_dir / "fail.mp4"))
     assert excinfo.value.exit_code == 4

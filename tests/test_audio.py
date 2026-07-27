@@ -31,7 +31,7 @@ def synthetic_audio_video(tmp_path):
 def test_parse_loudnorm_pass1_stderr_success():
     """Test parsing JSON loudnorm stats block from FFmpeg stderr."""
     sample_stderr = """
-[Parsed_loudnorm_0 @ 0x55d7f8e87400] 
+[Parsed_loudnorm_0 @ 0x55d7f8e87400]
 {
 	"input_i" : "-22.50",
 	"input_tp" : "-3.10",

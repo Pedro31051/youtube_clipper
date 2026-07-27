@@ -1,11 +1,11 @@
 """End-to-end 9-stage pipeline orchestrator for YouTube Clipper."""
 
-import hashlib
 import pathlib
 from typing import Any, Dict, Optional, Union
 
 from cortes.audio import run_audio
 from cortes.cut import run_cut
+from cortes.editorial import build_clip_id
 from cortes.ingest import run_ingest
 from cortes.log import get_run_dir, set_run_id
 from cortes.render import run_render
@@ -44,7 +44,8 @@ def run_full_pipeline(
     select_res = select_clip_stage(transcript_path, scenes_path, run_id=run_id)
     selection_path = select_res["selection_path"]
     selection_bytes = pathlib.Path(selection_path).read_bytes()
-    clip_id = f"clip_{hashlib.sha256(selection_bytes).hexdigest()[:12]}"
+    template_variant = kwargs.get("template_variant", "variant_default")
+    clip_id = build_clip_id(selection_bytes, template_variant)
 
     # Stage 5: Cut
     cut_res = run_cut(
@@ -77,9 +78,17 @@ def run_full_pipeline(
         mode=vertical_mode,
         analytical_overlay=kwargs.get("analytical_overlay", False),
         overlay_text=kwargs.get("overlay_text"),
+        narration_path=kwargs.get("narration_path"),
         tts_narration=kwargs.get("tts_narration", False),
-        tts_duration_s=kwargs.get("tts_duration_s", 0.0),
-        template_variant=kwargs.get("template_variant", "variant_default"),
+        require_editorial_transformation=kwargs.get(
+            "require_editorial_transformation",
+            bool(
+                kwargs.get("analytical_overlay", False)
+                or kwargs.get("narration_path")
+                or kwargs.get("tts_narration", False)
+            ),
+        ),
+        template_variant=template_variant,
     )
     render_path = render_res["render_path"]
 

@@ -405,7 +405,7 @@ def test_tier1_report_01_generation_from_run_dir(tmp_path: Path):
         "outcome": "ok", "error": None, "claim": None
     }
     events_file.write_text(json.dumps(event) + "\n", encoding="utf-8")
-    
+
     verify_file = run_dir / "verify_result.json"
     verify_file.write_text(json.dumps({"run_id": run_dir.name, "overall_passed": True, "checks": []}), encoding="utf-8")
 

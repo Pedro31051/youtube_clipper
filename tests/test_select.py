@@ -161,4 +161,3 @@ def test_speech_density_analyzer_parameter_clamping(mock_transcript, mock_scenes
     )
     assert selection["schema_version"] == "1.0.0"
     assert 20000 <= selection["duration_ms"] <= 58000
-

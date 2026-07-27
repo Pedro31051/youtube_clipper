@@ -233,7 +233,7 @@ def test_tier2_select_04_extreme_high_speech_density():
 def test_tier2_select_05_scene_boundary_snapping_bounds():
     raw_start, raw_end = 12.3, 41.7
     scene_cuts = [(0.0, 10.0), (10.0, 40.0), (40.0, 60.0)]
-    
+
     snapped_start = min([sc[0] for sc in scene_cuts], key=lambda x: abs(x - raw_start))
     snapped_end = min([sc[1] for sc in scene_cuts], key=lambda x: abs(x - raw_end))
     assert snapped_start == 10.0
@@ -573,7 +573,7 @@ def test_tier2_report_01_missing_verify_result_fallback(tmp_path: Path):
     run_dir = tmp_path / "run_no_verify"
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "events.jsonl").write_text("", encoding="utf-8")
-    
+
     rpt = generate_report(run_dir)
     content = rpt.read_text(encoding="utf-8")
     assert "FAILED" in content or "N/A" in content

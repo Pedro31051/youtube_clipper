@@ -15,7 +15,7 @@ def sample_video(tmp_path):
     repo_sample = pathlib.Path("sample_local.mp4")
     if repo_sample.exists():
         return repo_sample.resolve()
-    
+
     syn_path = tmp_path / "synthetic_transcribe.mp4"
     cmd = [
         "ffmpeg",

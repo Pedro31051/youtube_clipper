@@ -120,6 +120,7 @@ class VideoFormatter:
         cmd.extend(["-vf", filter_str])
 
         selected_encoder = encoder or detect_h264_encoder(ffmpeg_bin)
+        codec_arg_index = len(cmd)
         if selected_encoder == "h264_nvenc":
             cmd.extend(["-c:v", "h264_nvenc", "-preset", "p4"])
         else:
@@ -133,6 +134,23 @@ class VideoFormatter:
         ])
 
         res = run_cmd(cmd, stage="transform")
+        if (
+            res.returncode != 0
+            and selected_encoder == "h264_nvenc"
+            and encoder is None
+        ):
+            if os.path.exists(output_path):
+                os.unlink(output_path)
+            fallback_cmd = list(cmd)
+            fallback_cmd[codec_arg_index : codec_arg_index + 4] = [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-crf",
+                "23",
+            ]
+            res = run_cmd(fallback_cmd, stage="transform")
 
         if res.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             return str(output_path)
@@ -143,4 +161,3 @@ class VideoFormatter:
                 returncode=res.returncode,
                 stderr=stderr_msg
             )
-
