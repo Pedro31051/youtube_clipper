@@ -1,0 +1,21 @@
++ git ls-files src tests review resultados
++ sort
++ echo '--- runs/ VERSIONADO? ---'
++ git ls-files runs
++ wc -l
++ echo '--- runs/ EM DISCO ---'
++ ls -1 runs
++ echo '--- .gitignore ---'
++ cat .gitignore
++ echo '--- HASHES PACOTE T0 (review/T0) ---'
++ find review/T0 -type f -print0
++ sort -z
++ xargs -0 sha256sum
++ echo '--- HASHES runs/run_t0_golden (NAO VERSIONADO) ---'
++ find runs/run_t0_golden -type f -print0
++ sort -z
++ xargs -0 sha256sum
++ echo '--- .github/workflows ---'
++ ls -la .github/workflows
++ echo '--- BRANCHES ---'
++ git branch -a -v

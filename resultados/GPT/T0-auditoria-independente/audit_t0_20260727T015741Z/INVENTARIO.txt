@@ -1,0 +1,144 @@
+# INVENTÁRIO — auditoria independente T0 (run corrigido)
+# gerado em: 2026-07-27T02:27:30Z
+
+## 1. Ambiente
+os              : Ubuntu 24.04.4 LTS
+kernel          : 6.17.0-1021-gcp
+arquitetura     : x86_64
+usuario         : pedrofelipealvesrocha
+python (sistema): Python 3.12.3
+python (venv)   : Python 3.12.3
+git             : git version 2.43.0
+ffmpeg          : ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
+ffprobe         : ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers
+pytest          : pytest 9.1.1
+docker          : Docker version 29.6.2, build dfc4efb
+
+## 2. Baseline
+baseline_plano  : fbe8cc5462537dbcaa44ddf6c9182ac218b22c25 (ponta de origin/main)
+head_da_branch  : 4ffe6f4f5220654d7e315e5a5c893a749a43f721
+branch          : agent/auditoria-independente-t0
+diff src/tests/review entre baseline e HEAD:
+  (vazio acima = codigo auditado identico a baseline)
+
+## 3. Dependencias declaradas
+### pyproject.toml
+  [build-system]
+  requires = ["setuptools>=61.0"]
+  build-backend = "setuptools.build_meta"
+  
+  [project]
+  name = "youtube-clipper"
+  version = "0.1.0"
+  description = "CLI tool for automated YouTube video clipping and extraction"
+  readme = "README.md"
+  requires-python = ">=3.9"
+  dependencies = [
+      "yt-dlp>=2023.3.4",
+      "google-api-python-client>=2.100.0",
+      "google-auth>=2.20.0",
+  ]
+  
+  [project.optional-dependencies]
+  dev = [
+      "pytest>=7.0.0",
+  ]
+  
+  [tool.setuptools.packages.find]
+  where = ["src"]
+### requirements.txt
+  yt-dlp>=2023.3.4
+  google-api-python-client>=2.100.0
+  google-auth>=2.20.0
+  pytest>=7.0.0
+  -e .
+
+## 4. Pacote T0 oficial (review/T0) — tamanho e sha256
+  3613  2d76d0d12df7525ef162ac98b21b90d7158e04dd69978b537a1a164f640c391c  review/T0/CRITICA_INTERNA.md
+  1607  7b2dda7938b89077b3fa4048f489eb9c5dacd0a03abfbfc6539d716ff285dd98  review/T0/DECISOES.md
+  550  3db21760a110657a8289e96647ffe56f05abadefa0380ac686fad74c8cce7351  review/T0/LIMITACOES.md
+  2402  9d363faf29de07202a7a4040ded55a13405a59df79788f4d12655d0c434bca5e  review/T0/PACOTE.md
+  22890  512724afc9e59af109baed29d13c979e29af8a99efda6502d113968393732ffe  review/T0/diff.patch
+  690  4aab359d145eca5ae182ffd4b935462f556d68a50db0cfcac65bd6014287e56e  review/T0/files_changed.txt
+  6065  23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  review/T0/report.md
+  60  7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42  review/T0/runs/run_t0_golden/artifacts/cut_info.json
+  1783078  c8c886a6a541d92d72951272385b53498b892ee5371b7722087b9e8f1d7f1a43  review/T0/runs/run_t0_golden/artifacts/render/short.mp4
+  69  64843e0582af8f24f157bf734145bcd4a91996bce321a78d70fc55b581e69941  review/T0/runs/run_t0_golden/artifacts/source_metadata.json
+  38  82bfb89f5930876de3e47fb768de1606b8d5d3ecc763de1a5a199f5bf8c38b2a  review/T0/runs/run_t0_golden/artifacts/subtitles.ass
+  113  4076c13c0f0dd87d686d34085c0239b1360c3fd1e49d670516b72528c905bffe  review/T0/runs/run_t0_golden/artifacts/transcript.json
+  54876  23c40f9b64444ff5eeac285c48b8fdf0dd3f1cf25690d23f673894f86f209aa3  review/T0/runs/run_t0_golden/commands.log
+  6660  e5d558f16274326f7df8a941dffb07c1ef20d93808c2bce1a20f24bca2f77d95  review/T0/runs/run_t0_golden/events.jsonl
+  6065  23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  review/T0/runs/run_t0_golden/report.md
+  4492  be66ac1b31530efef5b274f206424fd967a020824f91dc8d86d2511b350631a9  review/T0/runs/run_t0_golden/verify_result.json
+  4362  5562691cec75bca732cdc8a5d91ad2a52763b3e1618524c60bf47991d6c55ddb  review/T0/verify_result.json
+
+## 5. Diretorio runs/ (NAO versionado) — origem real dos artefatos declarados
+  arquivos versionados sob runs/: 0
+  60  7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42  runs/run_t0_golden/artifacts/cut_info.json
+  1783078  c8c886a6a541d92d72951272385b53498b892ee5371b7722087b9e8f1d7f1a43  runs/run_t0_golden/artifacts/render/short.mp4
+  69  64843e0582af8f24f157bf734145bcd4a91996bce321a78d70fc55b581e69941  runs/run_t0_golden/artifacts/source_metadata.json
+  38  82bfb89f5930876de3e47fb768de1606b8d5d3ecc763de1a5a199f5bf8c38b2a  runs/run_t0_golden/artifacts/subtitles.ass
+  113  4076c13c0f0dd87d686d34085c0239b1360c3fd1e49d670516b72528c905bffe  runs/run_t0_golden/artifacts/transcript.json
+  54876  23c40f9b64444ff5eeac285c48b8fdf0dd3f1cf25690d23f673894f86f209aa3  runs/run_t0_golden/commands.log
+  6660  e5d558f16274326f7df8a941dffb07c1ef20d93808c2bce1a20f24bca2f77d95  runs/run_t0_golden/events.jsonl
+  6065  350b152c6df53957524dabfae875f29d2ae6b35ba304775c713ab7698e27aa3f  runs/run_t0_golden/report.md
+  4362  e29621eb13a60df078b4d5b801a946755b364c074fc49b151633501dcad24476  runs/run_t0_golden/verify_result.json
+
+## 6. Codigo produtivo auditado
+  99  8426ce24d4e04ee5dd4ba75acb30423d4d131597124bdb1828dfdf8415ac00ac  src/cortes/__init__.py
+  13890  c5cc4fed20d382ea3167608511b65ceb2b84a9db56beaad222b6eef61d5dff4d  src/cortes/log.py
+  5479  a8846302239e3e3ce64477405fd415c6b983c7837e62828cabd339a1679569d9  src/cortes/report.py
+  16862  21a86b823d51ff04b6f1b17dccfb4d2a755793533f466dd5afc51ed3ce16bb8d  src/cortes/verify.py
+  117  40d039bea4468e0cbe1cf5a8491f1be2f4c20b6c7fcb4e947eef9a7a2378f15a  src/youtube_clipper/__init__.py
+  568  b8f77134831234b8190cc89b069a36da2699a13998db14c15db3db3ba9b5a5cd  src/youtube_clipper/__main__.py
+  10997  529cdb041cfa0950b7a362b2fc05403f96f8accb96663c536c691c0e041ec5ba  src/youtube_clipper/analyzer.py
+  9953  5dc3e907d95c37184eba09a5dee7e8fb5d58a6e3be23e6929aa17f19a1f62e39  src/youtube_clipper/cli.py
+  4525  b8de6c2993e4b44eaeb911fb0dc6b9a3f2ad735fe9d92326b6e0f99adf86f844  src/youtube_clipper/downloader.py
+  3258  541fa6a4bfecc9bbc1b31996ae41b0338f5b57eed8e621ed9d3f1847c758ce4e  src/youtube_clipper/exceptions.py
+  9066  818eb1ab136514d49a30912c85780d6e188ecebe1a7c9e9242529338248fed71  src/youtube_clipper/gdrive_uploader.py
+  7007  7904aafa9f81e0e042b80945f0315aacb74b1cca5befc5884ed3bc5fc3209ddd  src/youtube_clipper/pipeline.py
+  4408  0af7df6995522dac696d03cab89c252947f9119a6b3c177b3bd718911f3187a9  src/youtube_clipper/processor.py
+  9824  a6298ecdc4b7162d36ad8ba9dd63bde1d101fd253121ce91dcdc3d7386f600dd  src/youtube_clipper/validator.py
+  2984  0c1251be7e99cdeb632919bf744761c8dac501af231ce16741e5c34831566426  src/youtube_clipper/video_formatter.py
+  34159  4f63a87adf707f8b54fb47f814b5ef52423676ee0bc7e38d7570a03e0f5d8bc6  src/youtube_clipper/web_dashboard.py
+
+## 7. Suites de teste
+  23598  13f837609cd41e9dd1073321d98f76cb9ba680e06e365b5802c448d8077e2392  tests/conftest.py
+  2803  4d5b33de6021ed4281cf0dd2ed86bd2275b6906a62b066fd656f930bc928f04c  tests/test_analyzer.py
+  11027  9cc79e4c491b42f4fc342f097e3cd8247b53f36c84cf628d6e138d96b7ba1354  tests/test_cli.py
+  3842  d2ebffe41d510c51110d739b99c5c185d2974627527cb6b0dd0180967de12340  tests/test_conftest.py
+  13651  387d9c2ee3d04640e2eb51687e0bcb6cdc8ddbaf03b56170b3bfa8771a63cac7  tests/test_contracts.py
+  6994  bfaf5f1b4954004b411f1e6b4221738ece8c19d2c1289c81fb7ed0bd8111df6b  tests/test_downloader.py
+  19809  c9a98c9bd14bedd067b9ac7283154e4b04ce7fe33f946075c7e80635a4ca0ecc  tests/test_e2e_cli.py
+  11588  4f23ab7b60a0e81df965ec49ba12bdff64d2e1df5f3ab7f6c4a02ecad027036a  tests/test_e2e_downloader.py
+  4698  6f4f0694fa0d865325542f9da3d115c6aefd83d8e64efb531efafca9a414cad7  tests/test_e2e_full_pipeline.py
+  25083  81ea9a32b56ebe187823ecd3ac0ee98e7eef640b350887835cdf4e991cfcccac  tests/test_e2e_pipeline.py
+  10718  691de5ae61a084d2f0268723c554f471302a29d47b8c1904fced960d4732c8f8  tests/test_e2e_processor.py
+  14057  9d089a2fc06779f58a608d7de0eafa3ff42195d0d35143de6782298d81cab95d  tests/test_e2e_scenarios.py
+  18613  2fdcbcae2859ac5e43f7d5174f6b68b2407da9327805ded154d316880940c508  tests/test_e2e_validation.py
+  10658  a6438d072b0a6265168027e7807cfede3e246b97893060215f2d9e362d844f28  tests/test_gdrive_uploader.py
+  8649  e3907a2376031ddbfdf7a4f1dd5e2194f9afdf3199d1f787026736b9c5fdf50a  tests/test_gdrive_uploader_adversarial.py
+  11441  941f74286b8fa37ca47d5d3b90ffb11eae759f07600a48b7106a3d903412ff6f  tests/test_gdrive_uploader_challenger.py
+  18650  b7c5b7541209a09e7b3555fac149c638d504312ad787f29f65e80123f7140041  tests/test_mutation.py
+  8950  03979a639aecf9bac3bc8be1a9c1d71fe95600f26128be5476136a8fdf4a76e0  tests/test_pipeline.py
+  11040  bbbcfa6e0d847a9277546dd1a6faf6e3eeb3de3601821c81d4966ff4adeffa96  tests/test_processor.py
+  11586  e7f3bf85eb826dce2eabb5618621769838850a64ae8acd52c2ba83c5ca3dcbdc  tests/test_validator.py
+  6774  74353f5c88b90209da97c24b46d3e2464905f9647524aa86e395c45b6b454ffc  tests/test_video_formatter.py
+  14617  986622777e36fe188eb87b1a1394d64448fce6f6ef4106bbbcfc4d427ae2bb53  tests/test_web_dashboard.py
+
+## 8. Integracao continua
+  .github/ existe: NAO
+  workflows registrados na API do GitHub: 0
+  check-runs do commit baseline: 0
+
+## 9. Branches
+  * agent/auditoria-independente-t0                    4ffe6f4 docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+  + agent/refazer-auditoria-independente-t0            fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+    main                                               fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+    remotes/origin/agent/auditoria-independente-t0     4ffe6f4 docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+    remotes/origin/agent/fiscalizacao-chatgpt-t0       f35a751 docs: add mandatory T0 audit redo instructions
+    remotes/origin/agent/plano-revisao-independente-t0 696be7c docs: remove superseded GPT review folder
+    remotes/origin/main                                fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+
+## 10. Pull requests
+  1	Fiscalização ChatGPT da auditoria T0	agent/fiscalizacao-chatgpt-t0	DRAFT	2026-07-27T00:46:50Z

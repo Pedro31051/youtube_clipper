@@ -1,0 +1,64 @@
+== H06.1 — endereço de bind (medido no AST, não afirmado) ==
+  web_dashboard.py:882 -> server_address = ('', port)
+  host efetivo = '' -> TODAS as interfaces (0.0.0.0)
+  porta padrão = ['8080']
+
+== H06.2 — autenticação: busca por qualquer verificação de credencial ==
+  literais relacionados a autenticação encontrados no módulo: 0
+  métodos do handler: ['log_message', 'send_json', 'do_GET', 'do_POST', 'do_PUT', 'do_DELETE', 'do_PATCH', 'do_HEAD', 'do_OPTIONS', '_handle_unsupported_method']
+  existe método de autenticação/autorização? False
+
+== H06.3 — diretórios servidos por /api/download/ (medido no AST) ==
+  web_dashboard.py:684 -> allowed_base_dirs =
+    (Path.cwd() / 'output').resolve()
+    Path.cwd().resolve()
+    (Path.cwd() / 'media_workspace').resolve()
+    Path(tempfile.gettempdir()).resolve()
+
+== H06.4 — mutação global de YOUTUBE_COOKIES_FILE (medido no AST) ==
+  web_dashboard.py:751 -> os.environ['YOUTUBE_COOKIES_FILE'] = str(cookies)
+    (escrita em variável de ambiente do PROCESSO, a partir de corpo de requisição não autenticado)
+  web_dashboard.py:791 -> os.environ['YOUTUBE_COOKIES_FILE'] = str(cookies)
+    (escrita em variável de ambiente do PROCESSO, a partir de corpo de requisição não autenticado)
+
+== H06.5 — teste vivo, isolado em 127.0.0.1, porta efêmera ==
+  CWD do servidor: /tmp/h06_annun65e
+  isca criada no CWD: arquivo_privado_do_cwd.mp4 (96 bytes)
+  isca criada em /tmp: h06_isca_no_tmp.mp4 (96 bytes)
+  servidor de teste em 127.0.0.1:43771 (loopback, efêmera)
+
+  --- requisições SEM nenhuma credencial ---
+    GET   /                                          -> {'status': 200, 'bytes': 22753, 'amostra': b'<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n    <meta charset'}
+    GET   /api/download/arquivo_privado_do_cwd.mp4   -> {'status': 200, 'bytes': 96, 'amostra': b'CONTEUDO-SENSIVEL-NO-CWDCONTEUDO-SENSIVEL-NO-CWDCONTEUDO-SEN'}
+    GET   /api/download/h06_isca_no_tmp.mp4          -> {'status': 200, 'bytes': 96, 'amostra': b'CONTEUDO-SENSIVEL-NO-TMPCONTEUDO-SENSIVEL-NO-TMPCONTEUDO-SEN'}
+    GET   /api/download/../../../etc/passwd          -> {'status': 400, 'bytes': 74, 'amostra': b'{"success": false, "error": "Invalid filename or path traver'}
+    POST  /api/analyze                               -> {'status': 400, 'bytes': 53, 'amostra': b'{"success": false, "error": "URL parameter required"}'}
+
+  --- mutação global de estado por requisição não autenticada ---
+    resposta: 200
+    YOUTUBE_COOKIES_FILE antes .: <não definido>
+    YOUTUBE_COOKIES_FILE depois : /tmp/h06_annun65e/cookies_injetados_pelo_cliente.txt
+    variável global do processo alterada pelo cliente: True
+
+  --- /api/gdrive-upload aceita file_path absoluto arbitrário? ---
+      (o uploader é substituído por dublê: NENHUM envio real ao Drive ocorre)
+    POST /api/gdrive-upload {'file_path': '/etc/passwd'} -> {'status': 500, 'bytes': 80, 'amostra': b'{"success": false, "error": "envio bloqueado pela auditoria"'}
+    caminhos que chegaram ao uploader: [{'file_path': '/etc/passwd', 'folder_id': None}]
+    caminho absoluto fora de qualquer allowlist aceito: True
+
+  --- requisições simultâneas sobre o estado global ---
+    8 clientes simultâneos, cada um com seu próprio arquivo de cookies
+    valor global de YOUTUBE_COOKIES_FILE ao final: '/tmp/h06_annun65e/cookies_cliente_6.txt'
+    clientes cujo cookie foi sobrescrito por outro cliente: 7/8
+    corrida entre clientes sobre estado global comprovada: True
+
+== H06 — síntese medida ==
+  nenhuma resposta exigiu autenticação (401/403): True
+  arquivo do CWD servido a cliente anônimo: True
+  arquivo de /tmp servido a cliente anônimo: True
+  bind padrão em todas as interfaces: True (server_address = ('', port))
+  estado global mutável por requisição anônima: True
+  file_path absoluto arbitrário aceito por /api/gdrive-upload: True
+  corrida entre clientes concorrentes sobre estado global: True
+H06_ESTADO=CONFIRMADA
+H06_SANDBOX=/tmp/h06_annun65e

@@ -1,0 +1,53 @@
+ls: cannot access '.github': No such file or directory
+ls: cannot access '.github/workflows': No such file or directory
+0
+0
+0
+{"total":0}
+{"state":"pending","total":0}
+[{"headRefName":"agent/fiscalizacao-chatgpt-t0","number":1,"state":"OPEN","title":"Fiscalização ChatGPT da auditoria T0"}]
+[{"name":"agent/auditoria-independente-t0","protected":false},{"name":"agent/fiscalizacao-chatgpt-t0","protected":false},{"name":"agent/plano-revisao-independente-t0","protected":false},{"name":"main","protected":false}]
+--- COMMITS T0: em qual branch foram feitos ---
+* 4ffe6f4 (HEAD -> agent/auditoria-independente-t0, origin/agent/auditoria-independente-t0) docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+| * 696be7c (origin/agent/plano-revisao-independente-t0) docs: remove superseded GPT review folder
+| * d46d4ec docs: remove plan from review area
+| * 406edb9 docs: define GPT resultados area
+| * c19a7b2 docs: move GPT review plan to resultados
+| * 303265a docs: remove superseded plan outside GPT area
+| * 5717ef8 docs: define isolated GPT review area
+| * 1b5264a docs: move independent review plan under GPT area
+| * feb3781 docs: add independent T0 review plan
+|/  
+* fbe8cc5 (origin/main, main) feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+* f4f13a3 Phase T0: Implementation of cortes evidence logging, verification engine, report generator, contracts, and mutation tests
+* 8be03ac Initial base commit before Phase T0
+--- branches que contem cada commit T0 ---
+commit 8be03ac ->
+* agent/auditoria-independente-t0
+  main
+  remotes/origin/agent/auditoria-independente-t0
+  remotes/origin/agent/plano-revisao-independente-t0
+  remotes/origin/main
+commit f4f13a3 ->
+* agent/auditoria-independente-t0
+  main
+  remotes/origin/agent/auditoria-independente-t0
+  remotes/origin/agent/plano-revisao-independente-t0
+  remotes/origin/main
+commit fbe8cc5 ->
+* agent/auditoria-independente-t0
+  main
+  remotes/origin/agent/auditoria-independente-t0
+  remotes/origin/agent/plano-revisao-independente-t0
+  remotes/origin/main
+commit 4ffe6f4 ->
+* agent/auditoria-independente-t0
+  remotes/origin/agent/auditoria-independente-t0
+--- primeiro commit de cada branch remota ---
+fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+f4f13a3 Phase T0: Implementation of cortes evidence logging, verification engine, report generator, contracts, and mutation tests
+8be03ac Initial base commit before Phase T0
+--- regra escrita sobre commits na main ---
+agents.md:31:billing · apagar dados · commit na main · declarar fase concluída.
+--- contagem de testes documentada x coletada ---
+PLANO_MELHORIAS.md:4:406 testes

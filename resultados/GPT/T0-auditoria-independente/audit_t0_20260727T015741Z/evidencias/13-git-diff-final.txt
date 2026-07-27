@@ -1,0 +1,33 @@
+?? resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z/
+?? resultados/GPT/T0-auditoria-independente/audit_t0_20260727T021704Z/
+--- diff --stat contra HEAD ---
+--- diff --stat contra a baseline, restrito a codigo e pacote oficial ---
+--- arquivos novos, agrupados por area ---
+resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z
+resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z/evidencias
+resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z/scratch
+resultados/GPT/T0-auditoria-independente/audit_t0_20260727T021704Z
+resultados/GPT/T0-auditoria-independente/audit_t0_20260727T021704Z/evidencias
+resultados/GPT/T0-auditoria-independente/audit_t0_20260727T021704Z/scratch
+--- integridade da area oficial review/T0 ---
+2d76d0d12df7525ef162ac98b21b90d7158e04dd69978b537a1a164f640c391c  review/T0/CRITICA_INTERNA.md
+7b2dda7938b89077b3fa4048f489eb9c5dacd0a03abfbfc6539d716ff285dd98  review/T0/DECISOES.md
+3db21760a110657a8289e96647ffe56f05abadefa0380ac686fad74c8cce7351  review/T0/LIMITACOES.md
+9d363faf29de07202a7a4040ded55a13405a59df79788f4d12655d0c434bca5e  review/T0/PACOTE.md
+512724afc9e59af109baed29d13c979e29af8a99efda6502d113968393732ffe  review/T0/diff.patch
+4aab359d145eca5ae182ffd4b935462f556d68a50db0cfcac65bd6014287e56e  review/T0/files_changed.txt
+23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  review/T0/report.md
+7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42  review/T0/runs/run_t0_golden/artifacts/cut_info.json
+c8c886a6a541d92d72951272385b53498b892ee5371b7722087b9e8f1d7f1a43  review/T0/runs/run_t0_golden/artifacts/render/short.mp4
+64843e0582af8f24f157bf734145bcd4a91996bce321a78d70fc55b581e69941  review/T0/runs/run_t0_golden/artifacts/source_metadata.json
+82bfb89f5930876de3e47fb768de1606b8d5d3ecc763de1a5a199f5bf8c38b2a  review/T0/runs/run_t0_golden/artifacts/subtitles.ass
+4076c13c0f0dd87d686d34085c0239b1360c3fd1e49d670516b72528c905bffe  review/T0/runs/run_t0_golden/artifacts/transcript.json
+23c40f9b64444ff5eeac285c48b8fdf0dd3f1cf25690d23f673894f86f209aa3  review/T0/runs/run_t0_golden/commands.log
+e5d558f16274326f7df8a941dffb07c1ef20d93808c2bce1a20f24bca2f77d95  review/T0/runs/run_t0_golden/events.jsonl
+23a8ea5e0cf705a3904fe1c99b3ec029087329ce9b8761ea8a40fc925f84c49b  review/T0/runs/run_t0_golden/report.md
+be66ac1b31530efef5b274f206424fd967a020824f91dc8d86d2511b350631a9  review/T0/runs/run_t0_golden/verify_result.json
+5562691cec75bca732cdc8a5d91ad2a52763b3e1618524c60bf47991d6c55ddb  review/T0/verify_result.json
+--- run anterior preservado? ---
+4ffe6f4 docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+29
+(vazio acima = run anterior intacto)

@@ -1,0 +1,12 @@
++ find review/T0 -type f -print0
++ sort -z
++ xargs -0 sha256sum
++ git status --short
++ .venv/bin/python -m pytest tests/ -v --junitxml=resultados/GPT/T0-auditoria-independente/audit_t0_20260727T015741Z/evidencias/pytest.xml
++ echo PYTEST_EXIT=0
++ git status --short
++ find review/T0 -type f -print0
++ sort -z
++ xargs -0 sha256sum
++ diff /tmp/reviewT0_before.sha256 /tmp/reviewT0_after.sha256
++ echo REVIEW_T0_INTACTO_APOS_PYTEST=SIM
