@@ -141,6 +141,24 @@ def create_parser() -> argparse.ArgumentParser:
         default=8080,
         help="Port number for the web dashboard server (default: 8080).",
     )
+    parser.add_argument(
+        "--host",
+        dest="host",
+        default="127.0.0.1",
+        help="Dashboard bind address (default: 127.0.0.1).",
+    )
+    parser.add_argument(
+        "--api-token",
+        dest="api_token",
+        default=None,
+        help="Bearer token required when exposing the dashboard beyond loopback.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        dest="output_dir",
+        default=None,
+        help="Dedicated dashboard directory for generated and downloadable clips.",
+    )
     return parser
 
 
@@ -169,6 +187,9 @@ def validate_cli_args(args: argparse.Namespace) -> Dict[str, Any]:
         return {
             "dashboard": True,
             "port": getattr(args, "port", 8080) or 8080,
+            "host": getattr(args, "host", "127.0.0.1"),
+            "api_token": getattr(args, "api_token", None),
+            "output_dir": getattr(args, "output_dir", None),
         }
 
     clean_input = validate_input_source(args.input)
@@ -217,7 +238,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             port = getattr(parsed, "port", 8080) or 8080
             sys.stdout.write(f"🚀 Launching YouTube Clipper Web Dashboard on http://localhost:{port}...\n")
             from youtube_clipper.web_dashboard import start_dashboard_server
-            start_dashboard_server(port=port)
+            start_dashboard_server(
+                port=port,
+                host=getattr(parsed, "host", "127.0.0.1"),
+                api_token=getattr(parsed, "api_token", None),
+                output_dir=getattr(parsed, "output_dir", None),
+            )
             return 0
 
         # Set cookies env if provided

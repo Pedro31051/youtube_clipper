@@ -228,6 +228,19 @@ class MockFFmpegContainer:
             cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
             cmd_str = " ".join(cmd_list)
 
+            if cmd_list and Path(cmd_list[0]).name == "ffprobe":
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout=json.dumps(
+                        {
+                            "format": {"duration": "2.0"},
+                            "streams": [{"codec_type": "video"}],
+                        }
+                    ),
+                    stderr="",
+                )
+
             # Handle yt-dlp --write-auto-subs subtitle generation
             if ("yt-dlp" in cmd_str or "yt_dlp" in cmd_str) and "--write-auto-subs" in cmd_str:
                 out_tmpl = None
@@ -296,11 +309,13 @@ class MockFFmpegContainer:
 
     @property
     def last_command(self) -> Optional[List[str]]:
-        """Returns the list of command line arguments from the last call to subprocess.run."""
-        if self.run.called:
-            call_args = self.run.call_args[0]
+        """Return the last FFmpeg command, excluding the validation ffprobe call."""
+        for call in reversed(self.run.call_args_list):
+            call_args = call[0]
             if call_args and isinstance(call_args[0], list):
-                return call_args[0]
+                command = call_args[0]
+                if command and Path(command[0]).name.startswith("ffmpeg"):
+                    return command
         return None
 
     def has_arg(self, arg: str) -> bool:
@@ -572,6 +587,9 @@ def dashboard_server() -> Generator[str, None, None]:
     daemon thread, returning base URL `http://127.0.0.1:{port}`, and closing server cleanly on teardown.
     """
     server = ThreadingHTTPServer(("127.0.0.1", 0), ClipperDashboardHandler)
+    server.output_dir = (Path.cwd() / "media_workspace").resolve()
+    server.output_dir.mkdir(parents=True, exist_ok=True)
+    server.api_token = None
     port = server.server_port
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -579,4 +597,3 @@ def dashboard_server() -> Generator[str, None, None]:
     yield base_url
     server.shutdown()
     server.server_close()
-

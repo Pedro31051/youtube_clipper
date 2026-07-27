@@ -5,9 +5,9 @@ applying center crop or blurred background fill.
 """
 
 import os
-import subprocess
 from typing import Optional, Union
 
+from cortes.log import run_cmd
 from youtube_clipper.exceptions import ProcessingError
 
 
@@ -75,7 +75,7 @@ class VideoFormatter:
             output_path
         ]
 
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+        res = run_cmd(cmd, stage="transform")
 
         if res.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
             return str(output_path)

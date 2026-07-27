@@ -2,11 +2,10 @@
 Module cortes/verify.py - Zero-Trust Re-measurement and Verification.
 """
 
-import hashlib
 import json
-import os
 import pathlib
 import sys
+import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Union
 
@@ -54,7 +53,7 @@ def run_ffprobe_json(file_path: pathlib.Path) -> Dict[str, Any]:
         "json",
         str(file_path),
     ]
-    res = run_cmd(cmd, stage="verify")
+    res = run_cmd(cmd, stage="verify", audit=False)
     if res.returncode != 0:
         return {}
     try:
@@ -69,8 +68,8 @@ def measure_audio_loudness_lufs(file_path: pathlib.Path) -> float:
         import pyloudnorm as pyln
         import soundfile as sf
 
-        temp_wav = file_path.parent / f"_temp_loudness_{file_path.stem}.wav"
-        try:
+        with tempfile.TemporaryDirectory(prefix="cortes_verify_") as temp_dir:
+            temp_wav = pathlib.Path(temp_dir) / "loudness.wav"
             res = run_cmd(
                 [
                     "ffmpeg",
@@ -88,18 +87,13 @@ def measure_audio_loudness_lufs(file_path: pathlib.Path) -> float:
                     str(temp_wav),
                 ],
                 stage="verify",
+                audit=False,
             )
             if res.returncode == 0 and temp_wav.exists():
                 data, rate = sf.read(str(temp_wav))
                 meter = pyln.Meter(rate)
                 loudness = float(meter.integrated_loudness(data))
                 return round(loudness, 2)
-        finally:
-            if temp_wav.exists():
-                try:
-                    temp_wav.unlink()
-                except Exception:
-                    pass
     except Exception:
         pass
 
@@ -117,7 +111,7 @@ def measure_audio_loudness_lufs(file_path: pathlib.Path) -> float:
         "null",
         "-",
     ]
-    res = run_cmd(cmd, stage="verify")
+    res = run_cmd(cmd, stage="verify", audit=False)
     stderr = res.stderr
     for line in stderr.splitlines():
         line_str = line.strip()
@@ -131,8 +125,49 @@ def measure_audio_loudness_lufs(file_path: pathlib.Path) -> float:
     return -999.0
 
 
-def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
-    """Perform zero-trust verification on a run directory and generate verify_result.json."""
+def _resolve_evidence_path(raw_path: str, run_path: pathlib.Path) -> pathlib.Path:
+    """Resolve portable run-relative evidence, including legacy absolute paths."""
+    candidate = pathlib.Path(raw_path)
+    if not candidate.is_absolute():
+        resolved = (run_path / candidate).resolve()
+        try:
+            resolved.relative_to(run_path.resolve())
+        except ValueError as exc:
+            raise ValueError(f"Evidence path escapes the supplied run: {raw_path}") from exc
+        return resolved
+
+    # Legacy T0 runs embedded host-specific prefixes before ``artifacts/``.
+    # Resolve the stable suffix inside the supplied run instead of reaching
+    # back into the producer machine.
+    if "artifacts" in candidate.parts:
+        artifact_index = candidate.parts.index("artifacts")
+        resolved = (
+            run_path / pathlib.Path(*candidate.parts[artifact_index:])
+        ).resolve()
+        try:
+            resolved.relative_to(run_path.resolve())
+        except ValueError as exc:
+            raise ValueError(f"Evidence path escapes the supplied run: {raw_path}") from exc
+        return resolved
+    raise ValueError(f"Absolute evidence path has no portable artifacts suffix: {raw_path}")
+
+
+def _relative_evidence_path(path: pathlib.Path, run_path: pathlib.Path) -> str:
+    try:
+        return str(path.resolve().relative_to(run_path.resolve()))
+    except ValueError:
+        return str(path.resolve())
+
+
+def verify_run(
+    run_dir: Union[str, pathlib.Path],
+    output_path: Union[str, pathlib.Path, None] = None,
+) -> Dict[str, Any]:
+    """Perform read-only zero-trust verification on a run directory.
+
+    Results are returned in memory.  A JSON file is written only when the
+    caller explicitly supplies ``output_path``.
+    """
     r_path = pathlib.Path(run_dir).resolve()
     run_id = r_path.name
     verified_at = datetime.now(timezone.utc).isoformat()
@@ -158,7 +193,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
         passed=events_exists,
         measured="File exists" if events_exists else "File missing",
         expected="File exists",
-        evidence_path=str(events_file),
+        evidence_path=_relative_evidence_path(events_file, r_path),
     )
 
     events: List[Dict[str, Any]] = []
@@ -188,7 +223,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             passed=events_valid_schema,
             measured=schema_error_msg if not events_valid_schema else f"Validated {len(events)} events",
             expected="Schema Version 1.0.0 valid",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 2. Check seq_integrity
@@ -218,7 +253,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             passed=seq_passed,
             measured=seq_msg,
             expected="seq == index + 1 without gaps or duplicates and stage DAG sequence valid",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 3. Check ts_monotonic
@@ -247,7 +282,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             passed=ts_passed,
             measured=ts_msg,
             expected="Monotonic non-decreasing ISO timestamps",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 4. Check commands_log_sync
@@ -274,7 +309,9 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             passed=commands_passed,
             measured=cmd_msg,
             expected="All event commands present in commands.log",
-            evidence_path=str(commands_file if commands_file.exists() else events_file),
+            evidence_path=_relative_evidence_path(
+                commands_file if commands_file.exists() else events_file, r_path
+            ),
         )
 
         # 5. Check exit_codes_zero
@@ -291,7 +328,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             passed=exit_passed,
             measured=exit_msg,
             expected="exit_code == 0 for all outcome ok events",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 6. Check producer_evidence_required
@@ -313,7 +350,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
             passed=prod_ev_passed,
             measured=prod_ev_msg,
             expected="Producer stages with outcome ok must declare non-empty evidence paths",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 7. Check artifact_exists, artifact_sha256, artifact_bytes
@@ -324,6 +361,7 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
         exists_fail_msg = "All declared evidence artifacts exist"
         hash_fail_msg = "All SHA-256 hashes match"
         bytes_fail_msg = "All byte sizes match"
+        declared_media_files: List[pathlib.Path] = []
 
         for ev in events:
             if ev.get("outcome") == "ok":
@@ -334,7 +372,18 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
 
                 for idx, p_str in enumerate(paths):
                     artifacts_checked += 1
-                    p_obj = pathlib.Path(p_str)
+                    try:
+                        p_obj = _resolve_evidence_path(p_str, r_path)
+                    except ValueError as exc:
+                        all_exists = False
+                        all_hashes = False
+                        all_bytes = False
+                        exists_fail_msg = str(exc)
+                        hash_fail_msg = str(exc)
+                        bytes_fail_msg = str(exc)
+                        continue
+                    if p_obj.suffix.lower() == ".mp4":
+                        declared_media_files.append(p_obj)
                     if not p_obj.exists():
                         all_exists = False
                         exists_fail_msg = f"Artifact {p_str} does not exist"
@@ -360,31 +409,46 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
 
         add_check(
             check_id="artifact_exists",
-            passed=all_exists,
-            measured=exists_fail_msg,
+            passed=artifacts_checked > 0 and all_exists,
+            measured=(
+                exists_fail_msg
+                if artifacts_checked > 0
+                else "No evidence artifacts were declared"
+            ),
             expected="All evidence files exist on disk",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         add_check(
             check_id="artifact_sha256",
-            passed=all_hashes,
-            measured=hash_fail_msg,
+            passed=artifacts_checked > 0 and all_hashes,
+            measured=(
+                hash_fail_msg
+                if artifacts_checked > 0
+                else "No evidence artifacts were declared"
+            ),
             expected="Calculated SHA-256 matches declared hash",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         add_check(
             check_id="artifact_bytes",
-            passed=all_bytes,
-            measured=bytes_fail_msg,
+            passed=artifacts_checked > 0 and all_bytes,
+            measured=(
+                bytes_fail_msg
+                if artifacts_checked > 0
+                else "No evidence artifacts were declared"
+            ),
             expected="Disk byte size matches declared size",
-            evidence_path=str(events_file),
+            evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 8. Media Artifact Checks (find any render/clip/short mp4 files)
-        media_files = list(r_path.rglob("*.mp4"))
+        media_files = sorted(
+            {path.resolve() for path in declared_media_files if path.exists()}
+        )
         for video_file in media_files:
+            subject = _relative_evidence_path(video_file, r_path)
             info = run_ffprobe_json(video_file)
             streams = info.get("streams", [])
             video_streams = [s for s in streams if s.get("codec_type") == "video"]
@@ -402,22 +466,20 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
                     res_passed = True
 
             add_check(
-                check_id="video_resolution",
+                check_id=f"video_resolution::{subject}",
                 passed=res_passed,
                 measured=res_measured,
                 expected="1080x1920",
-                evidence_path=str(
-                    video_file.relative_to(r_path.parent) if r_path.parent in video_file.parents else video_file
-                ),
+                evidence_path=subject,
             )
 
             # Audio stream count check
             add_check(
-                check_id="audio_stream_count",
+                check_id=f"audio_stream_count::{subject}",
                 passed=len(audio_streams) == 1,
                 measured=f"{len(audio_streams)} audio stream(s)",
                 expected="Exactly 1 audio stream",
-                evidence_path=str(video_file),
+                evidence_path=subject,
             )
 
             # Video duration check
@@ -426,22 +488,22 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
                 duration = float(video_streams[0].get("duration", 0.0))
             dur_passed = 20.0 <= duration <= 58.0
             add_check(
-                check_id="video_duration_range",
+                check_id=f"video_duration_range::{subject}",
                 passed=dur_passed,
                 measured=f"{round(duration, 2)} seconds",
                 expected="20.0 <= duration <= 58.0 seconds",
-                evidence_path=str(video_file),
+                evidence_path=subject,
             )
 
             # Audio LUFS Loudness check
             loudness = measure_audio_loudness_lufs(video_file)
             lufs_passed = -16.0 <= loudness <= -13.0
             add_check(
-                check_id="audio_lufs_loudness",
+                check_id=f"audio_lufs_loudness::{subject}",
                 passed=lufs_passed,
                 measured=f"{loudness:.2f} LUFS",
                 expected="[-16.0 LUFS, -13.0 LUFS]",
-                evidence_path=str(video_file),
+                evidence_path=subject,
             )
 
     passed_count = sum(1 for c in checks if c["passed"])
@@ -460,17 +522,34 @@ def verify_run(run_dir: Union[str, pathlib.Path]) -> Dict[str, Any]:
         "checks": checks,
     }
 
-    verify_result_file = r_path / "verify_result.json"
-    verify_result_file.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if output_path is not None:
+        verify_result_file = pathlib.Path(output_path).resolve()
+        try:
+            verify_result_file.relative_to(r_path)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("Verification output must be outside the run being verified")
+        verify_result_file.parent.mkdir(parents=True, exist_ok=True)
+        verify_result_file.write_text(
+            json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
     return result
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 -m cortes.verify <run_dir>")
+    if len(sys.argv) not in {2, 4}:
+        print("Usage: python3 -m cortes.verify <run_dir> [--output <result.json>]")
         sys.exit(1)
     run_dir = sys.argv[1]
-    res = verify_run(run_dir)
+    output_path = None
+    if len(sys.argv) == 4:
+        if sys.argv[2] != "--output":
+            print("Expected --output before result path")
+            sys.exit(1)
+        output_path = sys.argv[3]
+    res = verify_run(run_dir, output_path=output_path)
     print(json.dumps(res, indent=2))
     sys.exit(0 if res["overall_passed"] else 1)
 

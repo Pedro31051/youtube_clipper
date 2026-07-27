@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import json
 from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
@@ -21,6 +22,26 @@ import pytest
 
 from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError
 from youtube_clipper.processor import FFmpegProcessor
+
+
+def successful_media_command(cmd: List[str], **_: object) -> subprocess.CompletedProcess:
+    """Simulate a valid FFmpeg output and its ffprobe metadata."""
+    if Path(cmd[0]).name == "ffprobe":
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "format": {"duration": "5.0"},
+                    "streams": [{"codec_type": "video"}],
+                }
+            ),
+            stderr="",
+        )
+    Path(cmd[-1]).write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"x" * 2048)
+    return subprocess.CompletedProcess(
+        args=cmd, returncode=0, stdout="", stderr=""
+    )
 
 
 class TestFFmpegProcessorInit:
@@ -54,17 +75,14 @@ class TestFFmpegProcessorCommandGeneration:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify cut_media places fast-seeking -ss flag BEFORE input -i flag."""
-        mock_run.side_effect = lambda *a, **kw: (
-            Path(a[0][-1]).touch(),
-            subprocess.CompletedProcess(args=a[0], returncode=0, stdout="", stderr=""),
-        )[1]
+        mock_run.side_effect = successful_media_command
         processor = FFmpegProcessor()
         out_file = tmp_path / "out.mp4"
 
         processor.cut_media(dummy_video_file, start=10.0, end=30.0, output_path=out_file)
 
         assert mock_run.called
-        cmd: List[str] = mock_run.call_args[0][0]
+        cmd: List[str] = mock_run.call_args_list[0][0][0]
 
         assert "-ss" in cmd
         assert "-i" in cmd
@@ -79,16 +97,13 @@ class TestFFmpegProcessorCommandGeneration:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify cut_media passes -t flag equal to (end - start)."""
-        mock_run.side_effect = lambda *a, **kw: (
-            Path(a[0][-1]).touch(),
-            subprocess.CompletedProcess(args=a[0], returncode=0, stdout="", stderr=""),
-        )[1]
+        mock_run.side_effect = successful_media_command
         processor = FFmpegProcessor()
         out_file = tmp_path / "out.mp4"
 
         processor.cut_media(dummy_video_file, start=5.0, end=20.5, output_path=out_file)
 
-        cmd: List[str] = mock_run.call_args[0][0]
+        cmd: List[str] = mock_run.call_args_list[0][0][0]
         assert "-t" in cmd
         t_idx = cmd.index("-t")
         assert cmd[t_idx + 1] == "15.5"
@@ -98,10 +113,7 @@ class TestFFmpegProcessorCommandGeneration:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify default cut_media (fast_copy=False) specifies libx264 video and aac audio codecs."""
-        mock_run.side_effect = lambda *a, **kw: (
-            Path(a[0][-1]).touch(),
-            subprocess.CompletedProcess(args=a[0], returncode=0, stdout="", stderr=""),
-        )[1]
+        mock_run.side_effect = successful_media_command
         processor = FFmpegProcessor()
         out_file = tmp_path / "reencoded.mp4"
 
@@ -109,7 +121,7 @@ class TestFFmpegProcessorCommandGeneration:
             dummy_video_file, start=0.0, end=5.0, output_path=out_file, fast_copy=False
         )
 
-        cmd: List[str] = mock_run.call_args[0][0]
+        cmd: List[str] = mock_run.call_args_list[0][0][0]
         assert "-c:v" in cmd
         assert cmd[cmd.index("-c:v") + 1] == "libx264"
         assert "-c:a" in cmd
@@ -120,10 +132,7 @@ class TestFFmpegProcessorCommandGeneration:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify fast_copy=True uses stream copying (-c copy) instead of re-encoding."""
-        mock_run.side_effect = lambda *a, **kw: (
-            Path(a[0][-1]).touch(),
-            subprocess.CompletedProcess(args=a[0], returncode=0, stdout="", stderr=""),
-        )[1]
+        mock_run.side_effect = successful_media_command
         processor = FFmpegProcessor()
         out_file = tmp_path / "copy.mp4"
 
@@ -131,7 +140,7 @@ class TestFFmpegProcessorCommandGeneration:
             dummy_video_file, start=0.0, end=5.0, output_path=out_file, fast_copy=True
         )
 
-        cmd: List[str] = mock_run.call_args[0][0]
+        cmd: List[str] = mock_run.call_args_list[0][0][0]
         assert "-c" in cmd
         assert cmd[cmd.index("-c") + 1] == "copy"
         assert "-c:v" not in cmd
@@ -142,16 +151,13 @@ class TestFFmpegProcessorCommandGeneration:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify cut_media includes -y flag to overwrite existing output files."""
-        mock_run.side_effect = lambda *a, **kw: (
-            Path(a[0][-1]).touch(),
-            subprocess.CompletedProcess(args=a[0], returncode=0, stdout="", stderr=""),
-        )[1]
+        mock_run.side_effect = successful_media_command
         processor = FFmpegProcessor()
         out_file = tmp_path / "out.mp4"
 
         processor.cut_media(dummy_video_file, start=0.0, end=1.0, output_path=out_file)
 
-        cmd: List[str] = mock_run.call_args[0][0]
+        cmd: List[str] = mock_run.call_args_list[0][0][0]
         assert "-y" in cmd
 
 
@@ -219,10 +225,7 @@ class TestFFmpegProcessorErrorsAndBoundaries:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify cut_media creates parent output directory structure on demand."""
-        mock_run.side_effect = lambda *a, **kw: (
-            Path(a[0][-1]).touch(),
-            subprocess.CompletedProcess(args=a[0], returncode=0, stdout="", stderr=""),
-        )[1]
+        mock_run.side_effect = successful_media_command
         processor = FFmpegProcessor()
         nested_out = tmp_path / "nested" / "sub" / "out.mp4"
 

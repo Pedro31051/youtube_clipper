@@ -291,7 +291,7 @@ class TestWebDashboardErrors:
         assert exc_info.value.code == 400
 
     def test_gdrive_upload_nonexistent_file_returns_http_404(self, dashboard_server: str) -> None:
-        """Test POST /api/gdrive-upload with nonexistent file returns HTTP 404 Not Found."""
+        """Paths outside the dedicated output directory are forbidden."""
         url = f"{dashboard_server}/api/gdrive-upload"
         payload = json.dumps({"file_path": "/nonexistent/path/to/clip.mp4"}).encode("utf-8")
         req = urllib.request.Request(
@@ -302,7 +302,7 @@ class TestWebDashboardErrors:
         )
         with pytest.raises(urllib.error.HTTPError) as exc_info:
             urllib.request.urlopen(req)
-        assert exc_info.value.code == 404
+        assert exc_info.value.code == 403
 
 
 class TestWebDashboardConcurrency:
