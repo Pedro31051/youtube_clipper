@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yt_dlp
+from cortes.log import run_cmd
 
 from youtube_clipper.exceptions import (
     ClipperError,
@@ -157,7 +158,7 @@ def _get_processor_class() -> type:
                     cmd.extend(["-c:v", "libx264", "-c:a", "aac"])
                 cmd.append(str(outp))
 
-                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+                res = run_cmd(cmd, audit=False)
                 if res.returncode != 0:
                     raise ProcessingError(
                         f"FFmpeg command failed with code {res.returncode}: {res.stderr}",
@@ -642,13 +643,10 @@ class TestEntrypointExecution:
         main_py = Path(__file__).resolve().parent.parent / "src" / "youtube_clipper" / "__main__.py"
         if main_py.exists():
             cmd = [sys.executable, "-m", "youtube_clipper", "--help"]
-            res = subprocess.run(
+            res = run_cmd(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
                 cwd=str(Path(__file__).resolve().parent.parent),
+                audit=False,
             )
             assert res.returncode == 0
             assert "usage:" in res.stdout.lower() or "youtube_clipper" in res.stdout

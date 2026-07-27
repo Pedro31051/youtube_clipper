@@ -17,7 +17,8 @@ class TestVideoFormatterFilterBuilder:
         """Verify filter string for blur_background mode."""
         filter_str = VideoFormatter.build_vertical_filter(1080, 1920, "blur_background")
         assert "split[bg][fg];" in filter_str
-        assert "boxblur=20:10" in filter_str
+        assert "scale=270:480" in filter_str
+        assert "gblur=sigma=12.0" in filter_str
         assert "[fg]scale=1080:-2[scaled_fg];" in filter_str
         assert "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2" in filter_str
 
@@ -25,7 +26,7 @@ class TestVideoFormatterFilterBuilder:
         """Verify filter string for split_blur mode alias."""
         filter_str = VideoFormatter.build_vertical_filter(1080, 1920, "split_blur")
         assert "split[bg][fg];" in filter_str
-        assert "boxblur=20:10" in filter_str
+        assert "gblur=sigma=12.0" in filter_str
 
     def test_build_vertical_filter_crop_center(self) -> None:
         """Verify filter string for crop_center mode."""
@@ -117,6 +118,26 @@ class TestVideoFormatterConversion:
                 input_path=str(dummy_video_file),
                 output_path=output_path,
                 mode="blur_background",
+            )
+
+    def test_convert_to_vertical_invalid_timestamp_range_raises_processing_error(
+        self, dummy_video_file: Path, tmp_media_dir: Path
+    ) -> None:
+        """Test that start >= end raises ProcessingError."""
+        output_path = str(tmp_media_dir / "invalid_ts.mp4")
+        with pytest.raises(ProcessingError, match="Invalid timestamp range"):
+            VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=output_path,
+                start=10.0,
+                end=5.0,
+            )
+        with pytest.raises(ProcessingError, match="Invalid timestamp range"):
+            VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=output_path,
+                start=5.0,
+                end=5.0,
             )
 
 

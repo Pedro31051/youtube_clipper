@@ -18,6 +18,7 @@ from typing import List, Optional
 
 import pytest
 
+from cortes.log import run_cmd
 from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError, ValidationError
 from conftest import MockFFmpegContainer
 
@@ -74,9 +75,7 @@ except (ImportError, ModuleNotFoundError):
             cmd.append(str(outp))
 
             try:
-                res = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False
-                )
+                res = run_cmd(cmd, audit=False)
                 if res.returncode != 0:
                     raise ProcessingError(
                         f"FFmpeg command execution failed with returncode {res.returncode}",

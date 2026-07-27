@@ -34,7 +34,9 @@ STAGE_MODULES = [
     "audio",
     "transform",
     "render",
+    "report",
 ]
+
 
 
 def is_audited_decorator(dec_node: ast.AST) -> bool:
@@ -91,8 +93,8 @@ def test_t1_environment_execution_is_audited():
     assert any(is_audited_decorator(dec) for dec in runner.decorator_list)
 
 
-def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
-    """Helper to scan an AST tree for prohibited subprocess, system, eval/exec, and dynamic import patterns."""
+def scan_ast_for_violations(tree: ast.AST, filename: str, is_test_file: bool = False) -> List[str]:
+    """Helper to scan an AST tree for prohibited subprocess, system, eval/exec, dynamic import, and evasion patterns."""
     violations = []
     prohibited_os_attrs = {
         "system", "popen", "posix_spawn", "spawn", "spawnl", "spawnle",
@@ -100,116 +102,173 @@ def scan_ast_for_violations(tree: ast.AST, filename: str) -> List[str]:
         "exec", "execv", "execve", "execl", "execle", "execlp", "execlpe"
     }
     prohibited_asyncio_attrs = {
-        "create_subprocess_exec", "create_subprocess_shell"
+        "create_subprocess_exec", "create_subprocess_shell",
+        "subprocess_exec", "subprocess_shell"
     }
+    evasion_modules = {"subprocess", "os", "pty", "ctypes", "asyncio", "importlib"}
+    strictly_prohibited_modules = {"pty", "ctypes"}
 
     for node in ast.walk(tree):
+        lineno = getattr(node, "lineno", 1)
+
         # 1. Direct or module imports
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name == "subprocess" or alias.name.startswith("subprocess."):
+                mod_name = alias.name.split(".")[0]
+
+                # Check for aliased imports (import os as my_os, import subprocess as sub, etc.)
+                if alias.asname is not None:
+                    if mod_name in evasion_modules:
+                        violations.append(
+                            f"{filename}:{lineno} - Prohibited aliased import 'import {alias.name} as {alias.asname}'"
+                        )
+
+                # Direct imports of prohibited modules
+                if not is_test_file and (mod_name == "subprocess" or alias.name.startswith("subprocess.")):
                     violations.append(
-                        f"{filename}:{getattr(node, 'lineno', 1)} - Direct import of 'subprocess'"
+                        f"{filename}:{lineno} - Direct import of 'subprocess'"
                     )
+                elif mod_name in strictly_prohibited_modules:
+                    violations.append(
+                        f"{filename}:{lineno} - Direct import of prohibited module '{alias.name}'"
+                    )
+
         elif isinstance(node, ast.ImportFrom):
-            if node.module and (node.module == "subprocess" or node.module.startswith("subprocess.")):
+            mod_name = (node.module or "").split(".")[0]
+
+            # Check for star import (from os import *)
+            for alias in node.names:
+                if alias.name == "*":
+                    if mod_name in evasion_modules:
+                        violations.append(
+                            f"{filename}:{lineno} - Prohibited star import 'from {node.module} import *'"
+                        )
+                elif alias.asname is not None:
+                    if mod_name in evasion_modules:
+                        violations.append(
+                            f"{filename}:{lineno} - Prohibited aliased import 'from {node.module} import {alias.name} as {alias.asname}'"
+                        )
+
+            if not is_test_file and node.module and (node.module == "subprocess" or node.module.startswith("subprocess.")):
                 violations.append(
-                    f"{filename}:{getattr(node, 'lineno', 1)} - Import from 'subprocess'"
+                    f"{filename}:{lineno} - Import from 'subprocess'"
                 )
-            elif node.module == "os":
+            elif mod_name in strictly_prohibited_modules:
+                violations.append(
+                    f"{filename}:{lineno} - Import from prohibited module '{node.module}'"
+                )
+            elif node.module and (node.module == "os" or node.module.startswith("os.")):
                 for alias in node.names:
                     if alias.name in prohibited_os_attrs:
                         violations.append(
-                            f"{filename}:{getattr(node, 'lineno', 1)} - Import of prohibited 'os.{alias.name}'"
+                            f"{filename}:{lineno} - Import of prohibited 'os.{alias.name}'"
                         )
-            elif node.module == "asyncio":
+            elif node.module and (node.module == "asyncio" or node.module.startswith("asyncio.")):
                 for alias in node.names:
-                    if alias.name in prohibited_asyncio_attrs:
+                    if alias.name in prohibited_asyncio_attrs or "subprocess" in alias.name:
                         violations.append(
-                            f"{filename}:{getattr(node, 'lineno', 1)} - Import of prohibited 'asyncio.{alias.name}'"
+                            f"{filename}:{lineno} - Import of prohibited 'asyncio.{alias.name}'"
                         )
 
         # 2. Attribute accesses
         elif isinstance(node, ast.Attribute):
-            if isinstance(node.value, ast.Name):
-                if node.value.id == "subprocess":
+            if node.attr in prohibited_asyncio_attrs:
+                violations.append(
+                    f"{filename}:{lineno} - Prohibited asyncio loop subprocess method '.{node.attr}'"
+                )
+            elif isinstance(node.value, ast.Name):
+                val_id = node.value.id
+                if val_id == "subprocess" and (
+                    not is_test_file
+                    or node.attr
+                    in {"run", "Popen", "call", "check_call", "check_output"}
+                ):
                     violations.append(
-                        f"{filename}:{getattr(node, 'lineno', 1)} - Access to 'subprocess.{node.attr}'"
+                        f"{filename}:{lineno} - Access to 'subprocess.{node.attr}'"
                     )
-                elif node.value.id == "os" and node.attr in prohibited_os_attrs:
+                elif val_id in strictly_prohibited_modules:
                     violations.append(
-                        f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited system call 'os.{node.attr}'"
+                        f"{filename}:{lineno} - Access to prohibited module '{val_id}.{node.attr}'"
                     )
-                elif node.value.id == "asyncio" and node.attr in prohibited_asyncio_attrs:
+                elif val_id == "os" and node.attr in prohibited_os_attrs:
                     violations.append(
-                        f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited asyncio call 'asyncio.{node.attr}'"
+                        f"{filename}:{lineno} - Prohibited system call 'os.{node.attr}'"
+                    )
+                elif val_id == "asyncio" and (node.attr in prohibited_asyncio_attrs or "subprocess" in node.attr):
+                    violations.append(
+                        f"{filename}:{lineno} - Prohibited asyncio call 'asyncio.{node.attr}'"
                     )
 
-        # 3. Function calls (eval, exec, __import__, importlib.import_module, direct call to system/popen/etc.)
+        # 3. Function calls (eval, exec, getattr, __import__, importlib.import_module, asyncio loop subprocess methods, system calls)
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name):
                 func_id = node.func.id
                 if func_id in ("eval", "exec"):
                     violations.append(
-                        f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call to '{func_id}'"
+                        f"{filename}:{lineno} - Prohibited call to '{func_id}'"
+                    )
+                elif func_id == "getattr":
+                    violations.append(
+                        f"{filename}:{lineno} - Prohibited call to 'getattr'"
                     )
                 elif func_id == "__import__":
-                    if node.args:
-                        arg0 = node.args[0]
-                        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
-                            if arg0.value == "subprocess" or arg0.value.startswith("subprocess."):
-                                violations.append(
-                                    f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call '__import__({arg0.value!r})'"
-                                )
-                        else:
-                            violations.append(
-                                f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call to '__import__'"
-                            )
-                    else:
-                        violations.append(
-                            f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call to '__import__'"
-                        )
+                    arg0_val = None
+                    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                        arg0_val = node.args[0].value
+                    violations.append(
+                        f"{filename}:{lineno} - Prohibited call to '__import__' ({arg0_val!r})"
+                    )
                 elif func_id == "import_module":
-                    if node.args:
-                        arg0 = node.args[0]
-                        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
-                            if arg0.value == "subprocess" or arg0.value.startswith("subprocess."):
-                                violations.append(
-                                    f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call 'import_module({arg0.value!r})'"
-                                )
+                    arg0_val = None
+                    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                        arg0_val = node.args[0].value
+                    violations.append(
+                        f"{filename}:{lineno} - Prohibited call to 'import_module' ({arg0_val!r})"
+                    )
                 elif func_id in prohibited_os_attrs or func_id in prohibited_asyncio_attrs:
                     violations.append(
-                        f"{filename}:{getattr(node, 'lineno', 1)} - Direct call to prohibited function '{func_id}'"
+                        f"{filename}:{lineno} - Direct call to prohibited function '{func_id}'"
                     )
+
             elif isinstance(node.func, ast.Attribute):
                 if node.func.attr == "import_module":
-                    if node.args:
-                        arg0 = node.args[0]
-                        if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
-                            if arg0.value == "subprocess" or arg0.value.startswith("subprocess."):
-                                violations.append(
-                                    f"{filename}:{getattr(node, 'lineno', 1)} - Prohibited call 'importlib.import_module({arg0.value!r})'"
-                                )
+                    arg0_val = None
+                    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                        arg0_val = node.args[0].value
+                    violations.append(
+                        f"{filename}:{lineno} - Prohibited call 'importlib.import_module' ({arg0_val!r})"
+                    )
+                elif node.func.attr in prohibited_asyncio_attrs:
+                    violations.append(
+                        f"{filename}:{lineno} - Prohibited call to asyncio subprocess method '.{node.func.attr}'"
+                    )
 
     return violations
 
 
 def test_ast_prohibit_subprocess_outside_run_cmd():
-    """Requirement (b): AST scan fails if subprocess, os.system/popen/posix_spawn, importlib/subprocess, __import__('subprocess'), eval/exec, or asyncio subprocess is used outside src/cortes/log.py."""
-    src_dir = pathlib.Path(__file__).parent.parent / "src"
+    """Requirement (b): AST scan fails if subprocess, os.system/popen/posix_spawn, importlib/subprocess, __import__('subprocess'), eval/exec, or asyncio subprocess is used outside src/cortes/log.py across src/ and tests/."""
+    project_root = pathlib.Path(__file__).parent.parent
+    src_dir = project_root / "src"
+    tests_dir = project_root / "tests"
     assert src_dir.exists(), "src directory must exist"
+    assert tests_dir.exists(), "tests directory must exist"
 
     violations = []
+    py_files = list(src_dir.rglob("*.py")) + list(tests_dir.rglob("*.py"))
 
-    for py_file in src_dir.rglob("*.py"):
-        # Exempt log.py as it is the sole authorized module for subprocess invocation
-        if py_file == src_dir / "cortes" / "log.py":
+    for py_file in py_files:
+        rel_path = str(py_file.relative_to(project_root))
+
+        # Exempt log.py (sole authorized subprocess gateway) and test_contracts.py (scanner test suite with evasion vectors)
+        if rel_path in ("src/cortes/log.py", "tests/test_contracts.py"):
             continue
 
-        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        is_test = rel_path.startswith("tests/")
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=rel_path)
         violations.extend(
             scan_ast_for_violations(
-                tree, str(py_file.relative_to(src_dir.parent))
+                tree, rel_path, is_test_file=is_test
             )
         )
 
@@ -219,19 +278,38 @@ def test_ast_prohibit_subprocess_outside_run_cmd():
 
 
 def test_ast_evasion_attempts_are_blocked():
-    """Verify that AST scanner blocks all 10 known evasion vectors."""
+    """Verify that AST scanner blocks all 8 evasion vectors across 12 concrete evasion test snippets."""
     evasion_snippets = [
-        "from os import system; system('ls')",
-        "from os import popen; popen('ls')",
-        "from os import posix_spawn; posix_spawn('/bin/ls', ['ls'], {})",
+        # Vector 1: __import__("os") / __import__("subprocess")
+        "__import__('os').system('ls')",
+        "__import__('subprocess').run(['ls'])",
+        # Vector 2: importlib.import_module("os")
         "import importlib; sub = importlib.import_module('subprocess'); sub.run(['ls'])",
         "from importlib import import_module; sub = import_module('subprocess')",
-        "__import__('subprocess').run(['ls'])",
+        # Vector 3: pty
+        "import pty; pty.spawn('/bin/ls')",
+        "from pty import spawn; spawn('/bin/ls')",
+        # Vector 4: ctypes
+        "import ctypes; ctypes.CDLL(None).system(b'ls')",
+        "from ctypes import CDLL; CDLL(None)",
+        # Vector 5: getattr()
+        "getattr(__import__('os'), 'system')('ls')",
+        "getattr(os, 'system')('ls')",
+        # Vector 6: from os import *
+        "from os import *",
+        "from subprocess import *",
+        # Vector 7: aliased imports (import os as my_os, from os import system as sys_call)
+        "import os as my_os; my_os.system('ls')",
+        "from os import system as sys_call",
+        "import subprocess as my_sub; my_sub.run(['ls'])",
+        # Vector 8: asyncio loop subprocess methods
+        "import asyncio; loop.subprocess_exec(None, 'ls')",
+        "import asyncio; loop.subprocess_shell(None, 'ls')",
+        "import asyncio; asyncio.create_subprocess_exec('ls')",
+        "from asyncio import create_subprocess_exec; create_subprocess_exec('ls')",
+        # Direct eval/exec
         "eval('1+1')",
         "exec('1+1')",
-        "import asyncio; asyncio.create_subprocess_exec('ls')",
-        "import asyncio; asyncio.create_subprocess_shell('ls')",
-        "from asyncio import create_subprocess_exec; create_subprocess_exec('ls')",
     ]
 
     for snippet in evasion_snippets:

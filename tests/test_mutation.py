@@ -113,7 +113,7 @@ def create_synthetic_golden_run(tmp_path: pathlib.Path) -> pathlib.Path:
             "cost": {"usd": 0.0, "tokens_in": 0, "tokens_out": 0},
             "trace": {"span_id": "0123456789abcdeg", "parent_span_id": "0123456789abcdef"},
             "evidence": {
-                "paths": [str(video_path)],
+                "paths": ["artifacts/clip_01/short.mp4"],
                 "sha256": [video_sha],
                 "bytes": [video_bytes],
             },

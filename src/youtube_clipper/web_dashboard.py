@@ -655,11 +655,11 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
     POST_ROUTES = {"/api/analyze", "/api/generate-clip", "/api/gdrive-upload"}
 
     def _output_dir(self) -> Path:
-        configured = getattr(self.server, "output_dir", Path.cwd() / "output")
+        configured = vars(self.server).get("output_dir", Path.cwd() / "output")
         return Path(configured).resolve()
 
     def _is_authorized(self) -> bool:
-        expected = getattr(self.server, "api_token", None)
+        expected = vars(self.server).get("api_token", None)
         bound_host = str(self.server.server_address[0])
         loopback = bound_host in {"127.0.0.1", "::1", "localhost"}
         if not expected:

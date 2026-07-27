@@ -17,6 +17,7 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import pytest
 
+from cortes.log import run_cmd
 from youtube_clipper.exceptions import ValidationError
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -411,13 +412,7 @@ class TestCLIHelpAndEntrypointTier2:
         main_py = SRC_DIR / "youtube_clipper" / "__main__.py"
         if main_py.exists():
             cmd = [sys.executable, "-m", "youtube_clipper", "--help"]
-            res = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=str(PROJECT_ROOT),
-            )
+            res = run_cmd(cmd, cwd=str(PROJECT_ROOT), audit=False)
             assert res.returncode == 0
             assert "usage:" in res.stdout.lower() or "--help" in res.stdout
         else:
@@ -434,13 +429,7 @@ class TestCLIHelpAndEntrypointTier2:
         main_py = SRC_DIR / "youtube_clipper" / "__main__.py"
         if main_py.exists():
             cmd = [sys.executable, "-m", "youtube_clipper"]
-            res = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                cwd=str(PROJECT_ROOT),
-            )
+            res = run_cmd(cmd, cwd=str(PROJECT_ROOT), audit=False)
             assert res.returncode != 0
         else:
             target_func = _get_target_func()

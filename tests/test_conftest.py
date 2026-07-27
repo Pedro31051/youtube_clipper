@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import pytest
+from cortes.log import run_cmd
 
 from conftest import MockYTDLPContainer, MockFFmpegContainer, CLIRunnerResult
 
@@ -46,7 +47,10 @@ def test_mock_ffmpeg_fixture(mock_ffmpeg: MockFFmpegContainer, tmp_media_dir: Pa
     assert isinstance(mock_ffmpeg, MockFFmpegContainer)
     
     out_file = tmp_media_dir / "output.mp4"
-    res = subprocess.run(["ffmpeg", "-ss", "00:00:10", "-i", "input.mp4", str(out_file)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    res = run_cmd(
+        ["ffmpeg", "-ss", "00:00:10", "-i", "input.mp4", str(out_file)],
+        audit=False,
+    )
     
     assert res.returncode == 0
     assert mock_ffmpeg.last_command == ["ffmpeg", "-ss", "00:00:10", "-i", "input.mp4", str(out_file)]
@@ -57,11 +61,11 @@ def test_mock_ffmpeg_fixture(mock_ffmpeg: MockFFmpegContainer, tmp_media_dir: Pa
     # Test missing ffmpeg simulation
     mock_ffmpeg.simulate_missing_ffmpeg()
     with pytest.raises(FileNotFoundError):
-        subprocess.run(["ffmpeg", "-version"])
+        run_cmd(["ffmpeg", "-version"], audit=False)
 
     # Test execution failure simulation
     mock_ffmpeg.simulate_failure(returncode=1, stderr="Invalid codec option")
-    failed_res = subprocess.run(["ffmpeg", "-invalid"])
+    failed_res = run_cmd(["ffmpeg", "-invalid"], audit=False)
     assert failed_res.returncode == 1
     assert "Invalid codec" in failed_res.stderr
 

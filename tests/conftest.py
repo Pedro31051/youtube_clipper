@@ -23,6 +23,7 @@ from typing import Any, Callable, Generator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cortes.log import run_cmd
 
 # Ensure `src` directory is in sys.path for importing youtube_clipper modules
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -77,7 +78,7 @@ def dummy_video_file(tmp_media_dir: Path) -> Path:
             str(video_path),
         ]
         try:
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            res = run_cmd(cmd, audit=False)
             if res.returncode == 0 and video_path.exists() and video_path.stat().st_size > 0:
                 generated_real = True
         except Exception:
@@ -408,17 +409,14 @@ def cli_runner() -> Callable[..., CLIRunnerResult]:
         # Determine target function if not explicitly provided
         func_to_call = target_func
         if func_to_call is None:
-            for mod_name in ("youtube_clipper.cli", "youtube_clipper.__main__", "youtube_clipper.pipeline"):
-                try:
-                    mod = __import__(mod_name, fromlist=["main"])
-                    if hasattr(mod, "main"):
-                        func_to_call = getattr(mod, "main")
-                        break
-                    elif hasattr(mod, "cli_main"):
-                        func_to_call = getattr(mod, "cli_main")
-                        break
-                except (ImportError, ModuleNotFoundError):
-                    continue
+            try:
+                import youtube_clipper.cli as ytc_cli
+                if hasattr(ytc_cli, "main"):
+                    func_to_call = ytc_cli.main
+                elif hasattr(ytc_cli, "cli_main"):
+                    func_to_call = ytc_cli.cli_main
+            except (ImportError, ModuleNotFoundError):
+                pass
 
         # Save previous sys.argv
         old_argv = sys.argv
@@ -529,11 +527,11 @@ def mock_gdrive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
 @pytest.fixture
 def mock_yt_dlp_subs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Generator[None, None, None]:
     """
-    Mocks subprocess.run calls for yt-dlp --write-auto-subs to generate a valid WebVTT subtitle file on demand.
+    Mocks the audited command gateway for yt-dlp subtitle generation.
     """
-    orig_run = subprocess.run
-
-    def mock_sub_run(cmd: Any, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    def mock_analyzer_run_cmd(
+        cmd: Any, *args: Any, **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
         cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
         cmd_str = " ".join(cmd_list)
 
@@ -560,9 +558,12 @@ def mock_yt_dlp_subs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Generat
             vtt_path.write_text(vtt_content, encoding="utf-8")
             return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
 
-        return orig_run(cmd, *args, **kwargs)
+        return run_cmd(cmd, *args, **kwargs)
 
-    monkeypatch.setattr(subprocess, "run", mock_sub_run)
+    monkeypatch.setattr(
+        "youtube_clipper.analyzer.run_cmd",
+        mock_analyzer_run_cmd,
+    )
     yield
 
 

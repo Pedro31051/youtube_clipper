@@ -13,6 +13,7 @@ from dataclasses import dataclass, asdict
 from typing import List, Dict, Any, Optional
 
 from cortes.log import run_cmd
+from youtube_clipper.exceptions import ProcessingError
 
 @dataclass
 class TranscriptSegment:
@@ -325,3 +326,174 @@ def extract_transcript_and_analyze(
             "total_segments": len(segments),
             "clips": [c.to_dict() for c in clips]
         }
+
+
+class SpeechDensityAnalyzer:
+    """Deterministic selection heuristic engine maximizing speech density aligned to scene cuts."""
+
+    MIN_DURATION_MS: int = 20000
+    MAX_DURATION_MS: int = 58000
+
+    @classmethod
+    def parse_transcript_words(cls, transcript_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract word objects with start_ms and end_ms from transcript data."""
+        words: List[Dict[str, Any]] = []
+        raw_words = transcript_data.get("words", [])
+        if not raw_words and "segments" in transcript_data:
+            for seg in transcript_data.get("segments", []):
+                seg_words = seg.get("words", [])
+                if seg_words:
+                    raw_words.extend(seg_words)
+                else:
+                    # Segment level fallback if word-level missing
+                    s_ms = int(round(float(seg.get("start", 0.0)) * 1000))
+                    e_ms = int(round(float(seg.get("end", 0.0)) * 1000))
+                    text = seg.get("text", "").strip()
+                    if e_ms > s_ms and text:
+                        words.append({
+                            "word": text,
+                            "start_ms": s_ms,
+                            "end_ms": e_ms,
+                        })
+
+        for w in raw_words:
+            if not isinstance(w, dict):
+                continue
+            start_ms = w.get("start_ms")
+            if start_ms is None and "start" in w:
+                start_ms = int(round(float(w["start"]) * 1000))
+            end_ms = w.get("end_ms")
+            if end_ms is None and "end" in w:
+                end_ms = int(round(float(w["end"]) * 1000))
+            if start_ms is not None and end_ms is not None and end_ms > start_ms:
+                words.append({
+                    "word": w.get("word", ""),
+                    "start_ms": int(start_ms),
+                    "end_ms": int(end_ms),
+                })
+        words.sort(key=lambda x: x["start_ms"])
+        return words
+
+    @classmethod
+    def parse_scene_cuts(cls, scenes_data: Dict[str, Any]) -> List[int]:
+        """Extract sorted unique scene cut timestamps in milliseconds."""
+        cuts = set(scenes_data.get("cut_timestamps_ms", []))
+        scenes_list = scenes_data.get("scenes", []) or scenes_data.get("scene_list", [])
+        for sc in scenes_list:
+            if "start_ms" in sc:
+                cuts.add(int(sc["start_ms"]))
+            elif "start_time" in sc:
+                cuts.add(int(round(float(sc["start_time"]) * 1000)))
+            if "end_ms" in sc:
+                cuts.add(int(sc["end_ms"]))
+            elif "end_time" in sc:
+                cuts.add(int(round(float(sc["end_time"]) * 1000)))
+        if "video_duration_sec" in scenes_data:
+            cuts.add(int(round(float(scenes_data["video_duration_sec"]) * 1000)))
+        if "video_duration_ms" in scenes_data:
+            cuts.add(int(scenes_data["video_duration_ms"]))
+        cuts.add(0)
+        return sorted(list(cuts))
+
+    @classmethod
+    def compute_spoken_duration_ms(
+        cls, words: List[Dict[str, Any]], start_ms: int, end_ms: int
+    ) -> int:
+        """Calculate total spoken milliseconds overlapping [start_ms, end_ms]."""
+        spoken_ms = 0
+        for w in words:
+            w_start, w_end = w["start_ms"], w["end_ms"]
+            overlap = max(0, min(w_end, end_ms) - max(w_start, start_ms))
+            spoken_ms += overlap
+        return spoken_ms
+
+    @classmethod
+    def format_timestamp_ms(cls, ms: int) -> str:
+        """Format millisecond timestamp into HH:MM:SS.mmm string."""
+        sec_total = ms / 1000.0
+        hours = int(sec_total // 3600)
+        minutes = int((sec_total % 3600) // 60)
+        seconds = sec_total % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
+
+    @classmethod
+    def select_best_clip(
+        cls,
+        transcript_data: Dict[str, Any],
+        scenes_data: Dict[str, Any],
+        min_duration_ms: int = 20000,
+        max_duration_ms: int = 58000,
+    ) -> Dict[str, Any]:
+        """Deterministically select the clip window maximizing speech density with scene alignment bonus."""
+        # 1. Clamp custom duration parameter overrides strictly within [MIN_DURATION_MS, MAX_DURATION_MS]
+        eff_min_dur = max(cls.MIN_DURATION_MS, min(cls.MAX_DURATION_MS, int(min_duration_ms)))
+        eff_max_dur = max(cls.MIN_DURATION_MS, min(cls.MAX_DURATION_MS, int(max_duration_ms)))
+        if eff_min_dur > eff_max_dur:
+            eff_min_dur = eff_max_dur
+
+        words = cls.parse_transcript_words(transcript_data)
+        cuts = cls.parse_scene_cuts(scenes_data)
+        cuts_set = set(cuts)
+
+        max_video_ms = max(cuts) if cuts else 0
+        if "duration" in transcript_data and float(transcript_data["duration"]) > 0:
+            max_video_ms = max(max_video_ms, int(round(float(transcript_data["duration"]) * 1000)))
+        if words:
+            max_video_ms = max(max_video_ms, max(w["end_ms"] for w in words))
+
+        # 2. Rejection for video duration < eff_min_dur (or empty inputs resulting in 0ms)
+        if max_video_ms < eff_min_dur:
+            raise ProcessingError("Cannot select clip: duration must be between 20.0s and 58.0s")
+
+        candidate_starts = sorted(list(cuts_set.union({w["start_ms"] for w in words})))
+        candidate_ends_base = set(cuts_set.union({w["end_ms"] for w in words}))
+
+        candidates: List[Dict[str, Any]] = []
+
+        for s in candidate_starts:
+            min_e = s + eff_min_dur
+            max_e = min(s + eff_max_dur, max_video_ms)
+            if min_e > max_video_ms:
+                continue
+
+            exact_ends = [e for e in candidate_ends_base if min_e <= e <= max_e]
+            if exact_ends:
+                valid_ends = sorted(exact_ends)
+            else:
+                synth_ends = {s + eff_min_dur, min(s + eff_max_dur, max_video_ms)}
+                valid_ends = sorted([e for e in synth_ends if min_e <= e <= max_e])
+
+            for e in valid_ends:
+                dur = e - s
+                if not (eff_min_dur <= dur <= eff_max_dur):
+                    continue
+
+                spoken_ms = cls.compute_spoken_duration_ms(words, s, e)
+                density = spoken_ms / float(dur)
+                base_score = round(density * 100.0, 2)
+
+                aligned = (s in cuts_set) and (e in cuts_set)
+                bonus = 2.0 if aligned else 0.0
+                final_score = min(100.0, round(base_score + bonus, 2))
+
+                candidates.append({
+                    "schema_version": "1.0.0",
+                    "start_ms": s,
+                    "end_ms": e,
+                    "duration_ms": dur,
+                    "start_formatted": cls.format_timestamp_ms(s),
+                    "end_formatted": cls.format_timestamp_ms(e),
+                    "score": final_score,
+                })
+
+        if not candidates:
+            raise ProcessingError("Cannot select clip: duration must be between 20.0s and 58.0s")
+
+        # Sort deterministically by (score desc, duration_ms desc, -start_ms desc)
+        candidates.sort(key=lambda x: (x["score"], x["duration_ms"], -x["start_ms"]), reverse=True)
+        best = candidates[0]
+
+        if not (20000 <= best["duration_ms"] <= 58000):
+            raise ProcessingError("Cannot select clip: duration must be between 20.0s and 58.0s")
+
+        return best

@@ -348,3 +348,92 @@ defeito de processo.
 
 Comecem por T0. Não pulem T0.
 
+## Follow-up — 2026-07-27T03:51:29Z
+
+Implement Phase T1 (Baseline anti-regression & double-cut fix) for the YouTube Clipper project to eliminate silent MP4 file corruption and establish programmatic media output verification.
+
+Working directory: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper
+Integrity mode: development
+
+## Requirements
+
+### R1. Double-Cut Correction in Pipeline
+Fix segment offset handling in `src/youtube_clipper/pipeline.py`. When downloading YouTube segments, `download_segment` already extracts the cut slice starting at t=0. The pipeline must normalize offsets (`cut_start = 0.0`, `cut_end = end_sec - start_sec`) for YouTube inputs before calling `cut_media`, while retaining absolute timestamps for direct local media files.
+
+### R2. Media Validation Guardrails in Processor
+Enhance `cut_media` in `src/youtube_clipper/processor.py` to validate that generated output MP4 files are valid. Verify that file size is strictly greater than 1024 bytes and that `ffprobe` returns a valid positive duration. Raise `ProcessingError` if media output is corrupted, empty, or unreadable.
+
+### R3. Media Output Baseline & Regression Test Suite
+Create `tests/test_regression_media.py` using synthetic test videos generated via `ffmpeg -f lavfi -i testsrc` to verify duration, resolution, and minimum file size of rendered clips. Include unit tests simulating double-cut scenarios (e.g. 30s input file with start=60) expecting `ProcessingError`. Ensure 100% of existing pytest test cases continue to pass.
+
+## Acceptance Criteria
+
+### Media Pipeline Guardrails & Correctness
+- [ ] `cut_media` validates output MP4 files with `st_size > 1024` and valid `ffprobe` duration, throwing `ProcessingError` on failure.
+- [ ] Pipeline correctly normalizes cut start/end offsets for YouTube downloaded segments vs local files without secondary offset miscalculations.
+- [ ] Double-cut scenarios return descriptive errors (`ProcessingError`) rather than silent exit 0 corrupted 262-byte MP4s.
+
+### Testing & Quality Bar
+- [ ] `tests/test_regression_media.py` tests synthetic MP4 generation and validates output clip duration, resolution, and size.
+- [ ] Full `pytest` execution passes with 100% success rate across all unit, integration, and regression test suites.
+
+## Follow-up — 2026-07-27T12:53:01Z
+
+# Teamwork Project Prompt — Phase T2 (Technical Short Pipeline)
+
+Construção e validação do pipeline ponta a ponta para geração de Short técnico vertical 9:16 (1080x1920) a partir de arquivo de vídeo local, incluindo transcrição Whisper com timestamps por palavra, detecção de cenas PySceneDetect, seleção determinística, legendas .ass queimadas via libass, tratamento de áudio loudnorm 2-pass e relatório de evidências.
+
+Working directory: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper
+Integrity mode: development
+
+## Requirements
+
+### R1. Pipeline de Ingestão e Processamento Técnico (Fase T2)
+Implementar os módulos e a orquestração dos estágios do pipeline: `ingest` ➔ `transcribe` (Whisper GPU, timestamps por palavra) ➔ `scenes` (PySceneDetect) ➔ `select` (heurística determinística: maior densidade de fala em janela de 20s–58s alinhada a corte de cena) ➔ `cut` (-c copy) ➔ `subtitles` (.ass via pysubs2) ➔ `audio` (loudnorm 2-pass [-16, -13 LUFS]) ➔ `render` (crop/pad 9:16, 1080x1920, legenda queimada via libass) ➔ `report` (`report.py`).
+
+### R2. Contrato de Auditoria e Scanner AST sem Brechas
+Todas as funções de estágio devem ser instrumentadas com o decorador `@audited(stage=...)`. Todos os comandos e processos externos (FFmpeg, ffprobe, Whisper, PySceneDetect) devem obrigatoriamente utilizar `cortes.log.run_cmd()`. O teste estático AST `test_contracts.py` deve varrer 100% dos arquivos do projeto sob `src/` e `tests/` confirmando ausência de `subprocess` direto.
+
+### R3. Verificação Zero-Trust e Portabilidade (Read-Only)
+O script `src/cortes/verify.py` deve re-medir fisicamente o artefato renderizado `runs/<run_id>/artifacts/<clip_id>/short.mp4` sem alterar arquivos ou logs existentes (`audit=False`), validando resolução, FPS, contagem de áudio, faixa LUFS, alinhamento de legendas e integridade SHA-256. Todas as evidências em `events.jsonl` devem usar caminhos relativos ao run.
+
+## Acceptance Criteria
+
+### Requisitos Mínimos da Mídia Renderizada
+- [ ] Vídeo final renderizado em 1080x1920 (9:16) com FPS constante.
+- [ ] Duração exata entre 20s e 58s (20.0 <= duration <= 58.0).
+- [ ] Exatamente 1 faixa de áudio com sonoridade integrada entre -16.0 LUFS e -13.0 LUFS.
+- [ ] Mapeamento perfeito de legendas com o transcript no mesmo intervalo (tolerância +/- 200 ms).
+- [ ] Tamanho do MP4 gerado estritamente maior que 1024 bytes e duração medida por ffprobe > 0.0.
+
+### Requisitos de Auditoria e Pacote de Revisão
+- [ ] src/cortes/verify.py e pytest passam com 100% de sucesso (0 falhas).
+- [ ] Pacote de revisão consolidado em review/T2/ contendo PACOTE.md, runs/run_t2_golden/, diff.patch, files_changed.txt, verify_result.json, report.md, DECISOES.md, LIMITACOES.md e CRITICA_INTERNA.md.
+- [ ] Trabalho entregue na branch agent/t2-short-tecnico e enviada ao GitHub sem commits diretos na main.
+
+## Follow-up — 2026-07-27T17:38:15Z
+
+Independent audit and code review of the Phase T3 (Performance Optimization 11x) implementation and end-to-end pipeline integrity for youtube_clipper.
+
+Working directory: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper
+Integrity mode: development
+
+## Requirements
+
+### R1. Independent Code & Contract Review
+Review and audit all changes introduced in Phase T3 across video_formatter.py, pipeline.py, render.py, and test_t3_performance.py. Verify module boundaries, signature compatibility, exception handling, and absence of side effects.
+
+### R2. Empirical Verification & Anti-Regression Testing
+Run full test suites (pytest), mutate critical paths to verify zero false positives in tests, probe performance benchmarks on synthetic clips (render duration < 5s for 5s clip, 1080x1920 vertical format, non-zero video stream).
+
+### R3. Audit Manifest & Review Package Delivery
+Produce a comprehensive review report with physical evidence logs, pass/fail status per check, and structured review package under review/T3/.
+
+## Acceptance Criteria
+
+### Audit & Quality Criteria
+- [ ] 100% of unit, integration, and contract tests pass cleanly (.venv/bin/pytest).
+- [ ] Single-pass 9:16 vertical render performance verified (< 5s for 5s synthetic clip).
+- [ ] Hardware acceleration (h264_nvenc) and libx264 fallback verified.
+- [ ] Review package review/T3/ created containing PACOTE.md, report.md, and physical evidence.
+
