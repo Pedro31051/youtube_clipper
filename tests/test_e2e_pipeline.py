@@ -96,7 +96,7 @@ def _get_downloader_class() -> type:
                         ext = info.get("ext", "mp4")
                         out_file = out_dir / f"{video_id}_segment.{ext}"
                         if not out_file.exists():
-                            out_file.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 512)
+                            out_file.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
                         return str(out_file)
                 except DownloadError:
                     raise
@@ -166,7 +166,7 @@ def _get_processor_class() -> type:
                         stderr=res.stderr,
                     )
                 if not outp.exists():
-                    outp.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 512)
+                    outp.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
                 return str(outp)
 
         return ReferenceFFmpegProcessor

@@ -1,0 +1,165 @@
+
+--- configurações lint/type/test ---
+./pyproject.toml
+
+--- contagens documentadas ---
+PLANO_MELHORIAS.md:4:Estado inicial: 406 testes passando, pipeline gera 9:16 corretamente a partir de fonte local,
+PLANO_MELHORIAS.md:18:- Adicionar `tests/test_regression_media.py`: gera um clipe curto a partir de um MP4 sintético
+PLANO_MELHORIAS.md:19:  (`ffmpeg -f lavfi -i testsrc`) e afirma **duração, resolução e tamanho mínimo** do arquivo de saída.
+PLANO_MELHORIAS.md:57:**Esforço:** ~2h · **Risco:** baixo — os testes atuais mockam o downloader, então o comportamento
+README.md:91:.venv/bin/pytest tests/test_e2e_pipeline.py -v
+review/T0/report.md:4:**Verification Verdict**: `PASSED`
+review/T0/report.md:32:| 6 | render | 1 | `ffmpeg -y -f lavfi -i testsrc=size=1080x1920:rate=15 -f l...` | 0 | ok | 1500.0 |
+review/T0/report.md:65:| cut | `/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/cut_info.json` | 60 | `sha256:7053369e5032843cd8d194f84426405713c50584bdb5cd0a41bf184622cccf42` |
+review/T0/report.md:74:ffmpeg -y -f lavfi -i testsrc=size=1080x1920:rate=15 -f lavfi -i sine=frequency=440:sample_rate=48000 -af loudnorm=I=-14.5:TP=-1.5:LRA=11 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -t 25 -shortest /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/runs/run_t0_golden/artifacts/render/short.mp4
+review/T0/report.md:83:- **Overall Status**: `PASSED`
+review/T0/PACOTE.md:14:1. **Refatoração AST em `tests/test_contracts.py`**: Varredura expandida para proibir `os.system`, `os.popen`, `os.posix_spawn`, `importlib.import_module("subprocess")`, `__import__("subprocess")`, `eval`, `exec`, `asyncio.create_subprocess_exec`, `asyncio.create_subprocess_shell`. Verificação de `@audited` em 100% das funções (incluindo as iniciadas por `_`).
+review/T0/PACOTE.md:17:4. **Expansão de `tests/test_mutation.py`**: 17 testes de mutação sintética cobrindo 100% das 14 checagens do `verify.py`.
+review/T0/PACOTE.md:29:| `verify_result.json` | Cópia consolidada do resultado de verificação zero-trust (14/14 checks aprovados). |
+TEST_READY.md:5:- **Execution**: 397 PASSED, 0 FAILED across 17 test modules (Exit Code 0, 100% success rate)
+TEST_READY.md:15:| **Total Test Runs** | **397** | **397 PASSED, 0 FAILED (100% success rate)** |
+TEST_READY.md:20:| 1 | Web Dashboard UI | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:21:| 2 | Interactive Preview Player | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:22:| 3 | Ranked Engagement Clips | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:23:| 4 | Transcription View | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:24:| 5 | Hashtag Chips | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:25:| 6 | Loading & Progress Status | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:26:| 7 | Local Download Button | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:27:| 8 | 1-Click GDrive Upload UI | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:28:| 9 | Vertical Format Selector | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:29:| 10 | Dashboard CLI Flag | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:30:| 11 | Subtitle Extraction | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:31:| 12 | AI Viral Hook Scoring | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:32:| 13 | 9:16 Blurred Background Filter | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:33:| 14 | 9:16 Center Crop Filter | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:34:| 15 | Temporary File Isolation | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:35:| 16 | Package Dependencies | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:36:| 17 | README Documentation | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:37:| 18 | Sample File Cleanup | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:38:| 19 | GDrive Service Account Auth | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:39:| 20 | GDrive Upload API Endpoint | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:40:| 21 | Test Suite Infrastructure | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:41:| 22 | Unit & Integration Tests: Formatter | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:42:| 23 | Unit & Integration Tests: GDrive | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:43:| 24 | Unit & Integration Tests: Dashboard | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:44:| 25 | Programmatic E2E Flow Test | ✓ | ✓ | ✓ | ✓ | PASSED |
+TEST_READY.md:47:1. `tests/test_validator.py` (106 tests): URL detection, timestamp parsing, time range validation, boundary checks.
+TEST_READY.md:48:2. `tests/test_e2e_validation.py` (88 tests): End-to-end validation suites, illegal input formats, extreme boundaries.
+TEST_READY.md:49:3. `tests/test_e2e_pipeline.py` (28 tests): Pipeline execution workflows, temporary file cleanup, pipeline state transitions.
+TEST_READY.md:50:4. `tests/test_e2e_cli.py` (25 tests): CLI argument flag parsing, help formatting, invalid argument error handling.
+TEST_READY.md:51:5. `tests/test_cli.py` (19 tests): Core CLI interface, flag handling, `--dashboard` server launcher flags.
+TEST_READY.md:52:6. `tests/test_processor.py` (17 tests): FFmpeg video cutting, fast seeking (`-ss`), stream copying (`-c copy`), error handling.
+TEST_READY.md:53:7. `tests/test_e2e_scenarios.py` (16 tests): Pairwise feature interactions, real-world user workflows, edge case handling.
+TEST_READY.md:54:8. `tests/test_pipeline.py` (15 tests): Pipeline coordinator unit tests, end-to-end process orchestration.
+TEST_READY.md:55:9. `tests/test_e2e_downloader.py` (15 tests): Downloader retry mechanics, network resilience, sub-process mocking.
+TEST_READY.md:56:10. `tests/test_e2e_processor.py` (14 tests): FFmpeg error recovery, synthetic media rendering, video format options.
+TEST_READY.md:57:11. `tests/test_video_formatter.py` (12 tests): 9:16 vertical video conversion (`blur_background` and `crop_center` filter graphs).
+TEST_READY.md:58:12. `tests/test_downloader.py` (11 tests): yt-dlp downloader module unit tests, segment extraction.
+TEST_READY.md:59:13. `tests/test_web_dashboard.py` (11 tests): Web dashboard HTML rendering, REST API server handlers (`/api/analyze`, `/api/generate-clip`, `/api/gdrive-upload`).
+TEST_READY.md:60:14. `tests/test_gdrive_uploader.py` (8 tests): Google Drive Service Account authentication, folder creation, clip uploading.
+TEST_READY.md:61:15. `tests/test_conftest.py` (5 tests): Self-verification of test harness fixtures and synthetic media mocks.
+TEST_READY.md:62:16. `tests/test_analyzer.py` (4 tests): VTT subtitle parsing, AI viral hook scoring, transcript formatting, hashtag generation.
+TEST_READY.md:63:17. `tests/test_e2e_full_pipeline.py` (3 tests): Complete end-to-end programmatic flow (URL -> Subtitle Analysis -> Viral Hook Scoring -> 9:16 Vertical Video -> Google Drive Upload).
+TEST_READY.md:65:**Total Verified Tests**: 397 PASSED across 17 test modules (Exit Code 0).
+review/T0/CRITICA_INTERNA.md:7:   - **Remediação**: Refatorado `test_contracts.py` com scanner AST completo e testes de bloqueio de evasão.
+review/T0/CRITICA_INTERNA.md:19:   - Apenas 6/14 checks possuíam testes.
+review/T0/CRITICA_INTERNA.md:20:   - **Remediação**: Adicionados testes sintéticos para TODAS as 14 checagens (17 testes ao todo).
+review/T0/CRITICA_INTERNA.md:23:Todas as 4 deficiências identificadas foram remediadas com sucesso e validadas pela suíte de testes.
+review/T0/CRITICA_INTERNA.md:27:1. **Varredura AST (`tests/test_contracts.py`)**:
+review/T0/CRITICA_INTERNA.md:37:3. **Cobertura 100% da Suíte de Mutação (`tests/test_mutation.py`)**:
+review/T0/CRITICA_INTERNA.md:39:   - **Resultado Empírico**: 17 testes de mutação em `test_mutation.py` cobrem 100% (14/14) dos checks de verificação. Todas as mutações sintéticas provocam a falha esperada do `verify_run`.
+review/T0/diff.patch:113:diff --git a/tests/test_contracts.py b/tests/test_contracts.py
+review/T0/diff.patch:115:--- a/tests/test_contracts.py
+review/T0/diff.patch:116:+++ b/tests/test_contracts.py
+review/T0/diff.patch:329:diff --git a/tests/test_mutation.py b/tests/test_mutation.py
+review/T0/diff.patch:331:--- a/tests/test_mutation.py
+review/T0/diff.patch:332:+++ b/tests/test_mutation.py
+review/T0/diff.patch:467:+        "-f", "lavfi", "-i", "testsrc=size=1080x1920:rate=15",
+review/T0/files_changed.txt:5:tests/test_contracts.py | size: 13651 bytes | sha256:387d9c2ee3d04640e2eb51687e0bcb6cdc8ddbaf03b56170b3bfa8771a63cac7
+review/T0/files_changed.txt:6:tests/test_mutation.py | size: 18650 bytes | sha256:b7c5b7541209a09e7b3555fac149c638d504312ad787f29f65e80123f7140041
+review/T0/DECISOES.md:16:- **Decisão**: Implementar 17 testes de mutação cobrindo a totalidade dos 14 checks de `verify.py`.
+PROJECT.md:8:- **Test Suite** (`tests/`): Pytest suite with 397+ tests, mock fixtures in `tests/conftest.py`.
+PROJECT.md:22:| 10 | Comprehensive Unit & Integration Tests | Unit tests for OAuth2 env vars, `token.json`, fallback hierarchy, CLI flags, API endpoints | M3 | survey |
+PROJECT.md:23:| 11 | Full Test Suite Execution & E2E Validation | Running and passing 100% of unit/integration tests (406+ tests) via `pytest` | M3 | survey |
+PROJECT.md:30:| M3 | Test Suite Expansion & E2E Verification | Add unit tests for GDrive OAuth2, fallback precedence, CLI flags, API endpoints, and pass 100% of 406+ pytest tests | M1, M2 | IN_PROGRESS |
+PROJECT.md:56:- `tests/test_gdrive_uploader.py`: Unit tests for Google Drive uploader.
+PROJECT.md:57:- `tests/test_cli.py`: Unit tests for CLI.
+PROJECT.md:58:- `tests/test_web_dashboard.py`: Unit tests for Web Dashboard API and UI.
+
+--- branches e commits ---
+* agent/auditoria-independente-t0                    4ffe6f4 [origin/agent/auditoria-independente-t0] docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+  main                                               fbe8cc5 [origin/main] feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+  remotes/origin/agent/auditoria-independente-t0     4ffe6f4 docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+  remotes/origin/agent/fiscalizacao-chatgpt-t0       f35a751 docs: add mandatory T0 audit redo instructions
+  remotes/origin/agent/plano-revisao-independente-t0 696be7c docs: remove superseded GPT review folder
+  remotes/origin/main                                fbe8cc5 feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+* f35a751 (origin/agent/fiscalizacao-chatgpt-t0) docs: add mandatory T0 audit redo instructions
+* b82be63 audit: add ChatGPT T0 fiscal review
+* 4ffe6f4 (HEAD -> agent/auditoria-independente-t0, origin/agent/auditoria-independente-t0) docs(audit): complete independent T0 audit execution audit_t0_20260726T234421Z
+| * 696be7c (origin/agent/plano-revisao-independente-t0) docs: remove superseded GPT review folder
+| * d46d4ec docs: remove plan from review area
+| * 406edb9 docs: define GPT resultados area
+| * c19a7b2 docs: move GPT review plan to resultados
+| * 303265a docs: remove superseded plan outside GPT area
+| * 5717ef8 docs: define isolated GPT review area
+| * 1b5264a docs: move independent review plan under GPT area
+| * feb3781 docs: add independent T0 review plan
+|/  
+* fbe8cc5 (origin/main, main) feat(T0): Remediated evidence logging, AST contract tests, mutation tests and review package review/T0
+* f4f13a3 Phase T0: Implementation of cortes evidence logging, verification engine, report generator, contracts, and mutation tests
+* 8be03ac Initial base commit before Phase T0
+
+--- regra escrita ---
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:7:- Branch-base: `main`
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:27:6. disciplina de branch, commit e evidência;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:38:3. Criar uma branch própria antes de gravar qualquer arquivo:
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:40:4. Não trabalhar nem fazer commit diretamente em `main`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:65:17. Ao terminar, fazer commit e push apenas do diretório desta auditoria
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:67:18. Não mesclar a branch. A decisão final pertence ao revisor humano.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:99:        │   ├── 12-ci-e-branches.txt
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:144:   - `git status --short --branch`;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:147:   - `git branch --show-current`;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:152:5. Confirmar que a baseline é a ponta de `origin/main`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:153:6. Criar a branch `agent/auditoria-independente-t0`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:172:- branches locais e remotas;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:340:- status/checks do commit-base, quando acessível;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:345:Não confundir relatório commitado com execução de CI.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:347:Saída: `evidencias/12-ci-e-branches.txt`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:349:#### H08 — A disciplina de branch da própria T0 foi descumprida
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:353:- branches existentes;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:354:- commits da implementação T0;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:356:- regra escrita sobre commits na `main`;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:357:- branch que recebeu os commits observados.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:361:Usar também `evidencias/12-ci-e-branches.txt`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:417:Não implementar a recomendação nesta branch.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:472:   - branch;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:508:- a branch contiver exclusivamente o pacote de auditoria.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:512:1. Permanecer na branch `agent/auditoria-independente-t0`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:519:6. Fazer commit com a mensagem:
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:521:7. Registrar o SHA do commit em retorno final.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:522:8. Fazer push da branch para `origin`.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:523:9. Confirmar que a branch remota aponta para o commit criado.
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:538:- branch;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:539:- SHA do commit;
+resultados/GPT/PLANO_REVISAO_INDEPENDENTE_T0.md:540:- URL da branch ou do commit;
+.agents/ORIGINAL_REQUEST.md:287:  PACOTE.md          índice: commit, branch, fase, o que mudou, o que falta
+.agents/ORIGINAL_REQUEST.md:289:  diff.patch         git diff completo da branch vs base
+.agents/ORIGINAL_REQUEST.md:307:  - fazer commit direto na main — trabalhem em branch;
+agents.md:31:billing · apagar dados · commit na main · declarar fase concluída.
+
+--- autenticação gh ---
+github.com
+  ✓ Logged in to github.com account Pedro31051 (/home/pedrofelipealvesrocha/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo'
+
+--- PRs relacionados ---
+[{"baseRefName":"main","headRefName":"agent/fiscalizacao-chatgpt-t0","isDraft":true,"number":1,"state":"OPEN","title":"Fiscalização ChatGPT da auditoria T0","url":"https://github.com/Pedro31051/youtube_clipper/pull/1"}]
+
+--- checks do baseline ---
+{"checks":[],"total_count":0}
+
+--- status combinado do baseline ---
+{"state":"pending","statuses":[],"total_statuses":0}

@@ -142,13 +142,12 @@ def run_pipeline(
                 end=end_sec,
                 output_dir=temp_dir,
             )
-            # download_segment already consumes the absolute source offset.
             cut_start = 0.0
-            cut_end = end_sec - start_sec
+            cut_end = float(end_sec - start_sec)
         else:
             media_source_path = clean_input
-            cut_start = start_sec
-            cut_end = end_sec
+            cut_start = float(start_sec)
+            cut_end = float(end_sec)
 
         if vertical:
             if temp_dir_obj is None:

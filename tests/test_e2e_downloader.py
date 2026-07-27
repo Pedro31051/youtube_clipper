@@ -74,7 +74,7 @@ except (ImportError, ModuleNotFoundError):
                     ext = info.get("ext", "mp4")
                     output_file = out_dir / f"{video_id}_segment.{ext}"
                     if not output_file.exists():
-                        output_file.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 512)
+                        output_file.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
                     return str(output_file)
             except DownloadError:
                 raise

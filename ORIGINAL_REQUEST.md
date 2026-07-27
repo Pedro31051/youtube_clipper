@@ -348,3 +348,31 @@ defeito de processo.
 
 Comecem por T0. Não pulem T0.
 
+## Follow-up — 2026-07-27T03:51:29Z
+
+Implement Phase T1 (Baseline anti-regression & double-cut fix) for the YouTube Clipper project to eliminate silent MP4 file corruption and establish programmatic media output verification.
+
+Working directory: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper
+Integrity mode: development
+
+## Requirements
+
+### R1. Double-Cut Correction in Pipeline
+Fix segment offset handling in `src/youtube_clipper/pipeline.py`. When downloading YouTube segments, `download_segment` already extracts the cut slice starting at t=0. The pipeline must normalize offsets (`cut_start = 0.0`, `cut_end = end_sec - start_sec`) for YouTube inputs before calling `cut_media`, while retaining absolute timestamps for direct local media files.
+
+### R2. Media Validation Guardrails in Processor
+Enhance `cut_media` in `src/youtube_clipper/processor.py` to validate that generated output MP4 files are valid. Verify that file size is strictly greater than 1024 bytes and that `ffprobe` returns a valid positive duration. Raise `ProcessingError` if media output is corrupted, empty, or unreadable.
+
+### R3. Media Output Baseline & Regression Test Suite
+Create `tests/test_regression_media.py` using synthetic test videos generated via `ffmpeg -f lavfi -i testsrc` to verify duration, resolution, and minimum file size of rendered clips. Include unit tests simulating double-cut scenarios (e.g. 30s input file with start=60) expecting `ProcessingError`. Ensure 100% of existing pytest test cases continue to pass.
+
+## Acceptance Criteria
+
+### Media Pipeline Guardrails & Correctness
+- [ ] `cut_media` validates output MP4 files with `st_size > 1024` and valid `ffprobe` duration, throwing `ProcessingError` on failure.
+- [ ] Pipeline correctly normalizes cut start/end offsets for YouTube downloaded segments vs local files without secondary offset miscalculations.
+- [ ] Double-cut scenarios return descriptive errors (`ProcessingError`) rather than silent exit 0 corrupted 262-byte MP4s.
+
+### Testing & Quality Bar
+- [ ] `tests/test_regression_media.py` tests synthetic MP4 generation and validates output clip duration, resolution, and size.
+- [ ] Full `pytest` execution passes with 100% success rate across all unit, integration, and regression test suites.

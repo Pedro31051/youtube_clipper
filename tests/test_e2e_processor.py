@@ -85,7 +85,7 @@ except (ImportError, ModuleNotFoundError):
                         cmd=cmd,
                     )
                 if not outp.exists():
-                    outp.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 512)
+                    outp.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
                 return str(outp)
             except FileNotFoundError as e:
                 raise FFmpegNotFoundError(

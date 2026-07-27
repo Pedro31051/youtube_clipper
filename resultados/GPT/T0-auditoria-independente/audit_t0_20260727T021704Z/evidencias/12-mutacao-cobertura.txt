@@ -1,0 +1,71 @@
+== E4.1 — checks declarados em verify.py ==
+  14 chamadas add_check, 14 check_id distintos
+    artifact_bytes
+    artifact_exists
+    artifact_sha256
+    audio_lufs_loudness
+    audio_stream_count
+    commands_log_sync
+    events_file_exists
+    events_schema_valid
+    exit_codes_zero
+    producer_evidence_required
+    seq_integrity
+    ts_monotonic
+    video_duration_range
+    video_resolution
+
+== E4.2 — cobertura por teste de mutação ==
+  testes de mutação declarados: 17
+  [OK ] artifact_bytes               -> ['test_mutation_15_artifact_bytes_mismatch']
+  [OK ] artifact_exists              -> ['test_mutation_7_missing_evidence_artifact']
+  [OK ] artifact_sha256              -> ['test_mutation_1_byte_corruption']
+  [OK ] audio_lufs_loudness          -> ['test_mutation_5_audio_loudness_out_of_bounds']
+  [OK ] audio_stream_count           -> ['test_mutation_16_audio_stream_count_mismatch']
+  [OK ] commands_log_sync            -> ['test_mutation_12_commands_log_unsynced']
+  [OK ] events_file_exists           -> ['test_mutation_8_missing_events_file']
+  [OK ] events_schema_valid          -> ['test_mutation_9_invalid_event_schema']
+  [OK ] exit_codes_zero              -> ['test_mutation_13_non_zero_exit_code']
+  [OK ] producer_evidence_required   -> ['test_mutation_14_missing_producer_evidence']
+  [OK ] seq_integrity                -> ['test_mutation_2_seq_hole', 'test_mutation_3_seq_duplicate', 'test_mutation_10_stage_dag_out_of_order']
+  [OK ] ts_monotonic                 -> ['test_mutation_11_non_monotonic_timestamp']
+  [OK ] video_duration_range         -> ['test_mutation_6_video_duration_out_of_bounds']
+  [OK ] video_resolution             -> ['test_mutation_4_wrong_video_resolution']
+  CHECKS SEM TESTE DE MUTAÇÃO CORRESPONDENTE (0): []
+
+== E4.2b — a mutação atinge o artefato REAL ou uma estrutura sintética? ==
+  os testes de mutação referenciam o pacote oficial review/T0/? False
+  fixture de origem: create_synthetic_golden_run(tmp_path) -> run sintético temporário
+  tests/test_mutation.py:138 -> content.replace(str(golden_run), str(target_dir))
+    O arsenal de mutação REESCREVE os caminhos absolutos antes de
+    verificar. A suíte compensa o defeito de portabilidade e, por
+    construção, nunca pode detectá-lo.
+
+== E4.2c — neutralizar a asserção faria o teste falhar? (mutação do teste, em cópia) ==
+  [test_mutation_1_byte_corruption com asserções neutralizadas] exit=0 -> PASSOU (a asserção não sustentava nada)
+    1 passed in 4.83s
+
+== E4.3 — duplicidade de check_id com múltiplos MP4s ==
+  segundo MP4 injetado na cópia: segundo_video.mp4 (30556 bytes, 320x240, 2 s)
+  total_checks=18 overall_passed=False
+  check_id duplicados: {'video_resolution': 2, 'audio_stream_count': 2, 'video_duration_range': 2, 'audio_lufs_loudness': 2}
+    video_resolution       passed=True  measured=1080x1920                    evidence_path=run_dois_mp4/artifacts/render/short.mp4
+    audio_stream_count     passed=True  measured=1 audio stream(s)            evidence_path=/tmp/e4__a5chqmg/run_dois_mp4/artifacts/render/short.mp4
+    video_duration_range   passed=True  measured=25.0 seconds                 evidence_path=/tmp/e4__a5chqmg/run_dois_mp4/artifacts/render/short.mp4
+    audio_lufs_loudness    passed=True  measured=-14.50 LUFS                  evidence_path=/tmp/e4__a5chqmg/run_dois_mp4/artifacts/render/short.mp4
+    video_resolution       passed=False measured=320x240                      evidence_path=run_dois_mp4/artifacts/render/segundo_video.mp4
+    audio_stream_count     passed=True  measured=1 audio stream(s)            evidence_path=/tmp/e4__a5chqmg/run_dois_mp4/artifacts/render/segundo_video.mp4
+    video_duration_range   passed=False measured=2.0 seconds                  evidence_path=/tmp/e4__a5chqmg/run_dois_mp4/artifacts/render/segundo_video.mp4
+    audio_lufs_loudness    passed=False measured=-22.00 LUFS                  evidence_path=/tmp/e4__a5chqmg/run_dois_mp4/artifacts/render/segundo_video.mp4
+  cada ocorrência duplicada tem evidence_path distinto (identificável): True
+
+== E4.4 — a verificação rejeita corrupção relevante? ==
+  [mp4_truncado] {"exit": 1, "overall_passed": false, "total_checks": 14, "falhas": ["video_resolution", "audio_stream_count", "video_duration_range", "audio_lufs_loudness"]}
+  [events_sha_alterado] {"exit": 1, "overall_passed": false, "total_checks": 14, "falhas": ["artifact_sha256"]}
+  [artefato_declarado_removido] {"exit": 0, "overall_passed": true, "total_checks": 10, "falhas": []}
+
+== Etapa 4 — síntese ==
+  checks sem cobertura de mutação: 0 -> []
+  duplicidade de check_id observada: True
+  corrupções ACEITAS como válidas pelo verificador: ['artefato_declarado_removido']
+E4_ESTADO=DEFEITO_CONFIRMADO

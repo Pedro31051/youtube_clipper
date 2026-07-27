@@ -133,7 +133,7 @@ class MockYTDLPContainer:
                 if "%(id)s" in outtmpl:
                     out_path = Path(outtmpl.replace("%(id)s", video_id).replace("%(ext)s", ext))
                     out_path.parent.mkdir(parents=True, exist_ok=True)
-                    out_path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 512)
+                    out_path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
             return ret
 
         self.ytdl_instance.extract_info.side_effect = default_extract_info
@@ -184,7 +184,7 @@ def mock_yt_dlp(tmp_media_dir: Path) -> Generator[MockYTDLPContainer, None, None
             out_path = Path(output_dir) / "yt_downloaded_segment.mp4"
             out_path.parent.mkdir(parents=True, exist_ok=True)
             if not out_path.exists():
-                out_path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 512)
+                out_path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
             return str(out_path)
 
         container.downloader_instance.download_segment.side_effect = default_download_segment
@@ -216,7 +216,12 @@ class MockFFmpegContainer:
         self.processor_class = processor_class_mock
         
         # Configure default which return value
-        self.which.return_value = "/usr/bin/ffmpeg"
+        def custom_which(cmd: str) -> Optional[str]:
+            if "ffprobe" in cmd:
+                return "/usr/bin/ffprobe"
+            return "/usr/bin/ffmpeg"
+
+        self.which.side_effect = custom_which
         
         # Default completed process return value for subprocess.run
         self.default_completed = subprocess.CompletedProcess(
@@ -228,7 +233,7 @@ class MockFFmpegContainer:
             cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
             cmd_str = " ".join(cmd_list)
 
-            if cmd_list and Path(cmd_list[0]).name == "ffprobe":
+            if cmd_list and ("ffprobe" in cmd_list[0] or Path(cmd_list[0]).name == "ffprobe"):
                 return subprocess.CompletedProcess(
                     args=cmd,
                     returncode=0,
@@ -294,6 +299,7 @@ class MockFFmpegContainer:
 
     def simulate_missing_ffmpeg(self) -> None:
         """Simulate system where ffmpeg binary is not found."""
+        self.which.side_effect = None
         self.which.return_value = None
         self.run.side_effect = FileNotFoundError("No such file or directory: 'ffmpeg'")
 
@@ -310,12 +316,14 @@ class MockFFmpegContainer:
     @property
     def last_command(self) -> Optional[List[str]]:
         """Return the last FFmpeg command, excluding the validation ffprobe call."""
-        for call in reversed(self.run.call_args_list):
-            call_args = call[0]
-            if call_args and isinstance(call_args[0], list):
-                command = call_args[0]
-                if command and Path(command[0]).name.startswith("ffmpeg"):
-                    return command
+        if self.run.called:
+            for call in reversed(self.run.call_args_list):
+                call_args = call[0]
+                if call_args and isinstance(call_args[0], list):
+                    cmd_list = call_args[0]
+                    if cmd_list and ("ffprobe" in cmd_list[0] or Path(cmd_list[0]).name == "ffprobe"):
+                        continue
+                    return cmd_list
         return None
 
     def has_arg(self, arg: str) -> bool:

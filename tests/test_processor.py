@@ -67,6 +67,17 @@ class TestFFmpegProcessorInit:
             assert "FFmpeg executable not found" in exc_info.value.message
 
 
+def _mock_run_ffmpeg_and_ffprobe(cmd: List[str] | str, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
+    if cmd_list and ("ffprobe" in cmd_list[0] or Path(cmd_list[0]).name == "ffprobe"):
+        return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="10.0\n", stderr="")
+    if cmd_list and len(cmd_list) > 1 and not cmd_list[-1].startswith("-"):
+        out_path = Path(cmd_list[-1])
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 2048)
+    return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="", stderr="")
+
+
 class TestFFmpegProcessorCommandGeneration:
     """Unit tests for FFmpeg command line flag construction."""
 
@@ -75,13 +86,21 @@ class TestFFmpegProcessorCommandGeneration:
         self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
     ) -> None:
         """Verify cut_media places fast-seeking -ss flag BEFORE input -i flag."""
+<<<<<<< HEAD
         mock_run.side_effect = successful_media_command
+=======
+        mock_run.side_effect = _mock_run_ffmpeg_and_ffprobe
+>>>>>>> 48c4974 (feat(T1): fix double-cut offset calculation and add media validation guardrails)
         processor = FFmpegProcessor()
         out_file = tmp_path / "out.mp4"
 
         processor.cut_media(dummy_video_file, start=10.0, end=30.0, output_path=out_file)
 
         assert mock_run.called
+<<<<<<< HEAD
+=======
+        # Check call args for the ffmpeg command (first call before ffprobe)
+>>>>>>> 48c4974 (feat(T1): fix double-cut offset calculation and add media validation guardrails)
         cmd: List[str] = mock_run.call_args_list[0][0][0]
 
         assert "-ss" in cmd
@@ -232,6 +251,54 @@ class TestFFmpegProcessorErrorsAndBoundaries:
         assert not nested_out.parent.exists()
         processor.cut_media(dummy_video_file, start=0.0, end=1.0, output_path=nested_out)
         assert nested_out.parent.exists()
+
+    @patch("subprocess.run")
+    def test_cut_media_small_file_raises_processing_error(
+        self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
+    ) -> None:
+        """Verify cut_media raises ProcessingError if output file size <= 1024 bytes."""
+        def mock_small_run(cmd: List[str] | str, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
+            if cmd_list and len(cmd_list) > 1 and not cmd_list[-1].startswith("-"):
+                out_path = Path(cmd_list[-1])
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_bytes(b"x" * 262)  # 262 bytes <= 1024
+            return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = mock_small_run
+        processor = FFmpegProcessor()
+        out_file = tmp_path / "small.mp4"
+
+        with pytest.raises(ProcessingError) as exc_info:
+            processor.cut_media(dummy_video_file, start=0.0, end=5.0, output_path=out_file)
+
+        assert exc_info.value.exit_code == 4
+        assert "file size 262 bytes <= 1024 bytes" in exc_info.value.message
+
+    @patch("subprocess.run")
+    def test_cut_media_zero_duration_raises_processing_error(
+        self, mock_run: MagicMock, dummy_video_file: Path, tmp_path: Path
+    ) -> None:
+        """Verify cut_media raises ProcessingError if ffprobe reports duration <= 0."""
+        def mock_zero_duration_run(cmd: List[str] | str, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            cmd_list = cmd if isinstance(cmd, list) else [str(cmd)]
+            if cmd_list and ("ffprobe" in cmd_list[0] or Path(cmd_list[0]).name == "ffprobe"):
+                return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="0.0\n", stderr="")
+            if cmd_list and len(cmd_list) > 1 and not cmd_list[-1].startswith("-"):
+                out_path = Path(cmd_list[-1])
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_bytes(b"x" * 2048)
+            return subprocess.CompletedProcess(args=cmd_list, returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = mock_zero_duration_run
+        processor = FFmpegProcessor()
+        out_file = tmp_path / "zero_dur.mp4"
+
+        with pytest.raises(ProcessingError) as exc_info:
+            processor.cut_media(dummy_video_file, start=0.0, end=5.0, output_path=out_file)
+
+        assert exc_info.value.exit_code == 4
+        assert "ffprobe duration <= 0" in exc_info.value.message
 
 
 class TestFFmpegProcessorIntegration:
