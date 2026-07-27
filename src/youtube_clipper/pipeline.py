@@ -77,20 +77,19 @@ def run_pipeline(
     """Execute the end-to-end media clipping pipeline."""
     raw_input = input_source
     if isinstance(input_source, argparse.Namespace):
-        raw_input = getattr(input_source, "input", None) or getattr(
-            input_source, "input_source", None
-        )
-        start = start if start is not None else getattr(input_source, "start", None)
-        end = end if end is not None else getattr(input_source, "end", None)
+        ns_dict = vars(input_source)
+        raw_input = ns_dict.get("input") or ns_dict.get("input_source")
+        start = start if start is not None else ns_dict.get("start")
+        end = end if end is not None else ns_dict.get("end")
         duration = (
             duration
             if duration is not None
-            else getattr(input_source, "duration", None)
+            else ns_dict.get("duration")
         )
-        output = output if output is not None else getattr(input_source, "output", None)
-        fast = fast or getattr(input_source, "fast", False)
-        verbose = verbose or getattr(input_source, "verbose", False)
-        vertical = vertical or getattr(input_source, "vertical", False)
+        output = output if output is not None else ns_dict.get("output")
+        fast = fast or ns_dict.get("fast", False)
+        verbose = verbose or ns_dict.get("verbose", False)
+        vertical = vertical or ns_dict.get("vertical", False)
     elif isinstance(input_source, dict):
         raw_input = input_source.get("input") or input_source.get("input_source")
         start = start if start is not None else input_source.get("start")
@@ -151,30 +150,19 @@ def run_pipeline(
             cut_end = end_sec
 
         if vertical:
-            if temp_dir_obj is None:
-                temp_dir_obj = tempfile.TemporaryDirectory(prefix="yt_clipper_")
-            temp_cut_path = os.path.join(temp_dir_obj.name, "temp_horizontal_cut.mp4")
-            processor.cut_media(
-                input_path=media_source_path,
-                start=cut_start,
-                end=cut_end,
-                output_path=temp_cut_path,
-                fast_copy=False,
-            )
             fmt_mode = kwargs.get("mode") or (
-                getattr(input_source, "mode", None) if isinstance(input_source, argparse.Namespace) else None
+                vars(input_source).get("mode", None) if isinstance(input_source, argparse.Namespace) else None
             ) or (
                 input_source.get("mode") if isinstance(input_source, dict) else None
             ) or "blur_background"
             converted_path = VideoFormatter.convert_to_vertical(
-                input_path=temp_cut_path,
+                input_path=media_source_path,
                 output_path=final_output_path,
                 mode=fmt_mode,
                 target_aspect="9:16",
+                start=cut_start,
+                end=cut_end,
             )
-            if os.path.exists(temp_cut_path):
-                with contextlib.suppress(Exception):
-                    os.remove(temp_cut_path)
             return str(Path(converted_path).resolve())
         else:
             result_path = processor.cut_media(

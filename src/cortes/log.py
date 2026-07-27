@@ -294,6 +294,10 @@ def audited(
                         paths_to_check.extend(result["evidence_paths"])
                     elif "evidence" in result and isinstance(result["evidence"], list):
                         paths_to_check.extend(result["evidence"])
+                elif isinstance(result, (str, pathlib.Path)):
+                    p_res = pathlib.Path(result)
+                    if p_res.exists() and p_res.is_file():
+                        paths_to_check.append(p_res)
 
                 if evidence_args:
                     for arg_name in evidence_args:
@@ -307,7 +311,15 @@ def audited(
                 for p_item in paths_to_check:
                     p_obj = pathlib.Path(p_item)
                     if p_obj.exists() and p_obj.is_file():
-                        p_str = str(p_obj)
+                        # Evidence is valid only when it belongs to the active run.
+                        # Callback-oriented compatibility tests can return external
+                        # files, but those files must never leak absolute paths into
+                        # the immutable run log.
+                        try:
+                            p_obj.resolve().relative_to(get_run_dir().resolve())
+                        except ValueError:
+                            continue
+                        p_str = str(p_obj.resolve())
                         if p_str not in ev_paths:
                             ev_paths.append(p_str)
                             ev_hashes.append(compute_sha256(p_obj))
@@ -316,8 +328,12 @@ def audited(
                 emit_event(
                     stage=stage,
                     agent=agent,
-                    video_id=video_id,
-                    clip_id=clip_id,
+                    video_id=str(kwargs.get("video_id", video_id)),
+                    clip_id=(
+                        str(kwargs["clip_id"])
+                        if kwargs.get("clip_id") is not None
+                        else clip_id
+                    ),
                     severity=severity,
                     duration_ms=duration_ms,
                     tool="python",
@@ -328,6 +344,10 @@ def audited(
                     evidence={"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes},
                     outcome=outcome,
                     error=error_msg,
+                    # Events are appended on completion.  Timestamping them at
+                    # completion preserves monotonic order for nested audited
+                    # calls and their run_cmd children.
+                    ts=datetime.now(timezone.utc).isoformat(),
                 )
 
         return wrapper
@@ -346,6 +366,8 @@ def run_cmd(
     video_id: str = "unknown",
     clip_id: Optional[str] = None,
     audit: bool = True,
+    evidence: Optional[Dict[str, Any]] = None,
+    evidence_paths: Optional[List[Union[str, pathlib.Path]]] = None,
 ) -> subprocess.CompletedProcess:
     """Sole authorized function in the repository for invoking external subprocesses.
 
@@ -414,6 +436,16 @@ def run_cmd(
 
     cmd_hash = f"sha256:{hashlib.sha256(cmd_str.encode('utf-8')).hexdigest()}"
 
+    if evidence is None and evidence_paths:
+        ev_paths, ev_hashes, ev_bytes = [], [], []
+        for p in evidence_paths:
+            path = pathlib.Path(p)
+            if path.exists():
+                ev_paths.append(str(path))
+                ev_hashes.append(compute_sha256(path))
+                ev_bytes.append(path.stat().st_size)
+        evidence = {"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes}
+
     emit_event(
         stage=effective_stage,
         agent=agent,
@@ -428,6 +460,7 @@ def run_cmd(
         args_hash=cmd_hash,
         outcome=outcome,
         error=error_msg,
+        evidence=evidence,
         ts=start_ts,
     )
 

@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "run_t3_golden_v4",
+  "verified_at": "2026-07-27T18:19:17.157310+00:00",
+  "overall_passed": true,
+  "total_checks": 28,
+  "passed_checks": 28,
+  "failed_checks": 0,
+  "checks": [
+    {
+      "check_id": "events_file_exists",
+      "passed": true,
+      "measured": "File exists",
+      "expected": "File exists",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "events_schema_valid",
+      "passed": true,
+      "measured": "Validated 38 events",
+      "expected": "Schema Version 1.0.0 valid",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "seq_integrity",
+      "passed": true,
+      "measured": "seq 1..N continuous without gaps and stage DAG sequence valid",
+      "expected": "seq == index + 1 without gaps or duplicates and stage DAG sequence valid",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "ts_monotonic",
+      "passed": true,
+      "measured": "Timestamps non-decreasing",
+      "expected": "Monotonic non-decreasing ISO timestamps",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "commands_log_sync",
+      "passed": true,
+      "measured": "Commands log in sync",
+      "expected": "All event commands present in commands.log",
+      "evidence_path": "commands.log"
+    },
+    {
+      "check_id": "exit_codes_zero",
+      "passed": true,
+      "measured": "All ok events have exit_code 0",
+      "expected": "exit_code == 0 for all outcome ok events",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "evidence_paths_relative",
+      "passed": true,
+      "measured": "All evidence paths are run-relative",
+      "expected": "Every evidence path is relative and confined to the run",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "producer_evidence_required",
+      "passed": true,
+      "measured": "Every executed producer stage has at least one completion event with evidence",
+      "expected": "Producer stages with outcome ok must declare non-empty evidence paths",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "artifact_exists",
+      "passed": true,
+      "measured": "All declared evidence artifacts exist",
+      "expected": "All evidence files exist on disk",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "artifact_sha256",
+      "passed": true,
+      "measured": "All SHA-256 hashes match",
+      "expected": "Calculated SHA-256 matches declared hash",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "artifact_bytes",
+      "passed": true,
+      "measured": "All byte sizes match",
+      "expected": "Disk byte size matches declared size",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "intermediate_media_valid::artifacts/audio/audio_normalized.mp4",
+      "passed": true,
+      "measured": "size=841497 bytes, duration=26.4s",
+      "expected": "size > 1024 bytes and duration > 0.0s",
+      "evidence_path": "artifacts/audio/audio_normalized.mp4"
+    },
+    {
+      "check_id": "intermediate_media_valid::artifacts/cut/clip.mp4",
+      "passed": true,
+      "measured": "size=312378 bytes, duration=26.37s",
+      "expected": "size > 1024 bytes and duration > 0.0s",
+      "evidence_path": "artifacts/cut/clip.mp4"
+    },
+    {
+      "check_id": "intermediate_media_valid::artifacts/ingest/source.mp4",
+      "passed": true,
+      "measured": "size=335176 bytes, duration=30.0s",
+      "expected": "size > 1024 bytes and duration > 0.0s",
+      "evidence_path": "artifacts/ingest/source.mp4"
+    },
+    {
+      "check_id": "final_render_required",
+      "passed": true,
+      "measured": "1 final render(s) found",
+      "expected": "At least one declared short.mp4 for a T2 run",
+      "evidence_path": "artifacts"
+    },
+    {
+      "check_id": "video_resolution::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "1080x1920",
+      "expected": "1080x1920",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/short.mp4"
+    },
+    {
+      "check_id": "video_constant_fps::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "r_frame_rate=30.000000, avg_frame_rate=30.000000",
+      "expected": "Positive constant FPS (r_frame_rate == avg_frame_rate)",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/short.mp4"
+    },
+    {
+      "check_id": "audio_stream_count::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "1 audio stream(s)",
+      "expected": "Exactly 1 audio stream",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/short.mp4"
+    },
+    {
+      "check_id": "video_duration_range::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "26.43 seconds",
+      "expected": "20.0 <= duration <= 58.0 seconds",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/short.mp4"
+    },
+    {
+      "check_id": "audio_lufs_loudness::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "-15.30 LUFS",
+      "expected": "[-16.0 LUFS, -13.0 LUFS]",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/short.mp4"
+    },
+    {
+      "check_id": "editorial_metadata::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "Render metadata is valid JSON",
+      "expected": "Valid T3 render_metadata.json",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/render_metadata.json"
+    },
+    {
+      "check_id": "editorial_narration::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "exists=True, duration=10.000s, hash_match=True, bytes_match=True, amix_proven=True",
+      "expected": "Physical narration >= 8.0s with matching hash/bytes and audited amix command",
+      "evidence_path": "artifacts/editorial/narration.wav"
+    },
+    {
+      "check_id": "editorial_overlay::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "metadata_enabled=True, text_present=True, command_proven=True",
+      "expected": "Non-empty analytical overlay burned by drawbox/drawtext",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/render_metadata.json"
+    },
+    {
+      "check_id": "editorial_transformation::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "requirements=['narration', 'analytical_overlay'], results={'narration': True, 'analytical_overlay': True}",
+      "expected": "Every declared T3 editorial requirement is physically proven",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/render_metadata.json"
+    },
+    {
+      "check_id": "template_variant_unique::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "variant=variant_t3_analytical_v4, previous_five=['variant_t3_analytical_v3', 'variant_t3_analytical_v3', 'variant_t3_analytical_v1', 'variant_t3_analytical_v1']",
+      "expected": "Non-default variant absent from previous five renders",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/render_metadata.json"
+    },
+    {
+      "check_id": "clip_id_binds_variant::artifacts/clip_0ed7784fd9ae/short.mp4",
+      "passed": true,
+      "measured": "declared=clip_0ed7784fd9ae, recomputed=clip_0ed7784fd9ae",
+      "expected": "clip_id = SHA256(selection + template_variant)",
+      "evidence_path": "artifacts/clip_0ed7784fd9ae/render_metadata.json"
+    },
+    {
+      "check_id": "selection_within_source_bounds",
+      "passed": true,
+      "measured": "start_ms=0, end_ms=26120, source_duration_ms=30000",
+      "expected": "0 <= start_ms < end_ms <= source_duration_ms",
+      "evidence_path": "artifacts/select/selection.json"
+    },
+    {
+      "check_id": "subtitle_word_alignment",
+      "passed": true,
+      "measured": "All ASS events map to transcript words within +/-200 ms",
+      "expected": "Non-empty ASS; every event maps to a transcript word within +/-200 ms and remains inside the selected interval",
+      "evidence_path": "artifacts/subtitles/subtitles.ass"
+    }
+  ]
+}

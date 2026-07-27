@@ -1,58 +1,58 @@
-# Project: YouTube AI Clipper — Solução Definitiva Google Drive & Web Dashboard Integration
+# Project: youtube_clipper Phase T2 (Technical Short Pipeline)
 
 ## Architecture
-- **CLI Module** (`src/youtube_clipper/cli.py`): Entrypoint parsing CLI flags (`--gdrive`, `--cookies`, `--folder-id`) and executing workflow pipelines.
-- **GDrive Module** (`src/youtube_clipper/gdrive_uploader.py`): Multi-tier authentication resolution (OAuth2 Env Vars -> `token.json` -> Service Account) and direct uploads to user personal folders (`1mYLUnTMhdflzmYhee804Nj52jBQuOI8H`).
-- **Analyzer Module** (`src/youtube_clipper/analyzer.py`): Subtitle extraction via `yt-dlp` using `--cookies` propagation, transcript parsing, viral hook scoring.
-- **Web Dashboard Module** (`src/youtube_clipper/web_dashboard.py`): HTTP REST API endpoints (`/api/gdrive-upload`, `/api/generate-clip`, `/api/analyze`) and HTML/JS UI dashboard.
-- **Test Suite** (`tests/`): Pytest suite with 397+ tests, mock fixtures in `tests/conftest.py`.
+Phase T2 delivers an end-to-end 9-stage technical short pipeline generating 9:16 vertical videos (1080x1920) from local video files, backed by atomic audit logging (`cortes.log`), zero-trust read-only physical verification (`cortes.verify`), gapless AST security contracts (`test_contracts.py`), and a complete review package (`review/T2/`).
+
+Module Boundaries & Data Flow:
+`ingest` -> `transcribe` -> `scenes` -> `select` -> `cut` -> `subtitles` -> `audio` -> `render` -> `report` -> `verify`
+
+Shared Interfaces:
+- Audit contract: `@audited(stage=...)` decorator on all stage functions.
+- Command execution: `cortes.log.run_cmd()` subprocess gateway (logs to `commands.log` and `events.jsonl`).
+- Verification engine: `cortes.verify.verify_run(run_dir, audit=False)` read-only verification producing `verify_result.json`.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | GDrive OAuth2 Env Auth | OAuth2 user credential loading from `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | M1 | survey |
-| 2 | GDrive `token.json` Auth | OAuth2 user credential loading from `token.json` authorized user file | M1 | survey |
-| 3 | GDrive Service Account Fallback | Transparent fallback to `service-account.json` when OAuth2 user credentials unavailable | M1 | survey |
-| 4 | GDrive Target Folder ID | Default target folder `1mYLUnTMhdflzmYhee804Nj52jBQuOI8H` and custom `folder_id` upload support | M1 | survey |
-| 5 | Quota Error 403 Resolution | Elimination of 403 `storageQuotaExceeded` via OAuth2 user account owner quota | M1 | survey |
-| 6 | CLI `--folder-id` Flag | CLI parameter support for specifying target Google Drive folder ID | M2 | survey |
-| 7 | CLI Subtitle `--cookies` Propagation | Passing `YOUTUBE_COOKIES_FILE` environment variable to `yt-dlp` in `analyzer.py` | M2 | survey |
-| 8 | Web Dashboard `/api/gdrive-upload` `folder_id` | Parsing `folder_id` and `cookies` in POST `/api/gdrive-upload` and `/api/generate-clip` endpoints | M2 | survey |
-| 9 | Web Dashboard UI Input | Adding GDrive folder ID input field and wiring in JS UI dashboard | M2 | survey |
-| 10 | Comprehensive Unit & Integration Tests | Unit tests for OAuth2 env vars, `token.json`, fallback hierarchy, CLI flags, API endpoints | M3 | survey |
-| 11 | Full Test Suite Execution & E2E Validation | Running and passing 100% of unit/integration tests (406+ tests) via `pytest` | M3 | survey |
+| 1 | Dependencies Setup | Install `faster-whisper`, `scenedetect`, `pysubs2`, `pyloudnorm`, `soundfile` in `.venv` | M1 | survey |
+| 2 | AST Scanner & Audit Contract | Enforce zero direct subprocess calls and `@audited` decorator across `src/` and `tests/` | M1 | survey |
+| 3 | Pipeline Ingest Stage | Local video ingestion & metadata validation (`run_ingest`) | M2 | survey |
+| 4 | Pipeline Transcribe Stage | Whisper GPU transcription with word-level timestamps (`run_transcribe`) | M2 | survey |
+| 5 | Pipeline Scenes Stage | PySceneDetect scene boundary detection (`run_scenes`) | M2 | survey |
+| 6 | Pipeline Select Stage | Deterministic heuristic selection (max speech density window 20s-58s aligned to scene cut) (`run_select`) | M2 | survey |
+| 7 | Pipeline Cut Stage | FFmpeg fast cut (`-c copy`) of clip segment (`run_cut`) | M3 | survey |
+| 8 | Pipeline Subtitles Stage | Word-level ASS subtitles generation via `pysubs2` (`run_subtitles`) | M3 | survey |
+| 9 | Pipeline Audio Stage | Two-pass FFmpeg `loudnorm` audio processing (-16 to -13 LUFS) (`run_audio`) | M3 | survey |
+| 10 | Pipeline Render Stage | 9:16 vertical render (1080x1920) with burned ASS subtitles via libass (`run_render`) | M3 | survey |
+| 11 | Pipeline Report Stage | Generation of `report.md` from `events.jsonl` and `verify_result.json` (`run_report`) | M3 | survey |
+| 12 | Zero-Trust Verification Engine | Read-only physical re-measurement in `verify.py` (constant FPS, selection bounds, subtitle alignment, LUFS, SHA-256) | M4 | survey |
+| 13 | Golden Run Execution | Execute end-to-end T2 pipeline golden run producing `runs/run_t2_golden/` | M4 | survey |
+| 14 | Review Package & Git Branch | Consolidate `review/T2/` manifest and push branch `agent/t2-short-tecnico` to GitHub | M5 | survey |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Google Drive Auth & Upload Module | Refactor `gdrive_uploader.py` for OAuth2 auth resolution, fallback hierarchy, `1mYLUnTMhdflzmYhee804Nj52jBQuOI8H` default folder, and quota fix | none | DONE |
-| M2 | CLI & Web Dashboard UI Integration | Update `cli.py`, `analyzer.py`, and `web_dashboard.py` for `--folder-id`, cookies propagation, REST API payload handling, and UI inputs | M1 | DONE |
-| M3 | Test Suite Expansion & E2E Verification | Add unit tests for GDrive OAuth2, fallback precedence, CLI flags, API endpoints, and pass 100% of 406+ pytest tests | M1, M2 | IN_PROGRESS |
+| M1 | Infrastructure & Audit Contracts | Dependencies installation, AST security contract enforcement (`test_contracts.py`) | None | DONE |
+| M2 | Pipeline Core Stages (1-4) | Stage 1 (ingest), Stage 2 (transcribe Whisper GPU), Stage 3 (scenes PySceneDetect), Stage 4 (select speech density heuristic) | M1 | DONE |
+| M3 | Pipeline Output Stages (5-9) | Stage 5 (cut), Stage 6 (subtitles .ass), Stage 7 (audio 2-pass loudnorm), Stage 8 (render 9:16 vertical), Stage 9 (report) | M2 | PLANNED |
+| M4 | Zero-Trust Verification & Golden Run | Incremental `verify.py` checks, execute golden run `runs/run_t2_golden/` and verify pass | M3 | PLANNED |
+| M5 | Review Package & Git Branch Delivery | Consolidate `review/T2/` review package and push branch `agent/t2-short-tecnico` | M4 | PLANNED |
 
 ## Interface Contracts
-### GDrive Uploader Contract
-`upload_clip_to_gdrive(clip_path: str, folder_id: Optional[str] = None) -> Dict[str, Any]`
-- Returns dict containing `web_view_link`, `file_id`, `name`, `status`.
-- Default `folder_id` falls back to `DEFAULT_TARGET_FOLDER_ID = "1mYLUnTMhdflzmYhee804Nj52jBQuOI8H"`.
+### `src/cortes/log.py` ↔ Stage Modules (`src/cortes/*.py`)
+- Every stage function MUST be decorated with `@audited(stage="<stage_name>")`.
+- Every external command invocation MUST pass through `cortes.log.run_cmd(cmd, cwd, audit=True|False)`.
 
-### CLI Contract
-`youtube_clipper --gdrive --folder-id <FOLDER_ID> --cookies <COOKIES_FILE>`
-- Parses `--folder-id` and passes to `upload_clip_to_gdrive`.
-- Sets `os.environ["YOUTUBE_COOKIES_FILE"] = cookies_path`.
+### Stage Modules ↔ `src/cortes/verify.py`
+- `verify.py` executes `verify_run(run_dir, audit=False)` without mutating files or logs.
+- `verify.py` outputs `verify_result.json` strictly outside `run_dir`.
 
-### Web Dashboard REST API Contract
-`POST /api/gdrive-upload`
-- Request JSON: `{"file_path": "...", "folder_id": "..."}`
-- Response JSON: `{"status": "success", "gdrive_link": "...", "file_id": "..."}`
-
-`POST /api/generate-clip`
-- Request JSON: `{"url": "...", "start": "...", "end": "...", "gdrive": true, "folder_id": "...", "cookies": "..."}`
+### Pipeline Output ↔ Review Package (`review/T2/`)
+- `runs/run_t2_golden/` contains `events.jsonl`, `commands.log`, `short.mp4`, `report.md`.
+- `review/T2/` contains `PACOTE.md`, `runs/run_t2_golden/`, `diff.patch`, `files_changed.txt`, `verify_result.json`, `report.md`, `DECISOES.md`, `LIMITACOES.md`, `CRITICA_INTERNA.md`.
 
 ## Code Layout
-- `src/youtube_clipper/gdrive_uploader.py`: Google Drive authentication and upload implementation.
-- `src/youtube_clipper/cli.py`: CLI flags and argument handling.
-- `src/youtube_clipper/analyzer.py`: Subtitle extraction and transcript analysis.
-- `src/youtube_clipper/web_dashboard.py`: REST API server and HTML dashboard UI.
-- `tests/test_gdrive_uploader.py`: Unit tests for Google Drive uploader.
-- `tests/test_cli.py`: Unit tests for CLI.
-- `tests/test_web_dashboard.py`: Unit tests for Web Dashboard API and UI.
+- `src/cortes/`: Audit logger (`log.py`), verifier (`verify.py`), report generator (`report.py`), stage wrapper modules (`ingest.py`, `transcribe.py`, `scenes.py`, `select.py`, `cut.py`, `subtitles.py`, `audio.py`, `transform.py`, `render.py`).
+- `src/youtube_clipper/`: Domain logic modules (`cli.py`, `pipeline.py`, `processor.py`, `analyzer.py`, `video_formatter.py`, etc.).
+- `tests/`: Contract tests (`test_contracts.py`), mutation tests (`test_mutation.py`), e2e tests (`test_e2e_*.py`).
+- `review/T2/`: Review package delivery artifacts.

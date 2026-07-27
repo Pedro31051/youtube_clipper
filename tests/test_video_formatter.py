@@ -5,6 +5,9 @@ and FFmpeg conversion execution.
 """
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 from youtube_clipper.exceptions import ProcessingError
 from youtube_clipper.video_formatter import VideoFormatter
@@ -17,7 +20,8 @@ class TestVideoFormatterFilterBuilder:
         """Verify filter string for blur_background mode."""
         filter_str = VideoFormatter.build_vertical_filter(1080, 1920, "blur_background")
         assert "split[bg][fg];" in filter_str
-        assert "boxblur=20:10" in filter_str
+        assert "scale=270:480" in filter_str
+        assert "gblur=sigma=12.0" in filter_str
         assert "[fg]scale=1080:-2[scaled_fg];" in filter_str
         assert "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2" in filter_str
 
@@ -25,7 +29,7 @@ class TestVideoFormatterFilterBuilder:
         """Verify filter string for split_blur mode alias."""
         filter_str = VideoFormatter.build_vertical_filter(1080, 1920, "split_blur")
         assert "split[bg][fg];" in filter_str
-        assert "boxblur=20:10" in filter_str
+        assert "gblur=sigma=12.0" in filter_str
 
     def test_build_vertical_filter_crop_center(self) -> None:
         """Verify filter string for crop_center mode."""
@@ -119,6 +123,60 @@ class TestVideoFormatterConversion:
                 mode="blur_background",
             )
 
+    def test_convert_to_vertical_invalid_timestamp_range_raises_processing_error(
+        self, dummy_video_file: Path, tmp_media_dir: Path
+    ) -> None:
+        """Test that start >= end raises ProcessingError."""
+        output_path = str(tmp_media_dir / "invalid_ts.mp4")
+        with pytest.raises(ProcessingError, match="Invalid timestamp range"):
+            VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=output_path,
+                start=10.0,
+                end=5.0,
+            )
+        with pytest.raises(ProcessingError, match="Invalid timestamp range"):
+            VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=output_path,
+                start=5.0,
+                end=5.0,
+            )
+
+    def test_auto_nvenc_failure_retries_with_libx264(
+        self, dummy_video_file: Path, tmp_media_dir: Path
+    ) -> None:
+        """Automatic NVENC selection must transparently retry on CPU."""
+        output_path = tmp_media_dir / "fallback.mp4"
+        commands = []
+
+        def fake_run_cmd(command, **kwargs):
+            commands.append(command)
+            if len(commands) == 1:
+                return SimpleNamespace(returncode=1, stdout="", stderr="NVENC busy")
+            output_path.write_bytes(b"fallback" * 256)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with (
+            patch(
+                "youtube_clipper.video_formatter.detect_h264_encoder",
+                return_value="h264_nvenc",
+            ),
+            patch(
+                "youtube_clipper.video_formatter.run_cmd",
+                side_effect=fake_run_cmd,
+            ),
+        ):
+            result = VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=str(output_path),
+            )
+
+        assert result == str(output_path)
+        assert len(commands) == 2
+        assert "h264_nvenc" in commands[0]
+        assert "libx264" in commands[1]
+
 
 class TestVideoFormatterConcurrency:
     """Test suite for thread concurrency in VideoFormatter."""
@@ -145,4 +203,3 @@ class TestVideoFormatterConcurrency:
         assert len(results) == 8
         for res_path in results:
             assert Path(res_path).exists()
-

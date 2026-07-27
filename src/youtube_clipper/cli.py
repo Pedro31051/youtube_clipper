@@ -170,7 +170,7 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser = create_parser()
     parsed = parser.parse_args(args)
 
-    if not getattr(parsed, "dashboard", False) and (not parsed.input or not parsed.input.strip()):
+    if not vars(parsed).get("dashboard", False) and (not parsed.input or not parsed.input.strip()):
         parser.error("the following arguments are required: input")
 
     has_end = parsed.end is not None and bool(str(parsed.end).strip())
@@ -183,18 +183,19 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
 
 def validate_cli_args(args: argparse.Namespace) -> Dict[str, Any]:
-    if getattr(args, "dashboard", False):
+    args_dict = vars(args)
+    if args_dict.get("dashboard", False):
         return {
             "dashboard": True,
-            "port": getattr(args, "port", 8080) or 8080,
-            "host": getattr(args, "host", "127.0.0.1"),
-            "api_token": getattr(args, "api_token", None),
-            "output_dir": getattr(args, "output_dir", None),
+            "port": args_dict.get("port", 8080) or 8080,
+            "host": args_dict.get("host", "127.0.0.1"),
+            "api_token": args_dict.get("api_token", None),
+            "output_dir": args_dict.get("output_dir", None),
         }
 
     clean_input = validate_input_source(args.input)
     
-    if getattr(args, "analyze", False):
+    if args_dict.get("analyze", False):
         start_sec, end_sec = 0.0, 0.0
     else:
         start_sec, end_sec = validate_time_range(args.start, args.end, args.duration)
@@ -205,11 +206,11 @@ def validate_cli_args(args: argparse.Namespace) -> Dict[str, Any]:
         "end": end_sec,
         "output": args.output,
         "fast": args.fast,
-        "vertical": getattr(args, "vertical", False),
-        "gdrive": getattr(args, "gdrive", False),
-        "folder_id": getattr(args, "folder_id", None),
-        "cookies": getattr(args, "cookies", None),
-        "analyze": getattr(args, "analyze", False),
+        "vertical": args_dict.get("vertical", False),
+        "gdrive": args_dict.get("gdrive", False),
+        "folder_id": args_dict.get("folder_id", None),
+        "cookies": args_dict.get("cookies", None),
+        "analyze": args_dict.get("analyze", False),
         "verbose": args.verbose,
     }
 
@@ -233,21 +234,22 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         validated = validate_cli_args(parsed)
+        parsed_dict = vars(parsed)
 
-        if getattr(parsed, "dashboard", False):
-            port = getattr(parsed, "port", 8080) or 8080
+        if parsed_dict.get("dashboard", False):
+            port = parsed_dict.get("port", 8080) or 8080
             sys.stdout.write(f"🚀 Launching YouTube Clipper Web Dashboard on http://localhost:{port}...\n")
             from youtube_clipper.web_dashboard import start_dashboard_server
             start_dashboard_server(
                 port=port,
-                host=getattr(parsed, "host", "127.0.0.1"),
-                api_token=getattr(parsed, "api_token", None),
-                output_dir=getattr(parsed, "output_dir", None),
+                host=parsed_dict.get("host", "127.0.0.1"),
+                api_token=parsed_dict.get("api_token", None),
+                output_dir=parsed_dict.get("output_dir", None),
             )
             return 0
 
         # Set cookies env if provided
-        if getattr(parsed, "cookies", None):
+        if parsed_dict.get("cookies", None):
             os.environ["YOUTUBE_COOKIES_FILE"] = str(parsed.cookies)
         
         if parsed.analyze:
@@ -283,14 +285,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 output=parsed.output,
                 fast=parsed.fast,
                 verbose=parsed.verbose,
-                vertical=getattr(parsed, "vertical", False)
+                vertical=parsed_dict.get("vertical", False)
             )
 
             # Upload to Google Drive if requested
-            if getattr(parsed, "gdrive", False):
+            if parsed_dict.get("gdrive", False):
                 sys.stdout.write(f"☁️ Enviando {clip_path} para o Google Drive...\n")
                 from youtube_clipper.gdrive_uploader import upload_clip_to_gdrive
-                upload_res = upload_clip_to_gdrive(clip_path, folder_id=getattr(parsed, "folder_id", None))
+                upload_res = upload_clip_to_gdrive(clip_path, folder_id=parsed_dict.get("folder_id", None))
                 if upload_res.get("success"):
                     sys.stdout.write(f"✅ Upload concluído no Google Drive!\n🔗 Link: {upload_res.get('web_view_link')}\n")
                 else:

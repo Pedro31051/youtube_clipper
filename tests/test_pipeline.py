@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from cortes.log import run_cmd
 from youtube_clipper.exceptions import DownloadError, ProcessingError, ValidationError
 from youtube_clipper.pipeline import run_pipeline, synthesize_output_path
 from youtube_clipper.__main__ import main
@@ -231,8 +232,6 @@ class TestCLIEntrypoint:
     def test_python_m_youtube_clipper_subprocess_help(self) -> None:
         """Verify python3 -m youtube_clipper --help executes cleanly via subprocess."""
         cmd = [sys.executable, "-m", "youtube_clipper", "--help"]
-        res = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False
-        )
+        res = run_cmd(cmd, audit=False)
         assert res.returncode == 0
         assert "usage:" in res.stdout.lower() or "youtube_clipper" in res.stdout.lower()

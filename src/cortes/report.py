@@ -1,21 +1,42 @@
-"""
-Module cortes/report.py - Deterministic Markdown Report Generator.
-"""
+"""Module cortes/report.py - Deterministic Markdown Report Generator."""
 
 import json
 import pathlib
 import sys
-from typing import Any, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
+
+from cortes.log import audited, get_run_dir
 
 
-def generate_report(run_dir: Union[str, pathlib.Path]) -> pathlib.Path:
+@audited(stage="report")
+def generate_report(
+    run_dir: Union[str, pathlib.Path],
+    verify_result_path: Optional[Union[str, pathlib.Path]] = None,
+    force: bool = False,
+) -> pathlib.Path:
     """Generate report.md exclusively from events.jsonl and verify_result.json."""
     r_path = pathlib.Path(run_dir).resolve()
     run_id = r_path.name
-    report_file = r_path / "report.md"
+    report_file = r_path / (
+        "report_verified.md" if verify_result_path else "report.md"
+    )
 
     events_file = r_path / "events.jsonl"
-    verify_file = r_path / "verify_result.json"
+
+    # Resolve verify_result.json location
+    verify_file = None
+    if verify_result_path:
+        v_candidate = pathlib.Path(verify_result_path).resolve()
+        if v_candidate.exists():
+            verify_file = v_candidate
+    if not verify_file or not verify_file.exists():
+        if (r_path / "verify_result.json").exists():
+            verify_file = r_path / "verify_result.json"
+        elif (r_path.parent / "verify_result.json").exists():
+            verify_file = r_path.parent / "verify_result.json"
+
+    if report_file.exists() and not force and not verify_file:
+        return report_file
 
     events: List[Dict[str, Any]] = []
     if events_file.exists():
@@ -27,9 +48,11 @@ def generate_report(run_dir: Union[str, pathlib.Path]) -> pathlib.Path:
                     pass
 
     verify_data: Dict[str, Any] = {}
-    if verify_file.exists():
+    is_verified = False
+    if verify_file and verify_file.exists():
         try:
             verify_data = json.loads(verify_file.read_text(encoding="utf-8"))
+            is_verified = True
         except Exception:
             pass
 
@@ -42,16 +65,21 @@ def generate_report(run_dir: Union[str, pathlib.Path]) -> pathlib.Path:
     ts_first = events[0]["ts"] if events else "N/A"
     ts_last = events[-1]["ts"] if events else "N/A"
     video_id = events[0].get("video_id", "unknown") if events else "unknown"
-    clip_id = events[0].get("clip_id") if events else None
+    clip_id = next(
+        (event.get("clip_id") for event in events if event.get("clip_id")),
+        None,
+    )
     agent = events[0].get("agent", "worker") if events else "worker"
     total_events = len(events)
     total_duration_ms = sum(float(ev.get("duration_ms", 0.0)) for ev in events)
+
+    verdict_str = "PASSED" if (is_verified and overall_passed) else ("FAILED" if is_verified else "UNVERIFIED")
 
     lines: List[str] = [
         f"# Execution & Verification Report — Run `{run_id}`",
         "",
         f"**Generated At**: `{verified_at}`  ",
-        f"**Verification Verdict**: `{'PASSED' if overall_passed else 'FAILED'}`",
+        f"**Verification Verdict**: `{verdict_str}`",
         "",
         "---",
         "",
@@ -94,11 +122,14 @@ def generate_report(run_dir: Union[str, pathlib.Path]) -> pathlib.Path:
         "|---|---|---|---|---|",
     ])
 
-    for chk in checks:
-        status = "PASS" if chk.get("passed") else "FAIL"
-        lines.append(
-            f"| `{chk.get('check_id')}` | {status} | {chk.get('measured')} | {chk.get('expected')} | `{chk.get('evidence_path')}` |"
-        )
+    if checks:
+        for chk in checks:
+            status = "PASS" if chk.get("passed") else "FAIL"
+            lines.append(
+                f"| `{chk.get('check_id')}` | {status} | {chk.get('measured')} | {chk.get('expected')} | `{chk.get('evidence_path')}` |"
+            )
+    else:
+        lines.append("| N/A | UNVERIFIED | N/A | N/A | N/A |")
 
     lines.extend([
         "",
@@ -147,24 +178,57 @@ def generate_report(run_dir: Union[str, pathlib.Path]) -> pathlib.Path:
         "",
         "## 6. Final Integrity Verdict",
         "",
-        f"- **Overall Status**: `{'PASSED' if overall_passed else 'FAILED'}`",
+        f"- **Overall Status**: `{verdict_str}`",
         f"- **Total Checks Passed**: `{passed_checks}/{total_checks}`",
         "",
     ])
 
     report_content = "\n".join(lines)
     report_file.write_text(report_content, encoding="utf-8")
+
     return report_file
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 -m cortes.report <run_dir>")
-        sys.exit(1)
-    run_dir = sys.argv[1]
-    res_path = generate_report(run_dir)
-    print(f"Report generated at {res_path}")
-    sys.exit(0)
+@audited(stage="report")
+def run_report(
+    run_dir_or_action: Optional[Union[str, pathlib.Path, Callable[..., Any]]] = None,
+    *args: Any,
+    run_id: Optional[str] = None,
+    verify_result_path: Optional[Union[str, pathlib.Path]] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Audited entrypoint for Stage 9 (report). Supports action callback or stage execution."""
+    if callable(run_dir_or_action):
+        return run_dir_or_action(*args, **kwargs)
+
+    target_dir = run_dir_or_action or get_run_dir(run_id)
+    report_path = generate_report(
+        run_dir=target_dir,
+        verify_result_path=verify_result_path,
+    )
+    return {
+        "status": "ok",
+        "report_path": str(report_path),
+        "evidence_paths": [str(report_path)],
+    }
+
+
+@audited(stage="report")
+def main() -> None:
+    """CLI entrypoint for report generation."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Deterministic Markdown Report Generator")
+    parser.add_argument("run_dir_pos", nargs="?", help="Run directory (positional)")
+    parser.add_argument("--run-dir", dest="run_dir_flag", help="Run directory (--run-dir flag)")
+
+    args = parser.parse_args()
+    run_dir = args.run_dir_flag or args.run_dir_pos
+    if not run_dir:
+        parser.error("run_dir is required")
+
+    report_path = generate_report(run_dir, force=True)
+    sys.stdout.write(report_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

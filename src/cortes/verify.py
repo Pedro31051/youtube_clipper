@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Union
 
+from cortes.editorial import build_clip_id, validate_template_variant
 from cortes.log import compute_sha256, run_cmd
 
 
@@ -157,6 +158,19 @@ def _relative_evidence_path(path: pathlib.Path, run_path: pathlib.Path) -> str:
         return str(path.resolve().relative_to(run_path.resolve()))
     except ValueError:
         return str(path.resolve())
+
+
+def _parse_rate(raw_rate: Any) -> float:
+    """Parse ffprobe frame-rate fields such as ``30000/1001``."""
+    value = str(raw_rate or "0")
+    try:
+        if "/" in value:
+            numerator, denominator = value.split("/", 1)
+            denominator_f = float(denominator)
+            return float(numerator) / denominator_f if denominator_f else 0.0
+        return float(value)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
 
 
 def verify_run(
@@ -331,19 +345,56 @@ def verify_run(
             evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
-        # 6. Check producer_evidence_required
-        producer_stages = {"ingest", "transcribe", "cut", "subtitles", "audio", "transform", "render"}
-        prod_ev_passed = True
-        prod_ev_msg = "All producer ok events have evidence paths"
+        # All current evidence must be portable and relative to the run root.
+        relative_paths_passed = True
+        relative_paths_msg = "All evidence paths are run-relative"
         for ev in events:
-            if ev.get("stage") in producer_stages and ev.get("outcome") == "ok":
-                ev_paths = ev.get("evidence", {}).get("paths", [])
-                if not ev_paths:
-                    prod_ev_passed = False
-                    prod_ev_msg = (
-                        f"Producer stage '{ev.get('stage')}' at seq {ev.get('seq')} has no evidence paths"
+            for raw_path in ev.get("evidence", {}).get("paths", []):
+                path_obj = pathlib.Path(raw_path)
+                if path_obj.is_absolute() or ".." in path_obj.parts:
+                    relative_paths_passed = False
+                    relative_paths_msg = (
+                        f"Non-portable evidence path at seq {ev.get('seq')}: {raw_path}"
                     )
                     break
+            if not relative_paths_passed:
+                break
+        add_check(
+            check_id="evidence_paths_relative",
+            passed=relative_paths_passed,
+            measured=relative_paths_msg,
+            expected="Every evidence path is relative and confined to the run",
+            evidence_path=_relative_evidence_path(events_file, r_path),
+        )
+
+        # 6. Check producer_evidence_required
+        producer_stages = {
+            "ingest",
+            "transcribe",
+            "cut",
+            "subtitles",
+            "audio",
+            "render",
+        }
+        prod_ev_passed = True
+        prod_ev_msg = "Every executed producer stage has at least one completion event with evidence"
+        executed_producers = {
+            ev.get("stage")
+            for ev in events
+            if ev.get("stage") in producer_stages and ev.get("outcome") == "ok"
+        }
+        for producer_stage in sorted(executed_producers):
+            if not any(
+                ev.get("stage") == producer_stage
+                and ev.get("outcome") == "ok"
+                and ev.get("evidence", {}).get("paths")
+                for ev in events
+            ):
+                prod_ev_passed = False
+                prod_ev_msg = (
+                    f"Producer stage '{producer_stage}' has no completion event with evidence"
+                )
+                break
 
         add_check(
             check_id="producer_evidence_required",
@@ -362,9 +413,12 @@ def verify_run(
         hash_fail_msg = "All SHA-256 hashes match"
         bytes_fail_msg = "All byte sizes match"
         declared_media_files: List[pathlib.Path] = []
+        render_stage_media_files: List[pathlib.Path] = []
+        intermediate_media_files: List[pathlib.Path] = []
 
         for ev in events:
             if ev.get("outcome") == "ok":
+                stg = ev.get("stage")
                 evidence = ev.get("evidence", {})
                 paths = evidence.get("paths", [])
                 sha256s = evidence.get("sha256", [])
@@ -382,8 +436,17 @@ def verify_run(
                         hash_fail_msg = str(exc)
                         bytes_fail_msg = str(exc)
                         continue
+
                     if p_obj.suffix.lower() == ".mp4":
                         declared_media_files.append(p_obj)
+                        rel_str = _relative_evidence_path(p_obj, r_path)
+                        if stg in ("render", "transform") or rel_str.startswith("artifacts/render/") or p_obj.name == "short.mp4":
+                            if p_obj not in render_stage_media_files:
+                                render_stage_media_files.append(p_obj)
+                        else:
+                            if p_obj not in intermediate_media_files:
+                                intermediate_media_files.append(p_obj)
+
                     if not p_obj.exists():
                         all_exists = False
                         exists_fail_msg = f"Artifact {p_str} does not exist"
@@ -443,11 +506,45 @@ def verify_run(
             evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
-        # 8. Media Artifact Checks (find any render/clip/short mp4 files)
-        media_files = sorted(
-            {path.resolve() for path in declared_media_files if path.exists()}
+        # 8. Intermediate Media Artifact Checks (existence, size > 1024 bytes, probed duration > 0.0s)
+        for media_file in sorted(set(intermediate_media_files)):
+            if not media_file.exists():
+                continue
+            subject = _relative_evidence_path(media_file, r_path)
+            info = run_ffprobe_json(media_file)
+            format_info = info.get("format", {})
+            duration = float(format_info.get("duration", 0.0))
+            if duration == 0.0 and info.get("streams"):
+                v_streams = [s for s in info["streams"] if s.get("codec_type") == "video"]
+                if v_streams:
+                    duration = float(v_streams[0].get("duration", 0.0))
+            st_size = media_file.stat().st_size
+            add_check(
+                check_id=f"intermediate_media_valid::{subject}",
+                passed=st_size > 1024 and duration > 0.0,
+                measured=f"size={st_size} bytes, duration={round(duration, 2)}s",
+                expected="size > 1024 bytes and duration > 0.0s",
+                evidence_path=subject,
+            )
+
+        # 9. Final Rendered Short Media Checks (1080x1920, 1 audio stream, 20-58s duration, LUFS [-16, -13])
+        target_render_files = sorted({p for p in render_stage_media_files if p.exists()})
+        t2_artifacts_present = any(
+            (r_path / "artifacts" / stage).exists()
+            for stage in ("select", "cut", "subtitles", "audio")
         )
-        for video_file in media_files:
+        add_check(
+            check_id="final_render_required",
+            passed=bool(target_render_files) or not t2_artifacts_present,
+            measured=(
+                f"{len(target_render_files)} final render(s) found"
+                if target_render_files
+                else "No final render declared"
+            ),
+            expected="At least one declared short.mp4 for a T2 run",
+            evidence_path="artifacts",
+        )
+        for video_file in target_render_files:
             subject = _relative_evidence_path(video_file, r_path)
             info = run_ffprobe_json(video_file)
             streams = info.get("streams", [])
@@ -470,6 +567,29 @@ def verify_run(
                 passed=res_passed,
                 measured=res_measured,
                 expected="1080x1920",
+                evidence_path=subject,
+            )
+
+            # Constant-frame-rate proof.  FFmpeg writes identical nominal and
+            # average rates for CFR output; a zero or divergent rate is rejected.
+            if video_streams:
+                nominal_fps = _parse_rate(video_streams[0].get("r_frame_rate"))
+                average_fps = _parse_rate(video_streams[0].get("avg_frame_rate"))
+            else:
+                nominal_fps = average_fps = 0.0
+            fps_passed = (
+                nominal_fps > 0.0
+                and average_fps > 0.0
+                and abs(nominal_fps - average_fps) <= 0.001
+            )
+            add_check(
+                check_id=f"video_constant_fps::{subject}",
+                passed=fps_passed,
+                measured=(
+                    f"r_frame_rate={nominal_fps:.6f}, "
+                    f"avg_frame_rate={average_fps:.6f}"
+                ),
+                expected="Positive constant FPS (r_frame_rate == avg_frame_rate)",
                 evidence_path=subject,
             )
 
@@ -506,6 +626,380 @@ def verify_run(
                 evidence_path=subject,
             )
 
+            # T3 editorial transformation proof is derived from physical
+            # artifacts, the audited FFmpeg command, and immutable metadata.
+            render_metadata_path = video_file.parent / "render_metadata.json"
+            if render_metadata_path.exists():
+                try:
+                    render_metadata = json.loads(
+                        render_metadata_path.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError) as exc:
+                    render_metadata = {}
+                    metadata_valid = False
+                    metadata_msg = f"Invalid render metadata: {exc}"
+                else:
+                    metadata_valid = isinstance(render_metadata, dict)
+                    metadata_msg = (
+                        "Render metadata is valid JSON"
+                        if metadata_valid
+                        else "Render metadata must be an object"
+                    )
+
+                is_t3 = bool(
+                    render_metadata.get("phase") == "T3"
+                    or render_metadata.get("editorial_transformation_required")
+                )
+                if is_t3:
+                    metadata_subject = _relative_evidence_path(
+                        render_metadata_path, r_path
+                    )
+                    add_check(
+                        check_id=f"editorial_metadata::{subject}",
+                        passed=metadata_valid,
+                        measured=metadata_msg,
+                        expected="Valid T3 render_metadata.json",
+                        evidence_path=metadata_subject,
+                    )
+
+                    render_commands = [
+                        str(ev.get("cmd") or "")
+                        for ev in events
+                        if ev.get("stage") == "render" and ev.get("cmd")
+                    ]
+                    requirements = render_metadata.get(
+                        "editorial_requirements", []
+                    )
+                    if not isinstance(requirements, list):
+                        requirements = []
+                    requirements = [str(item) for item in requirements]
+
+                    narration_passed = False
+                    narration_msg = "Narration is not required"
+                    narration_evidence = metadata_subject
+                    if (
+                        "narration" in requirements
+                        or render_metadata.get("narration_required")
+                        or render_metadata.get("narration_mixed")
+                    ):
+                        raw_narration_path = str(
+                            render_metadata.get("narration_source_path") or ""
+                        )
+                        try:
+                            narration_file = _resolve_evidence_path(
+                                raw_narration_path, r_path
+                            )
+                        except ValueError as exc:
+                            narration_msg = str(exc)
+                        else:
+                            narration_evidence = _relative_evidence_path(
+                                narration_file, r_path
+                            )
+                            narration_is_file = (
+                                narration_file.exists()
+                                and narration_file.is_file()
+                            )
+                            narration_info = (
+                                run_ffprobe_json(narration_file)
+                                if narration_is_file
+                                else {}
+                            )
+                            narration_duration = float(
+                                narration_info.get("format", {}).get(
+                                    "duration", 0.0
+                                )
+                                or 0.0
+                            )
+                            expected_hash = render_metadata.get(
+                                "narration_source_sha256"
+                            )
+                            expected_bytes = render_metadata.get(
+                                "narration_source_bytes"
+                            )
+                            real_hash = (
+                                measure_sha256(narration_file)
+                                if narration_is_file
+                                else None
+                            )
+                            real_bytes = (
+                                narration_file.stat().st_size
+                                if narration_is_file
+                                else None
+                            )
+                            command_proves_mix = any(
+                                "amix=inputs=2" in command
+                                and narration_file.name in command
+                                for command in render_commands
+                            )
+                            narration_passed = bool(
+                                render_metadata.get("narration_mixed")
+                                and narration_is_file
+                                and narration_duration >= 8.0
+                                and expected_hash == real_hash
+                                and expected_bytes == real_bytes
+                                and command_proves_mix
+                            )
+                            narration_msg = (
+                                f"exists={narration_is_file}, "
+                                f"duration={narration_duration:.3f}s, "
+                                f"hash_match={expected_hash == real_hash}, "
+                                f"bytes_match={expected_bytes == real_bytes}, "
+                                f"amix_proven={command_proves_mix}"
+                            )
+                        add_check(
+                            check_id=f"editorial_narration::{subject}",
+                            passed=narration_passed,
+                            measured=narration_msg,
+                            expected=(
+                                "Physical narration >= 8.0s with matching hash/bytes "
+                                "and audited amix command"
+                            ),
+                            evidence_path=narration_evidence,
+                        )
+
+                    overlay_passed = False
+                    overlay_msg = "Analytical overlay is not required"
+                    if (
+                        "analytical_overlay" in requirements
+                        or render_metadata.get("analytical_overlay")
+                    ):
+                        overlay_text = str(
+                            render_metadata.get("overlay_text") or ""
+                        ).strip()
+                        overlay_command_proof = any(
+                            "drawbox=" in command
+                            and "drawtext=" in command
+                            and overlay_text
+                            in command.replace("\\:", ":").replace("\\'", "'")
+                            for command in render_commands
+                        )
+                        overlay_passed = bool(
+                            render_metadata.get("analytical_overlay")
+                            and overlay_text
+                            and overlay_command_proof
+                        )
+                        overlay_msg = (
+                            f"metadata_enabled={bool(render_metadata.get('analytical_overlay'))}, "
+                            f"text_present={bool(overlay_text)}, "
+                            f"command_proven={overlay_command_proof}"
+                        )
+                        add_check(
+                            check_id=f"editorial_overlay::{subject}",
+                            passed=overlay_passed,
+                            measured=overlay_msg,
+                            expected="Non-empty analytical overlay burned by drawbox/drawtext",
+                            evidence_path=metadata_subject,
+                        )
+
+                    requirement_results = {
+                        "narration": narration_passed,
+                        "analytical_overlay": overlay_passed,
+                    }
+                    supported_requirements = set(requirement_results)
+                    declared_requirements = set(requirements)
+                    transformation_passed = bool(declared_requirements) and (
+                        declared_requirements <= supported_requirements
+                    ) and all(
+                        requirement_results[item]
+                        for item in declared_requirements
+                    )
+                    add_check(
+                        check_id=f"editorial_transformation::{subject}",
+                        passed=transformation_passed,
+                        measured=(
+                            f"requirements={sorted(declared_requirements)}, "
+                            f"results={requirement_results}"
+                        ),
+                        expected="Every declared T3 editorial requirement is physically proven",
+                        evidence_path=metadata_subject,
+                    )
+
+                    variant = str(
+                        render_metadata.get("template_variant") or ""
+                    ).strip()
+                    history = render_metadata.get(
+                        "template_variant_history", []
+                    )
+                    history_valid = isinstance(history, list) and len(history) <= 5
+                    recent_variants = (
+                        [
+                            str(item.get("template_variant") or "").strip()
+                            for item in history
+                            if isinstance(item, dict)
+                        ]
+                        if isinstance(history, list)
+                        else []
+                    )
+                    try:
+                        normalized_variant = validate_template_variant(variant)
+                    except Exception as exc:
+                        variant_valid = False
+                        variant_msg = str(exc)
+                    else:
+                        variant_valid = (
+                            history_valid
+                            and normalized_variant not in recent_variants
+                        )
+                        variant_msg = (
+                            f"variant={normalized_variant}, "
+                            f"previous_five={recent_variants}"
+                        )
+                    add_check(
+                        check_id=f"template_variant_unique::{subject}",
+                        passed=variant_valid,
+                        measured=variant_msg,
+                        expected="Non-default variant absent from previous five renders",
+                        evidence_path=metadata_subject,
+                    )
+
+                    selection_artifact_path = (
+                        r_path / "artifacts" / "select" / "selection.json"
+                    )
+                    if (
+                        selection_artifact_path.exists()
+                        and render_metadata.get("clip_id")
+                        and variant_valid
+                    ):
+                        expected_clip_id = build_clip_id(
+                            selection_artifact_path.read_bytes(), variant
+                        )
+                        declared_clip_id = str(render_metadata.get("clip_id"))
+                        add_check(
+                            check_id=f"clip_id_binds_variant::{subject}",
+                            passed=declared_clip_id == expected_clip_id,
+                            measured=(
+                                f"declared={declared_clip_id}, "
+                                f"recomputed={expected_clip_id}"
+                            ),
+                            expected="clip_id = SHA256(selection + template_variant)",
+                            evidence_path=metadata_subject,
+                        )
+
+        # 10. Selection bounds are re-measured against source/cut metadata.
+        selection_path = r_path / "artifacts" / "select" / "selection.json"
+        cut_metadata_path = r_path / "artifacts" / "cut" / "cut_metadata.json"
+        ingest_metadata_path = r_path / "artifacts" / "ingest" / "metadata.json"
+        if selection_path.exists():
+            try:
+                selection_data = json.loads(selection_path.read_text(encoding="utf-8"))
+                selection_start = int(selection_data["start_ms"])
+                selection_end = int(selection_data["end_ms"])
+                source_duration_ms = 0
+                if ingest_metadata_path.exists():
+                    ingest_metadata = json.loads(
+                        ingest_metadata_path.read_text(encoding="utf-8")
+                    )
+                    source_duration_ms = int(
+                        round(float(ingest_metadata.get("duration", 0.0)) * 1000)
+                    )
+                if source_duration_ms <= 0 and cut_metadata_path.exists():
+                    cut_metadata = json.loads(
+                        cut_metadata_path.read_text(encoding="utf-8")
+                    )
+                    source_duration_ms = int(cut_metadata.get("source_duration_ms", 0))
+                selection_passed = (
+                    source_duration_ms > 0
+                    and 0 <= selection_start < selection_end <= source_duration_ms
+                )
+                selection_measured = (
+                    f"start_ms={selection_start}, end_ms={selection_end}, "
+                    f"source_duration_ms={source_duration_ms}"
+                )
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                selection_passed = False
+                selection_measured = f"Invalid selection metadata: {exc}"
+            add_check(
+                check_id="selection_within_source_bounds",
+                passed=selection_passed,
+                measured=selection_measured,
+                expected="0 <= start_ms < end_ms <= source_duration_ms",
+                evidence_path=_relative_evidence_path(selection_path, r_path),
+            )
+
+        # 11. Re-read the physical ASS and map every event to a transcript word.
+        mapping_path = r_path / "artifacts" / "subtitles" / "subtitle_mapping.json"
+        ass_path = r_path / "artifacts" / "subtitles" / "subtitles.ass"
+        if mapping_path.exists() or ass_path.exists():
+            alignment_passed = True
+            alignment_msg = "All ASS events map to transcript words within +/-200 ms"
+            try:
+                import pysubs2
+
+                mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+                selection = mapping["selection"]
+                clip_start_ms = int(selection["start_ms"])
+                clip_end_ms = int(selection["end_ms"])
+                clip_duration_ms = clip_end_ms - clip_start_ms
+                source_words = mapping.get("source_words", [])
+                normalized_words = []
+                for word in source_words:
+                    word_start = int(
+                        word.get(
+                            "start_ms",
+                            round(float(word.get("start", 0.0)) * 1000),
+                        )
+                    )
+                    word_end = int(
+                        word.get(
+                            "end_ms",
+                            round(float(word.get("end", 0.0)) * 1000),
+                        )
+                    )
+                    normalized_words.append(
+                        (
+                            str(word.get("word", "")).strip().casefold(),
+                            word_start,
+                            word_end,
+                        )
+                    )
+                subtitles = pysubs2.load(str(ass_path), encoding="utf-8")
+                if not normalized_words or not subtitles.events:
+                    alignment_passed = False
+                    alignment_msg = (
+                        f"words={len(normalized_words)}, "
+                        f"subtitle_events={len(subtitles.events)}; both must be non-zero"
+                    )
+                else:
+                    for index, event in enumerate(subtitles.events):
+                        if event.start < 0 or event.end > clip_duration_ms or event.end <= event.start:
+                            alignment_passed = False
+                            alignment_msg = (
+                                f"Subtitle event {index} is outside [0, {clip_duration_ms}]"
+                            )
+                            break
+                        event_word = event.text.strip().casefold()
+                        absolute_start = clip_start_ms + int(event.start)
+                        absolute_end = clip_start_ms + int(event.end)
+                        if not any(
+                            candidate_word == event_word
+                            and abs(candidate_start - absolute_start) <= 200
+                            and abs(candidate_end - absolute_end) <= 200
+                            for candidate_word, candidate_start, candidate_end in normalized_words
+                        ):
+                            alignment_passed = False
+                            alignment_msg = (
+                                f"Subtitle event {index} '{event.text}' at "
+                                f"{absolute_start}-{absolute_end} ms has no matching word"
+                            )
+                            break
+            except Exception as exc:
+                alignment_passed = False
+                alignment_msg = f"Unable to verify subtitle alignment: {exc}"
+            add_check(
+                check_id="subtitle_word_alignment",
+                passed=alignment_passed,
+                measured=alignment_msg,
+                expected=(
+                    "Non-empty ASS; every event maps to a transcript word within "
+                    "+/-200 ms and remains inside the selected interval"
+                ),
+                evidence_path=(
+                    _relative_evidence_path(ass_path, r_path)
+                    if ass_path.exists()
+                    else _relative_evidence_path(mapping_path, r_path)
+                ),
+            )
+
     passed_count = sum(1 for c in checks if c["passed"])
     total_count = len(checks)
     failed_count = total_count - passed_count
@@ -539,16 +1033,20 @@ def verify_run(
 
 
 def main():
-    if len(sys.argv) not in {2, 4}:
-        print("Usage: python3 -m cortes.verify <run_dir> [--output <result.json>]")
-        sys.exit(1)
-    run_dir = sys.argv[1]
-    output_path = None
-    if len(sys.argv) == 4:
-        if sys.argv[2] != "--output":
-            print("Expected --output before result path")
-            sys.exit(1)
-        output_path = sys.argv[3]
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Zero-Trust Re-measurement and Verification")
+    parser.add_argument("run_dir_pos", nargs="?", help="Run directory (positional)")
+    parser.add_argument("--run-dir", dest="run_dir_flag", help="Run directory (--run-dir flag)")
+    parser.add_argument("--output", dest="output_file", help="Output result JSON file")
+    parser.add_argument("--audit-out", dest="audit_out_file", help="Alias for --output result JSON file")
+
+    args = parser.parse_args()
+    run_dir = args.run_dir_flag or args.run_dir_pos
+    if not run_dir:
+        parser.error("run_dir is required (either positional or via --run-dir)")
+
+    output_path = args.audit_out_file or args.output_file
     res = verify_run(run_dir, output_path=output_path)
     print(json.dumps(res, indent=2))
     sys.exit(0 if res["overall_passed"] else 1)

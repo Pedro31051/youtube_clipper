@@ -113,7 +113,7 @@ def create_synthetic_golden_run(tmp_path: pathlib.Path) -> pathlib.Path:
             "cost": {"usd": 0.0, "tokens_in": 0, "tokens_out": 0},
             "trace": {"span_id": "0123456789abcdeg", "parent_span_id": "0123456789abcdef"},
             "evidence": {
-                "paths": [str(video_path)],
+                "paths": ["artifacts/clip_01/short.mp4"],
                 "sha256": [video_sha],
                 "bytes": [video_bytes],
             },
@@ -140,9 +140,10 @@ def copy_golden_for_mutation(golden_run: pathlib.Path, target_dir: pathlib.Path)
     return target_dir
 
 
-@pytest.fixture
-def golden_run(tmp_path):
-    return create_synthetic_golden_run(tmp_path)
+@pytest.fixture(scope="module")
+def golden_run(tmp_path_factory):
+    """Build the expensive 21-second golden media only once per test module."""
+    return create_synthetic_golden_run(tmp_path_factory.mktemp("mutation_golden"))
 
 
 def test_mutation_0_golden_run_passes(golden_run):

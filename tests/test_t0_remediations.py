@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from cortes.verify import verify_run
+from cortes.log import run_cmd
 from youtube_clipper.exceptions import ProcessingError
 from youtube_clipper.pipeline import run_pipeline
 from youtube_clipper.processor import FFmpegProcessor
@@ -74,7 +75,7 @@ def _portable_run(tmp_path: Path, *, legacy_absolute: bool = False) -> Path:
 
 
 def _synthetic_video(path: Path, duration: float = 3.0) -> None:
-    result = subprocess.run(
+    result = run_cmd(
         [
             "ffmpeg",
             "-y",
@@ -95,9 +96,7 @@ def _synthetic_video(path: Path, duration: float = 3.0) -> None:
             "-shortest",
             str(path),
         ],
-        capture_output=True,
-        text=True,
-        check=False,
+        audit=False,
     )
     assert result.returncode == 0, result.stderr
 
@@ -123,7 +122,7 @@ def test_youtube_segment_offset_is_consumed_once(
         output=output,
     )
 
-    probe = subprocess.run(
+    probe = run_cmd(
         [
             "ffprobe",
             "-v",
@@ -134,9 +133,7 @@ def test_youtube_segment_offset_is_consumed_once(
             "default=nw=1:nk=1",
             result,
         ],
-        capture_output=True,
-        text=True,
-        check=False,
+        audit=False,
     )
     assert probe.returncode == 0
     assert 2.5 <= float(probe.stdout.strip()) <= 3.1
@@ -160,7 +157,7 @@ def test_verifier_is_read_only_and_creates_no_collateral_run(tmp_path: Path) -> 
     assert not (Path.cwd() / "runs").exists()
 
 
-def test_legacy_absolute_evidence_relocates_inside_supplied_run(tmp_path: Path) -> None:
+def test_legacy_absolute_evidence_is_rejected_as_non_portable(tmp_path: Path) -> None:
     original = _portable_run(tmp_path / "original", legacy_absolute=True)
     relocated = tmp_path / "relocated" / original.name
     relocated.parent.mkdir()
@@ -168,7 +165,11 @@ def test_legacy_absolute_evidence_relocates_inside_supplied_run(tmp_path: Path) 
 
     result = verify_run(relocated)
 
-    assert result["overall_passed"] is True
+    assert result["overall_passed"] is False
+    failed = {
+        check["check_id"] for check in result["checks"] if not check["passed"]
+    }
+    assert "evidence_paths_relative" in failed
     assert all(not Path(check["evidence_path"]).is_absolute() for check in result["checks"])
 
 
