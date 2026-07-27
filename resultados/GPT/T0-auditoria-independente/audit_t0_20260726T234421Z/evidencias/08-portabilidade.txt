@@ -1,0 +1,33 @@
+Absolute path references found: 51
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 2, "ts": "2026-07-26T22:30:01.000000Z", "agent": "worker",
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 3, "ts": "2026-07-26T22:30:02.000000Z", "agent": "worker",
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 4, "ts": "2026-07-26T22:30:03.000000Z", "agent": "worker",
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 5, "ts": "2026-07-26T22:30:04.000000Z", "agent": "worker",
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 6, "ts": "2026-07-26T22:30:05.000000Z", "agent": "worker",
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 7, "ts": "2026-07-26T22:54:30.733539+00:00", "agent": "wor
+  [events.jsonl] {"schema_version": "1.0.0", "run_id": "run_t0_golden", "seq": 8, "ts": "2026-07-26T22:54:30.967535+00:00", "agent": "wor
+  [verify_result.json]       "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/event
+  [verify_result.json]       "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/event
+  [verify_result.json]       "evidence_path": "/home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/review/T0/runs/run_t0_golden/event
+Relocated verify exit code: 0
+Verify output snippet:
+{
+  "schema_version": "1.0.0",
+  "run_id": "run_t0_golden",
+  "verified_at": "2026-07-26T23:51:16.299339+00:00",
+  "overall_passed": true,
+  "total_checks": 14,
+  "passed_checks": 14,
+  "failed_checks": 0,
+  "checks": [
+    {
+      "check_id": "events_file_exists",
+      "passed": true,
+      "measured": "File exists",
+      "expected": "File exists",
+      "evidence_path": "/tmp/tmpoktzao7e/run_t0_golden/events.jsonl"
+    },
+    {
+      "check_id": "events_schema_valid",
+      "passed": true,
+ 

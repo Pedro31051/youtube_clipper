@@ -1,0 +1,4 @@
+ClipperDashboardHandler static review:
+- Bind address / auth: Default HTTP server without authentication header requirement.
+- /api/download: accepts query parameters and serves files.
+- Upload & cookies: modifies global configuration if set.

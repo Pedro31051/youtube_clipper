@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/pedrofelipealvesrocha/teamwork_projects/youtube_clipper
+configfile: pyproject.toml
+collecting ... collected 17 items
+
+tests/test_mutation.py::test_mutation_0_golden_run_passes PASSED         [  5%]
+tests/test_mutation.py::test_mutation_1_byte_corruption PASSED           [ 11%]
+tests/test_mutation.py::test_mutation_2_seq_hole PASSED                  [ 17%]
+tests/test_mutation.py::test_mutation_3_seq_duplicate PASSED             [ 23%]
+tests/test_mutation.py::test_mutation_4_wrong_video_resolution PASSED    [ 29%]
+tests/test_mutation.py::test_mutation_5_audio_loudness_out_of_bounds PASSED [ 35%]
+tests/test_mutation.py::test_mutation_6_video_duration_out_of_bounds PASSED [ 41%]
+tests/test_mutation.py::test_mutation_7_missing_evidence_artifact PASSED [ 47%]
+tests/test_mutation.py::test_mutation_8_missing_events_file PASSED       [ 52%]
+tests/test_mutation.py::test_mutation_9_invalid_event_schema PASSED      [ 58%]
+tests/test_mutation.py::test_mutation_10_stage_dag_out_of_order PASSED   [ 64%]
+tests/test_mutation.py::test_mutation_11_non_monotonic_timestamp PASSED  [ 70%]
+tests/test_mutation.py::test_mutation_12_commands_log_unsynced PASSED    [ 76%]
+tests/test_mutation.py::test_mutation_13_non_zero_exit_code PASSED       [ 82%]
+tests/test_mutation.py::test_mutation_14_missing_producer_evidence PASSED [ 88%]
+tests/test_mutation.py::test_mutation_15_artifact_bytes_mismatch PASSED  [ 94%]
+tests/test_mutation.py::test_mutation_16_audio_stream_count_mismatch PASSED [100%]
+
+======================== 17 passed in 79.77s (0:01:19) =========================

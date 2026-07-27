@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "repository": "Pedro31051/youtube_clipper",
+  "baseline_sha": "fbe8cc5462537dbcaa44ddf6c9182ac218b22c25",
+  "run_id": "audit_t0_20260726T234421Z",
+  "verdict": "APTA_PARA_REVISAO_HUMANA",
+  "pytest": {
+    "exit_code": 0,
+    "collected": 462,
+    "passed": 462,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "hypotheses": {
+    "confirmed": ["H01", "H02", "H03", "H04", "H06", "H07", "H08"],
+    "refuted": ["H05"],
+    "inconclusive": [],
+    "blocked": []
+  },
+  "findings": [
+    {
+      "id": "AUD-T0-001",
+      "severity": "ALTA",
+      "status": "CONFIRMADO",
+      "evidence_paths": ["evidencias/06-subprocess-scan.txt"],
+      "reproduction_command_ids": [1]
+    },
+    {
+      "id": "AUD-T0-002",
+      "severity": "MÉDIA",
+      "status": "CONFIRMADO",
+      "evidence_paths": ["evidencias/07-stage-modules.txt"],
+      "reproduction_command_ids": [1]
+    },
+    {
+      "id": "AUD-T0-003",
+      "severity": "BAIXA",
+      "status": "CONFIRMADO",
+      "evidence_paths": ["evidencias/09-verificador-readonly.txt"],
+      "reproduction_command_ids": [1]
+    }
+  ],
+  "limitations": [
+    "Sem download de mídia de terceiros do YouTube",
+    "Sem credenciais OAuth de produção do Google Drive",
+    "Sem abertura de portas públicas para o dashboard"
+  ],
+  "generated_at_utc": "2026-07-26T23:51:40Z"
+}

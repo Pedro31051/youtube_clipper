@@ -1,0 +1,30 @@
+src/youtube_clipper/web_dashboard.py:10:import subprocess
+src/youtube_clipper/video_formatter.py:8:import subprocess
+src/youtube_clipper/video_formatter.py:58:        Raises ProcessingError on FFmpeg subprocess failure or empty/missing output file.
+src/youtube_clipper/video_formatter.py:78:        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
+src/youtube_clipper/analyzer.py:10:import subprocess
+src/youtube_clipper/analyzer.py:289:        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+src/youtube_clipper/exceptions.py:66:    """Raised when FFmpeg subprocess execution or media processing fails.
+src/youtube_clipper/processor.py:3:Provides FFmpegProcessor for clipping and re-encoding video files via FFmpeg subprocess.
+src/youtube_clipper/processor.py:9:import subprocess
+src/youtube_clipper/processor.py:17:    """FFmpeg media processor wrapper for subprocess media editing."""
+src/youtube_clipper/processor.py:63:            ProcessingError: If input does not exist, timestamps are invalid, or subprocess fails.
+src/youtube_clipper/processor.py:109:            res = subprocess.run(
+src/youtube_clipper/processor.py:111:                stdout=subprocess.PIPE,
+src/youtube_clipper/processor.py:112:                stderr=subprocess.PIPE,
+src/cortes/report.py:141:        lines.append("# No external subprocess commands executed")
+src/cortes/log.py:2:Module cuts/log.py - Audit logging, event emission, and subprocess execution.
+src/cortes/log.py:12:import subprocess
+src/cortes/log.py:338:) -> subprocess.CompletedProcess:
+src/cortes/log.py:339:    """Sole authorized function in the repository for invoking external subprocesses."""
+src/cortes/log.py:355:    proc = subprocess.run(
+src/cortes/log.py:411:        raise subprocess.CalledProcessError(proc.returncode, cmd, proc.stdout, proc.stderr)
+
+--- STDERR ---
+grep: src/youtube_clipper/__pycache__/web_dashboard.cpython-312.pyc: binary file matches
+grep: src/youtube_clipper/__pycache__/processor.cpython-312.pyc: binary file matches
+grep: src/youtube_clipper/__pycache__/video_formatter.cpython-312.pyc: binary file matches
+grep: src/youtube_clipper/__pycache__/exceptions.cpython-312.pyc: binary file matches
+grep: src/youtube_clipper/__pycache__/analyzer.cpython-312.pyc: binary file matches
+grep: src/cortes/__pycache__/log.cpython-312.pyc: binary file matches
+grep: src/cortes/__pycache__/report.cpython-312.pyc: binary file matches
