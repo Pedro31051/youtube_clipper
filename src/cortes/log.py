@@ -17,6 +17,7 @@ import os
 import pathlib
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -678,6 +679,7 @@ def run_cmd(
     timeout: Optional[float] = None,
     action: Optional[str] = None,
     next_action: Optional[str] = None,
+    cancel_event: Optional[Any] = None,
 ) -> subprocess.CompletedProcess:
     """Execute an external command and preserve lifecycle plus complete streams."""
     if isinstance(cmd, list):
@@ -691,12 +693,57 @@ def run_cmd(
     effective_stage = stage if stage in ALLOWED_STAGES else "env"
     actual_cwd = cwd or os.getcwd()
 
-    if not audit:
-        proc = subprocess.run(
+    def execute() -> subprocess.CompletedProcess:
+        if cancel_event is None:
+            return subprocess.run(
+                cmd_list if isinstance(cmd, list) else cmd,
+                cwd=cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                shell=isinstance(cmd, str),
+                timeout=timeout,
+            )
+        process = subprocess.Popen(
             cmd_list if isinstance(cmd, list) else cmd,
-            cwd=cwd, env=env, capture_output=True, text=True,
-            shell=isinstance(cmd, str), timeout=timeout,
+            cwd=cwd,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            shell=isinstance(cmd, str),
+            start_new_session=os.name == "posix",
         )
+        deadline = time.monotonic() + timeout if timeout is not None else None
+        while process.poll() is None:
+            if cancel_event.wait(0.05):
+                if os.name == "posix":
+                    os.killpg(process.pid, signal.SIGTERM)
+                else:
+                    process.terminate()
+                try:
+                    stdout, stderr = process.communicate(timeout=2)
+                except subprocess.TimeoutExpired:
+                    if os.name == "posix":
+                        os.killpg(process.pid, signal.SIGKILL)
+                    else:
+                        process.kill()
+                    stdout, stderr = process.communicate()
+                return subprocess.CompletedProcess(
+                    cmd,
+                    130,
+                    stdout,
+                    stderr or "Command cancelled by job controller",
+                )
+            if deadline is not None and time.monotonic() >= deadline:
+                process.kill()
+                stdout, stderr = process.communicate()
+                raise subprocess.TimeoutExpired(cmd, timeout, stdout, stderr)
+        stdout, stderr = process.communicate()
+        return subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
+
+    if not audit:
+        proc = execute()
         if check and proc.returncode != 0:
             raise subprocess.CalledProcessError(proc.returncode, cmd, proc.stdout, proc.stderr)
         return proc
@@ -721,11 +768,7 @@ def run_cmd(
         input_data={"cwd": actual_cwd, "timeout_seconds": timeout},
     )
     try:
-        proc = subprocess.run(
-            cmd_list if isinstance(cmd, list) else cmd,
-            cwd=cwd, env=env, capture_output=True, text=True,
-            shell=isinstance(cmd, str), timeout=timeout,
-        )
+        proc = execute()
     except subprocess.TimeoutExpired as exc:
         stdout_path.write_text(str(redact(exc.stdout or "")), encoding="utf-8")
         stderr_path.write_text(str(redact(exc.stderr or "")), encoding="utf-8")

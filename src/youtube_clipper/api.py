@@ -9,7 +9,6 @@ import re
 import threading
 import time
 import uuid
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from cortes.preview import generate_clip_preview
+from cortes.preview import PreviewCancelledError, generate_clip_preview
 from youtube_clipper.project_store import (
     DomainConflictError,
     DomainNotFoundError,
@@ -57,6 +56,13 @@ class ClipReviewCreate(BaseModel):
 
     clip_ids: list[str] = Field(min_length=1, max_length=20)
     decision: Literal["approve", "reject"]
+
+
+class DriveExportCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    folder_id: Optional[str] = Field(default=None, max_length=200)
+    folder_name: str = Field(default="YouTube_Clips", min_length=1, max_length=120)
 
 
 class EditPlanUpdate(BaseModel):
@@ -130,11 +136,11 @@ class HealthResponse(BaseModel):
 
 
 class JobEventBroker:
-    """In-process event history with blocking wait support for SSE consumers."""
+    """Persistent event history with in-process wakeups for SSE consumers."""
 
-    def __init__(self) -> None:
+    def __init__(self, store: ProjectStore) -> None:
+        self.store = store
         self._condition = threading.Condition()
-        self._events: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     def publish(
         self,
@@ -147,27 +153,22 @@ class JobEventBroker:
         data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         with self._condition:
-            event = {
-                "seq": len(self._events[job_id]) + 1,
-                "job_id": job_id,
-                "type": event_type,
-                "state": state,
-                "progress": max(0, min(100, int(progress))),
-                "message": str(message),
-                "data": data or {},
-                "timestamp_ms": int(time.time() * 1000),
-            }
-            self._events[job_id].append(event)
+            event = self.store.record_job_event(
+                job_id,
+                event_type=event_type,
+                state=state,
+                progress=progress,
+                message=message,
+                data=data,
+                timestamp_ms=int(time.time() * 1000),
+            )
+            event["job_id"] = job_id
             self._condition.notify_all()
             return dict(event)
 
     def events_after(self, job_id: str, after_seq: int) -> list[dict[str, Any]]:
         with self._condition:
-            return [
-                dict(event)
-                for event in self._events.get(job_id, [])
-                if int(event["seq"]) > after_seq
-            ]
+            return self.store.list_job_events(job_id, after_seq=after_seq)
 
     def wait_after(
         self,
@@ -176,19 +177,50 @@ class JobEventBroker:
         timeout: float,
     ) -> list[dict[str, Any]]:
         with self._condition:
-            events = [
-                dict(event)
-                for event in self._events.get(job_id, [])
-                if int(event["seq"]) > after_seq
-            ]
+            events = self.store.list_job_events(job_id, after_seq=after_seq)
             if events:
                 return events
             self._condition.wait(timeout=timeout)
-            return [
-                dict(event)
-                for event in self._events.get(job_id, [])
-                if int(event["seq"]) > after_seq
-            ]
+            return self.store.list_job_events(job_id, after_seq=after_seq)
+
+
+class JobCancelledError(RuntimeError):
+    """A cooperative worker cancellation reached a safe boundary."""
+
+
+def _failure_guidance(kind: str, error: str) -> dict[str, str]:
+    lowered = error.lower()
+    if kind == "drive_upload" or any(
+        term in lowered for term in ("drive", "quota", "credential", "oauth")
+    ):
+        return {
+            "cause": "O Google Drive recusou ou não autenticou o envio.",
+            "action": (
+                "Configure OAuth de usuário ou um Shared Drive com espaço "
+                "disponível e tente novamente."
+            ),
+        }
+    if any(term in lowered for term in ("nvenc", "cuda", "gpu")):
+        return {
+            "cause": "A aceleração de GPU não ficou disponível para o render.",
+            "action": "Use o fallback libx264 de CPU e tente novamente.",
+        }
+    if any(term in lowered for term in ("youtube", "cookie", "sign in", "login")):
+        return {
+            "cause": "O YouTube exigiu autenticação ou bloqueou a fonte.",
+            "action": (
+                "Verifique a fonte, atualize os cookies e tente analisar novamente."
+            ),
+        }
+    if any(term in lowered for term in ("ffmpeg", "render", "codec", "encoder")):
+        return {
+            "cause": "O FFmpeg não conseguiu produzir a mídia.",
+            "action": "Confira a fonte, o encoder instalado e tente novamente.",
+        }
+    return {
+        "cause": "O job foi interrompido por uma falha operacional.",
+        "action": "Abra o relatório, confira os detalhes e tente novamente.",
+    }
 
 
 class PreviewWorker:
@@ -207,8 +239,16 @@ class PreviewWorker:
             max_workers=max_workers,
             thread_name_prefix="preview-worker",
         )
+        self._controls: dict[str, tuple[threading.Event, Any]] = {}
+        self._control_lock = threading.Lock()
 
-    def submit(self, clip_id: str) -> dict[str, Any]:
+    def submit(
+        self,
+        clip_id: str,
+        *,
+        attempt: int = 1,
+        parent_job_id: Optional[str] = None,
+    ) -> dict[str, Any]:
         clip = self.store.get_clip(clip_id)
         if clip["status"] not in {"proposed", "ready", "failed"}:
             raise DomainConflictError(
@@ -219,6 +259,8 @@ class PreviewWorker:
             clip_id=clip_id,
             kind="preview",
             state="queued",
+            attempt=attempt,
+            parent_job_id=parent_job_id,
         )
         self.broker.publish(
             job["job_id"],
@@ -229,19 +271,52 @@ class PreviewWorker:
             data={"clip_id": clip_id},
         )
         self.store.update_clip(clip_id, {"status": "previewing"})
-        self._executor.submit(
-            self._run_preview,
-            job["job_id"],
-            clip_id,
-            int(clip["plan_version"]),
-        )
+        cancellation = threading.Event()
+        with self._control_lock:
+            future = self._executor.submit(
+                self._run_preview,
+                job["job_id"],
+                clip_id,
+                int(clip["plan_version"]),
+                cancellation,
+            )
+            self._controls[job["job_id"]] = (cancellation, future)
         return self.store.get_job(job["job_id"])
+
+    def cancel(self, job_id: str) -> dict[str, Any]:
+        job = self.store.get_job(job_id)
+        if job["kind"] != "preview":
+            raise DomainConflictError("Job is not a preview job")
+        if job["state"] not in {"queued", "running"}:
+            raise DomainConflictError("Only an active job can be cancelled")
+        with self._control_lock:
+            control = self._controls.get(job_id)
+        if control is None:
+            raise DomainConflictError("Job is no longer attached to this worker")
+        cancellation, future = control
+        cancellation.set()
+        cancelled_before_start = future.cancel()
+        if cancelled_before_start:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
+        self.store.update_job(job_id, state="cancelled", error=None)
+        self.store.update_clip(str(job["clip_id"]), {"status": "failed"})
+        self.broker.publish(
+            job_id,
+            "job_cancelled",
+            state="cancelled",
+            progress=int(job.get("progress") or 0),
+            message="Preview cancelado pelo usuário",
+            data={"action": "Use Tentar novamente quando quiser retomar."},
+        )
+        return self.store.get_job(job_id)
 
     def _run_preview(
         self,
         job_id: str,
         clip_id: str,
         expected_plan_version: int,
+        cancellation: threading.Event,
     ) -> None:
         run_id = f"run_ui3_preview_{job_id}_{uuid.uuid4().hex}"
         try:
@@ -263,7 +338,10 @@ class PreviewWorker:
                 edit_plan=clip["edit_plan"],
                 clip_id=clip_id,
                 run_id=run_id,
+                cancel_event=cancellation,
             )
+            if cancellation.is_set():
+                raise JobCancelledError("Preview cancelled")
             current = self.store.get_clip(clip_id)
             if int(current["plan_version"]) != expected_plan_version:
                 raise DomainConflictError(
@@ -308,7 +386,18 @@ class PreviewWorker:
                     "poster_url": poster["url"],
                 },
             )
+        except (JobCancelledError, PreviewCancelledError):
+            if self.store.get_job(job_id)["state"] != "cancelled":
+                self.store.update_job(job_id, state="cancelled")
+                self.broker.publish(
+                    job_id,
+                    "job_cancelled",
+                    state="cancelled",
+                    progress=0,
+                    message="Preview cancelado",
+                )
         except Exception as exc:
+            guidance = _failure_guidance("preview", str(exc))
             self.store.update_job(
                 job_id,
                 state="failed",
@@ -324,8 +413,12 @@ class PreviewWorker:
                 "job_failed",
                 state="failed",
                 progress=100,
-                message=str(exc)[:240],
+                message=guidance["cause"],
+                data={"action": guidance["action"], "detail": str(exc)[:500]},
             )
+        finally:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
@@ -354,11 +447,16 @@ class AnalysisWorker:
             max_workers=1,
             thread_name_prefix="analysis-worker",
         )
+        self._controls: dict[str, tuple[threading.Event, Any]] = {}
+        self._control_lock = threading.Lock()
 
     def submit(
         self,
         project_id: str,
         settings: AnalysisJobCreate,
+        *,
+        attempt: int = 1,
+        parent_job_id: Optional[str] = None,
     ) -> dict[str, Any]:
         active = [
             job
@@ -378,6 +476,9 @@ class AnalysisWorker:
             analysis_id=analysis["analysis_id"],
             kind="analysis",
             state="queued",
+            attempt=attempt,
+            parent_job_id=parent_job_id,
+            payload=settings.model_dump(),
         )
         self.store.update_project_status(project_id, "analyzing")
         self.broker.publish(
@@ -388,14 +489,51 @@ class AnalysisWorker:
             message="Análise adicionada à fila",
             data={"analysis_id": analysis["analysis_id"]},
         )
-        self._executor.submit(
-            self._run_analysis,
-            job["job_id"],
-            analysis["analysis_id"],
-            source["uri"],
-            settings.model_dump(),
-        )
+        cancellation = threading.Event()
+        with self._control_lock:
+            future = self._executor.submit(
+                self._run_analysis,
+                job["job_id"],
+                analysis["analysis_id"],
+                source["uri"],
+                settings.model_dump(),
+                cancellation,
+            )
+            self._controls[job["job_id"]] = (cancellation, future)
         return self.store.get_job(job["job_id"])
+
+    def cancel(self, job_id: str) -> dict[str, Any]:
+        job = self.store.get_job(job_id)
+        if job["kind"] != "analysis":
+            raise DomainConflictError("Job is not an analysis job")
+        if job["state"] not in {"queued", "running"}:
+            raise DomainConflictError("Only an active job can be cancelled")
+        with self._control_lock:
+            control = self._controls.get(job_id)
+        if control is None:
+            raise DomainConflictError("Job is no longer attached to this worker")
+        cancellation, future = control
+        cancellation.set()
+        cancelled_before_start = future.cancel()
+        if cancelled_before_start:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
+        self.store.update_job(job_id, state="cancelled", error=None)
+        self.store.update_project_status(str(job["project_id"]), "failed")
+        if job.get("analysis_id"):
+            self.store.fail_analysis(
+                str(job["analysis_id"]),
+                {"success": False, "error": "Análise cancelada pelo usuário"},
+            )
+        self.broker.publish(
+            job_id,
+            "job_cancelled",
+            state="cancelled",
+            progress=int(job.get("progress") or 0),
+            message="Análise cancelada pelo usuário",
+            data={"action": "Use Tentar novamente para iniciar outra análise."},
+        )
+        return self.store.get_job(job_id)
 
     def _run_analysis(
         self,
@@ -403,6 +541,7 @@ class AnalysisWorker:
         analysis_id: str,
         source_uri: str,
         settings: dict[str, Any],
+        cancellation: threading.Event,
     ) -> None:
         run_id = f"run_ui4_analysis_{job_id}_{uuid.uuid4().hex}"
         project_id = self.store.get_job(job_id)["project_id"]
@@ -422,6 +561,8 @@ class AnalysisWorker:
                 language=str(settings["language"]),
                 target_duration_seconds=int(settings["target_duration_seconds"]),
             )
+            if cancellation.is_set():
+                raise JobCancelledError("Analysis cancelled")
             if not isinstance(result, dict) or not result.get("success"):
                 error = (
                     result.get("error", "A análise não retornou cortes")
@@ -456,7 +597,18 @@ class AnalysisWorker:
             )
             for clip in clips:
                 self.preview_worker.submit(clip["clip_id"])
+        except JobCancelledError:
+            if self.store.get_job(job_id)["state"] != "cancelled":
+                self.store.update_job(job_id, state="cancelled")
+                self.broker.publish(
+                    job_id,
+                    "job_cancelled",
+                    state="cancelled",
+                    progress=0,
+                    message="Análise cancelada",
+                )
         except Exception as exc:
+            guidance = _failure_guidance("analysis", str(exc))
             self.store.fail_analysis(analysis_id, {"success": False, "error": str(exc)})
             self.store.update_project_status(project_id, "failed")
             self.store.update_job(
@@ -470,9 +622,12 @@ class AnalysisWorker:
                 "job_failed",
                 state="failed",
                 progress=100,
-                message=str(exc)[:240],
-                data={"action": "Verifique a fonte e tente analisar novamente."},
+                message=guidance["cause"],
+                data={"action": guidance["action"], "detail": str(exc)[:500]},
             )
+        finally:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
@@ -488,10 +643,18 @@ class RenderWorker:
             max_workers=1,
             thread_name_prefix="render-worker",
         )
+        self._controls: dict[str, tuple[threading.Event, Any]] = {}
+        self._control_lock = threading.Lock()
 
-    def submit(self, clip_id: str) -> dict[str, Any]:
+    def submit(
+        self,
+        clip_id: str,
+        *,
+        attempt: int = 1,
+        parent_job_id: Optional[str] = None,
+    ) -> dict[str, Any]:
         clip = self.store.get_clip(clip_id)
-        if clip["status"] != "approved":
+        if clip["status"] not in {"approved", "failed"}:
             raise DomainConflictError("Only an approved clip can be rendered")
         if clip["preview_status"] != "ready":
             raise DomainConflictError("Regenerate the preview before final render")
@@ -509,6 +672,8 @@ class RenderWorker:
             clip_id=clip_id,
             kind="render",
             state="queued",
+            attempt=attempt,
+            parent_job_id=parent_job_id,
         )
         self.broker.publish(
             job["job_id"],
@@ -519,15 +684,53 @@ class RenderWorker:
             data={"clip_id": clip_id},
         )
         self.store.update_clip(clip_id, {"status": "rendering"})
-        self._executor.submit(
-            self._run,
-            job["job_id"],
-            clip_id,
-            int(clip["plan_version"]),
-        )
+        cancellation = threading.Event()
+        with self._control_lock:
+            future = self._executor.submit(
+                self._run,
+                job["job_id"],
+                clip_id,
+                int(clip["plan_version"]),
+                cancellation,
+            )
+            self._controls[job["job_id"]] = (cancellation, future)
         return self.store.get_job(job["job_id"])
 
-    def _run(self, job_id: str, clip_id: str, expected_version: int) -> None:
+    def cancel(self, job_id: str) -> dict[str, Any]:
+        job = self.store.get_job(job_id)
+        if job["kind"] != "render":
+            raise DomainConflictError("Job is not a render job")
+        if job["state"] not in {"queued", "running"}:
+            raise DomainConflictError("Only an active job can be cancelled")
+        with self._control_lock:
+            control = self._controls.get(job_id)
+        if control is None:
+            raise DomainConflictError("Job is no longer attached to this worker")
+        cancellation, future = control
+        cancellation.set()
+        cancelled_before_start = future.cancel()
+        if cancelled_before_start:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
+        self.store.update_job(job_id, state="cancelled", error=None)
+        self.store.update_clip(str(job["clip_id"]), {"status": "failed"})
+        self.broker.publish(
+            job_id,
+            "job_cancelled",
+            state="cancelled",
+            progress=int(job.get("progress") or 0),
+            message="Render final cancelado pelo usuário",
+            data={"action": "Use Tentar novamente para criar uma nova tentativa."},
+        )
+        return self.store.get_job(job_id)
+
+    def _run(
+        self,
+        job_id: str,
+        clip_id: str,
+        expected_version: int,
+        cancellation: threading.Event,
+    ) -> None:
         run_id = f"run_ui5_render_{job_id}_{uuid.uuid4().hex}"
         try:
             self.store.update_job(job_id, state="running", run_id=run_id)
@@ -549,7 +752,10 @@ class RenderWorker:
                 clip_id=clip_id,
                 run_id=run_id,
                 profile="final",
+                cancel_event=cancellation,
             )
+            if cancellation.is_set():
+                raise JobCancelledError("Final render cancelled")
             current = self.store.get_clip(clip_id)
             if int(current["plan_version"]) != expected_version:
                 raise DomainConflictError("Edit plan changed during final render")
@@ -577,7 +783,18 @@ class RenderWorker:
                 message="Render final pronto",
                 data={"stage": "render", "render_url": asset["url"]},
             )
+        except (JobCancelledError, PreviewCancelledError):
+            if self.store.get_job(job_id)["state"] != "cancelled":
+                self.store.update_job(job_id, state="cancelled")
+                self.broker.publish(
+                    job_id,
+                    "job_cancelled",
+                    state="cancelled",
+                    progress=0,
+                    message="Render final cancelado",
+                )
         except Exception as exc:
+            guidance = _failure_guidance("render", str(exc))
             self.store.update_job(
                 job_id, state="failed", run_id=run_id, error=str(exc)[:500]
             )
@@ -590,8 +807,200 @@ class RenderWorker:
                 "job_failed",
                 state="failed",
                 progress=100,
-                message=str(exc)[:240],
+                message=guidance["cause"],
+                data={"action": guidance["action"], "detail": str(exc)[:500]},
             )
+        finally:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
+
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
+
+class DriveExportWorker:
+    """Upload a validated final render without blocking an API request."""
+
+    def __init__(
+        self,
+        store: ProjectStore,
+        broker: JobEventBroker,
+        upload: Optional[Callable[..., dict[str, Any]]] = None,
+    ) -> None:
+        self.store = store
+        self.broker = broker
+        if upload is None:
+            from youtube_clipper.gdrive_uploader import upload_clip_to_gdrive
+
+            upload = upload_clip_to_gdrive
+        self.upload = upload
+        self._executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="drive-export-worker",
+        )
+        self._controls: dict[str, tuple[threading.Event, Any]] = {}
+        self._control_lock = threading.Lock()
+
+    def submit(
+        self,
+        clip_id: str,
+        payload: DriveExportCreate,
+        *,
+        attempt: int = 1,
+        parent_job_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        clip = self.store.get_clip(clip_id)
+        asset = self.store.get_latest_asset(clip_id, "render")
+        if clip["status"] not in {"rendered", "exported"}:
+            raise DomainConflictError("Only a completed final render can be exported")
+        active = [
+            job
+            for job in self.store.list_jobs(project_id=clip["project_id"], limit=100)
+            if job["clip_id"] == clip_id
+            and job["kind"] == "drive_upload"
+            and job["state"] in {"queued", "running"}
+        ]
+        if active:
+            raise DomainConflictError("A Drive export is already active for this clip")
+        job = self.store.create_job(
+            project_id=clip["project_id"],
+            clip_id=clip_id,
+            kind="drive_upload",
+            state="queued",
+            attempt=attempt,
+            parent_job_id=parent_job_id,
+            payload=payload.model_dump(),
+        )
+        self.broker.publish(
+            job["job_id"],
+            "job_queued",
+            state="queued",
+            progress=0,
+            message="Envio ao Drive adicionado à fila",
+            data={"stage": "export", "asset_id": asset["asset_id"]},
+        )
+        cancellation = threading.Event()
+        with self._control_lock:
+            future = self._executor.submit(
+                self._run,
+                job["job_id"],
+                clip_id,
+                asset["asset_id"],
+                int(asset["version"]),
+                payload,
+                cancellation,
+            )
+            self._controls[job["job_id"]] = (cancellation, future)
+        return self.store.get_job(job["job_id"])
+
+    def cancel(self, job_id: str) -> dict[str, Any]:
+        job = self.store.get_job(job_id)
+        if job["kind"] != "drive_upload":
+            raise DomainConflictError("Job is not a Drive export")
+        if job["state"] not in {"queued", "running"}:
+            raise DomainConflictError("Only an active job can be cancelled")
+        with self._control_lock:
+            control = self._controls.get(job_id)
+        if control is None:
+            raise DomainConflictError("Job is no longer attached to this worker")
+        cancellation, future = control
+        cancellation.set()
+        cancelled_before_start = future.cancel()
+        if cancelled_before_start:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
+        self.store.update_job(job_id, state="cancelled", error=None)
+        self.broker.publish(
+            job_id,
+            "job_cancelled",
+            state="cancelled",
+            progress=int(job.get("progress") or 0),
+            message="Envio ao Drive cancelado",
+            data={"action": "Confirme o destino antes de tentar novamente."},
+        )
+        return self.store.get_job(job_id)
+
+    def _run(
+        self,
+        job_id: str,
+        clip_id: str,
+        asset_id: str,
+        version: int,
+        payload: DriveExportCreate,
+        cancellation: threading.Event,
+    ) -> None:
+        run_id = f"run_ui7_drive_{job_id}_{uuid.uuid4().hex}"
+        try:
+            if cancellation.is_set():
+                raise JobCancelledError("Drive export cancelled")
+            self.store.update_job(job_id, state="running", run_id=run_id)
+            self.broker.publish(
+                job_id,
+                "stage_start",
+                state="running",
+                progress=10,
+                message="Autenticando e preparando envio ao Drive",
+                data={"stage": "export"},
+            )
+            _, path = self.store.resolve_asset_file(asset_id, version=version)
+            result = self.upload(
+                str(path),
+                folder_id=payload.folder_id,
+                folder_name=payload.folder_name,
+                run_id=run_id,
+            )
+            if cancellation.is_set():
+                raise JobCancelledError("Drive export cancelled")
+            if not isinstance(result, dict) or not result.get("success"):
+                detail = (
+                    result.get("error", "O Drive não confirmou o upload")
+                    if isinstance(result, dict)
+                    else "Resposta inválida do Google Drive"
+                )
+                raise DomainValidationError(str(detail))
+            self.store.update_clip(clip_id, {"status": "exported"})
+            self.store.update_job(job_id, state="completed", run_id=run_id)
+            self.broker.publish(
+                job_id,
+                "stage_completed",
+                state="completed",
+                progress=100,
+                message="Arquivo enviado ao Google Drive",
+                data={
+                    "stage": "export",
+                    "web_view_link": result.get("web_view_link"),
+                    "file_id": result.get("file_id"),
+                },
+            )
+        except JobCancelledError:
+            if self.store.get_job(job_id)["state"] != "cancelled":
+                self.store.update_job(job_id, state="cancelled")
+                self.broker.publish(
+                    job_id,
+                    "job_cancelled",
+                    state="cancelled",
+                    progress=0,
+                    message="Envio ao Drive cancelado",
+                )
+        except Exception as exc:
+            guidance = _failure_guidance("drive_upload", str(exc))
+            self.store.update_job(
+                job_id,
+                state="failed",
+                run_id=run_id,
+                error=str(exc)[:500],
+            )
+            self.broker.publish(
+                job_id,
+                "job_failed",
+                state="failed",
+                progress=100,
+                message=guidance["cause"],
+                data={"action": guidance["action"], "detail": str(exc)[:500]},
+            )
+        finally:
+            with self._control_lock:
+                self._controls.pop(job_id, None)
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
@@ -640,6 +1049,7 @@ def create_app(
     workspace_dir: Optional[Path | str] = None,
     web_dist: Optional[Path | str] = None,
     analyze: Optional[Callable[..., dict[str, Any]]] = None,
+    drive_upload: Optional[Callable[..., dict[str, Any]]] = None,
 ) -> FastAPI:
     workspace = Path(
         workspace_dir
@@ -651,7 +1061,7 @@ def create_app(
         workspace / "projects.sqlite3",
         workspace,
     )
-    broker = JobEventBroker()
+    broker = JobEventBroker(domain_store)
     preview_worker = PreviewWorker(domain_store, broker)
     analysis_worker = AnalysisWorker(
         domain_store,
@@ -660,6 +1070,11 @@ def create_app(
         analyze=analyze,
     )
     render_worker = RenderWorker(domain_store, broker)
+    drive_worker = DriveExportWorker(
+        domain_store,
+        broker,
+        upload=drive_upload,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -667,6 +1082,7 @@ def create_app(
         analysis_worker.shutdown()
         preview_worker.shutdown()
         render_worker.shutdown()
+        drive_worker.shutdown()
 
     app = FastAPI(
         title="YouTube Clipper API",
@@ -679,6 +1095,7 @@ def create_app(
     app.state.preview_worker = preview_worker
     app.state.analysis_worker = analysis_worker
     app.state.render_worker = render_worker
+    app.state.drive_worker = drive_worker
     app.state.web_dist = Path(
         web_dist or Path.cwd() / "web" / "dist"
     ).expanduser().resolve()
@@ -840,6 +1257,143 @@ def create_app(
     )
     async def create_render_job(clip_id: str) -> PreviewJobResponse:
         return PreviewJobResponse(job=render_worker.submit(clip_id))
+
+    @app.post(
+        "/api/v1/clips/{clip_id}/drive-jobs",
+        response_model=PreviewJobResponse,
+        status_code=202,
+    )
+    async def create_drive_job(
+        clip_id: str,
+        payload: DriveExportCreate,
+    ) -> PreviewJobResponse:
+        return PreviewJobResponse(job=drive_worker.submit(clip_id, payload))
+
+    @app.post(
+        "/api/v1/jobs/{job_id}/cancel",
+        response_model=JobResponse,
+    )
+    async def cancel_job(job_id: str) -> JobResponse:
+        job = domain_store.get_job(job_id)
+        workers = {
+            "analysis": analysis_worker,
+            "preview": preview_worker,
+            "render": render_worker,
+            "drive_upload": drive_worker,
+        }
+        worker = workers.get(str(job["kind"]))
+        if worker is None:
+            raise DomainConflictError("This job type cannot be cancelled")
+        return JobResponse(job=worker.cancel(job_id))
+
+    @app.post(
+        "/api/v1/jobs/{job_id}/retry",
+        response_model=PreviewJobResponse,
+        status_code=202,
+    )
+    async def retry_job(job_id: str) -> PreviewJobResponse:
+        job = domain_store.get_job(job_id)
+        if job["state"] not in {"failed", "cancelled"}:
+            raise DomainConflictError("Only a failed or cancelled job can be retried")
+        attempt = int(job["attempt"]) + 1
+        kind = str(job["kind"])
+        if kind == "analysis":
+            settings = AnalysisJobCreate.model_validate(job.get("payload") or {})
+            retried = analysis_worker.submit(
+                str(job["project_id"]),
+                settings,
+                attempt=attempt,
+                parent_job_id=job_id,
+            )
+        elif kind == "preview":
+            retried = preview_worker.submit(
+                str(job["clip_id"]),
+                attempt=attempt,
+                parent_job_id=job_id,
+            )
+        elif kind == "render":
+            retried = render_worker.submit(
+                str(job["clip_id"]),
+                attempt=attempt,
+                parent_job_id=job_id,
+            )
+        elif kind == "drive_upload":
+            payload = DriveExportCreate.model_validate(job.get("payload") or {})
+            retried = drive_worker.submit(
+                str(job["clip_id"]),
+                payload,
+                attempt=attempt,
+                parent_job_id=job_id,
+            )
+        else:
+            raise DomainConflictError("This job type cannot be retried")
+        return PreviewJobResponse(job=retried)
+
+    @app.get("/api/v1/jobs/{job_id}/report")
+    async def job_report(job_id: str) -> JSONResponse:
+        job = domain_store.get_job(job_id)
+        clip = (
+            domain_store.get_clip(str(job["clip_id"]))
+            if job.get("clip_id")
+            else None
+        )
+        return JSONResponse(
+            {
+                "success": True,
+                "report": {
+                    "schema_version": "1.0.0",
+                    "job": job,
+                    "events": domain_store.list_job_events(job_id),
+                    "clip": clip,
+                    "generated_at_ms": int(time.time() * 1000),
+                },
+            },
+            headers={
+                "Content-Disposition": f'attachment; filename="{job_id}.json"'
+            },
+        )
+
+    @app.get("/api/v1/clips/{clip_id}/export/download")
+    async def download_final_render(
+        clip_id: str,
+        request: Request,
+    ) -> Response:
+        clip = domain_store.get_clip(clip_id)
+        if clip["status"] not in {"rendered", "exported"}:
+            raise DomainConflictError("A final render is required before download")
+        render_asset = domain_store.get_latest_asset(clip_id, "render")
+        asset, path = domain_store.resolve_asset_file(
+            render_asset["asset_id"],
+            version=int(render_asset["version"]),
+        )
+        size = path.stat().st_size
+        try:
+            start, end, status_code = _parse_range(
+                request.headers.get("range"),
+                size,
+            )
+        except DomainValidationError:
+            return Response(
+                status_code=416,
+                headers={"Content-Range": f"bytes */{size}"},
+            )
+        content_length = end - start + 1
+        safe_title = re.sub(r"[^a-zA-Z0-9._-]+", "-", str(clip["title"])).strip("-")
+        headers = {
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(content_length),
+            "Content-Disposition": f'attachment; filename="{safe_title or clip_id}.mp4"',
+            "Cache-Control": "private, no-store",
+            "ETag": f'"{asset["sha256"]}"',
+        }
+        if status_code == 206:
+            headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        return StreamingResponse(
+            _stream_file(path, start, content_length),
+            status_code=status_code,
+            media_type=asset["mime_type"],
+            headers=headers,
+        )
 
     @app.get("/api/v1/jobs/{job_id}/events")
     async def job_events(

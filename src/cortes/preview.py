@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pathlib
 import shutil
+import threading
 from typing import Any, Optional
 
 from cortes.ingest import probe_video_metadata
@@ -13,6 +14,10 @@ from youtube_clipper.downloader import YouTubeDownloader
 from youtube_clipper.exceptions import ProcessingError
 from youtube_clipper.validator import is_youtube_url
 from youtube_clipper.video_formatter import detect_h264_encoder
+
+
+class PreviewCancelledError(ProcessingError):
+    """The job controller cancelled an active physical media process."""
 
 
 def generate_clip_preview(
@@ -25,6 +30,7 @@ def generate_clip_preview(
     run_id: Optional[str] = None,
     request_id: Optional[str] = None,
     profile: str = "preview",
+    cancel_event: Optional[threading.Event] = None,
 ) -> dict[str, Any]:
     """Render one physical preview or final media file from the edit plan."""
     if start_ms < 0 or end_ms <= start_ms:
@@ -183,7 +189,14 @@ def generate_clip_preview(
             next_action="preview.poster",
             next_stage="report",
         ) as span:
-            rendered = run_cmd(command, stage="render")
+            rendered = run_cmd(
+                command,
+                stage="render",
+                cancel_event=cancel_event,
+            )
+            if cancel_event is not None and cancel_event.is_set():
+                preview_path.unlink(missing_ok=True)
+                raise PreviewCancelledError("Render cancelled by the user")
             if rendered.returncode != 0 or not preview_path.is_file():
                 raise ProcessingError(
                     f"Preview rendering failed: {rendered.stderr}"
@@ -213,7 +226,12 @@ def generate_clip_preview(
                     str(poster_path),
                 ],
                 stage="report",
+                cancel_event=cancel_event,
             )
+            if cancel_event is not None and cancel_event.is_set():
+                poster_path.unlink(missing_ok=True)
+                preview_path.unlink(missing_ok=True)
+                raise PreviewCancelledError("Render cancelled by the user")
             if poster.returncode != 0 or not poster_path.is_file():
                 raise ProcessingError(
                     f"Preview poster generation failed: {poster.stderr}"

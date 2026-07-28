@@ -4,6 +4,7 @@ import {
   Check,
   CircleAlert,
   Clapperboard,
+  ListTodo,
   Play,
   Plus,
   RotateCcw,
@@ -14,16 +15,20 @@ import {
 import {
   type AnalysisInput,
   type Clip,
+  cancelJob,
   createAnalysis,
+  exportToDrive,
   getClips,
   getJobs,
   getProject,
   getProjects,
+  retryJob,
   retryPreview,
   reviewClips
 } from "./api/client";
 import { useJobEvents } from "./hooks/useJobEvents";
 import { ClipEditor } from "./ClipEditor";
+import { JobsExportPanel } from "./JobsExportPanel";
 import { Button, EmptyState, SkeletonCards, StatusBadge } from "./ui";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -32,6 +37,9 @@ const STATUS_LABELS: Record<string, string> = {
   ready: "Pronto",
   approved: "Aprovado",
   rejected: "Rejeitado",
+  rendering: "Renderizando",
+  rendered: "Render pronto",
+  exported: "Exportado",
   failed: "Falhou"
 };
 
@@ -339,6 +347,7 @@ export function App() {
   const queryClient = useQueryClient();
   const [selectedProjectId, setSelectedProjectId] = useState<string>();
   const [showNew, setShowNew] = useState(false);
+  const [showOperations, setShowOperations] = useState(false);
   const [filter, setFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [playingId, setPlayingId] = useState<string>();
@@ -390,7 +399,11 @@ export function App() {
   }, [clips.data, editingClip]);
 
   useEffect(() => {
-    if (live.event?.state === "completed" || live.event?.state === "failed") {
+    if (
+      live.event?.state === "completed" ||
+      live.event?.state === "failed" ||
+      live.event?.state === "cancelled"
+    ) {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       void queryClient.invalidateQueries({ queryKey: ["project", selectedProjectId] });
       void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
@@ -428,11 +441,40 @@ export function App() {
       void queryClient.invalidateQueries({ queryKey: ["jobs", selectedProjectId] });
     }
   });
+  const cancel = useMutation({
+    mutationFn: cancelJob,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs", selectedProjectId] });
+    }
+  });
+  const retry = useMutation({
+    mutationFn: retryJob,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs", selectedProjectId] });
+    }
+  });
+  const drive = useMutation({
+    mutationFn: ({
+      clipId,
+      folderName,
+      folderId
+    }: {
+      clipId: string;
+      folderName: string;
+      folderId?: string;
+    }) => exportToDrive(clipId, folderName, folderId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs", selectedProjectId] });
+    }
+  });
 
   const visibleClips = (clips.data ?? []).filter((clip) =>
     clipMatchesFilter(clip, filter)
   );
-  const failedJob = jobs.data?.find((job) => job.state === "failed");
   const error =
     projects.error ??
     project.error ??
@@ -441,11 +483,14 @@ export function App() {
     create.error ??
     review.error ??
     preview.error ??
-    (failedJob?.error ? new Error(String(failedJob.error)) : null);
+    cancel.error ??
+    retry.error ??
+    drive.error;
 
   function chooseProject(projectId: string) {
     setSelectedProjectId(projectId);
     setShowNew(false);
+    setShowOperations(false);
     setSelectedIds([]);
     setPlayingId(undefined);
     setEditingClip(undefined);
@@ -460,12 +505,14 @@ export function App() {
     });
   }
 
-  const title = showNew
-    ? "Nova análise"
-    : project.data?.name ?? "Projetos de cortes";
+  const title = showOperations
+    ? "Jobs e exportações"
+    : showNew
+      ? "Nova análise"
+      : project.data?.name ?? "Projetos de cortes";
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${showOperations ? "operations-mode" : ""}`}>
       <a className="skip-link" href="#projects">Pular para o conteúdo</a>
       <aside className="sidebar">
         <a className="brand" href="/" aria-label="YouTube Clipper — início">
@@ -476,10 +523,26 @@ export function App() {
           variant="primary"
           icon={Plus}
           type="button"
-          onClick={() => setShowNew(true)}
+          onClick={() => {
+            setShowNew(true);
+            setShowOperations(false);
+          }}
         >
           Novo projeto
         </Button>
+        <button
+          className={`nav-item operation-nav ${showOperations ? "active" : ""}`}
+          type="button"
+          aria-current={showOperations ? "page" : undefined}
+          onClick={() => {
+            setShowOperations(true);
+            setShowNew(false);
+            setEditingClip(undefined);
+          }}
+        >
+          <span><ListTodo size={16} aria-hidden="true" /> Jobs e exportações</span>
+          <small>{jobs.data?.filter((job) => ["queued", "running"].includes(job.state)).length ?? 0}</small>
+        </button>
         <nav aria-label="Projetos">
           <span className="nav-heading">Projetos recentes</span>
           {projects.data?.map((item) => (
@@ -496,8 +559,8 @@ export function App() {
           ))}
         </nav>
         <div className="sidebar-note">
-          <span>UI-6 · Sistema visual</span>
-          <p>Interface Graphite/Cobalt, compacta e acessível.</p>
+          <span>UI-7 · Operação</span>
+          <p>Jobs persistentes, exportação e falhas acionáveis.</p>
         </div>
       </aside>
 
@@ -520,6 +583,9 @@ export function App() {
               create.reset();
               review.reset();
               preview.reset();
+              cancel.reset();
+              retry.reset();
+              drive.reset();
               void projects.refetch();
               void project.refetch();
               void clips.refetch();
@@ -544,7 +610,25 @@ export function App() {
           </section>
         ) : null}
 
-        {showNew || (!projects.isPending && !projects.data?.length) ? (
+        {showOperations ? (
+          <JobsExportPanel
+            jobs={jobs.data ?? []}
+            clips={clips.data ?? []}
+            busyJobId={
+              cancel.isPending
+                ? cancel.variables
+                : retry.isPending
+                  ? retry.variables
+                  : undefined
+            }
+            driveBusy={drive.isPending}
+            onCancel={(jobId) => cancel.mutate(jobId)}
+            onRetry={(jobId) => retry.mutate(jobId)}
+            onDrive={(clipId, folderName, folderId) =>
+              drive.mutate({ clipId, folderName, folderId })
+            }
+          />
+        ) : showNew || (!projects.isPending && !projects.data?.length) ? (
           <NewAnalysis
             busy={create.isPending}
             onSubmit={(input) => create.mutate(input)}

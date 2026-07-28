@@ -38,7 +38,7 @@ export function useJobEvents(job: Job | undefined) {
           : "live"
       );
     };
-    ["job_queued", "stage_start", "progress", "stage_completed", "job_failed"].forEach(
+    ["job_queued", "stage_start", "progress", "stage_completed", "job_failed", "job_cancelled"].forEach(
       (type) => stream.addEventListener(type, consume as EventListener)
     );
     stream.onopen = () => setConnection("live");

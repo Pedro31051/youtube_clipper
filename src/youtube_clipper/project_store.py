@@ -20,7 +20,7 @@ from typing import Any, Optional
 from youtube_clipper.validator import parse_timestamp
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ID_PATTERN = re.compile(
     r"^(?:prj|src|anl|clp|ast|job|rnd|prv)_[0-9a-f]{32}$"
 )
@@ -159,10 +159,23 @@ class ProjectStore:
             kind TEXT NOT NULL,
             state TEXT NOT NULL,
             attempt INTEGER NOT NULL,
+            parent_job_id TEXT REFERENCES jobs(job_id) ON DELETE SET NULL,
+            payload_json TEXT NOT NULL DEFAULT '{}',
             run_id TEXT,
             error TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS job_events (
+            job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+            seq INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            state TEXT NOT NULL,
+            progress INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            data_json TEXT NOT NULL,
+            timestamp_ms INTEGER NOT NULL,
+            PRIMARY KEY (job_id, seq)
         );
         CREATE TABLE IF NOT EXISTS assets (
             asset_id TEXT PRIMARY KEY,
@@ -197,12 +210,25 @@ class ProjectStore:
         CREATE INDEX IF NOT EXISTS idx_clips_analysis ON clips(analysis_id);
         CREATE INDEX IF NOT EXISTS idx_assets_clip ON assets(clip_id);
         CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id);
+        CREATE INDEX IF NOT EXISTS idx_job_events_job ON job_events(job_id, seq);
         """
         with self._write_lock:
             connection = self._connect()
             try:
                 connection.execute("PRAGMA journal_mode = WAL")
                 connection.executescript(schema)
+                job_columns = {
+                    str(row["name"])
+                    for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+                }
+                if "parent_job_id" not in job_columns:
+                    connection.execute(
+                        "ALTER TABLE jobs ADD COLUMN parent_job_id TEXT"
+                    )
+                if "payload_json" not in job_columns:
+                    connection.execute(
+                        "ALTER TABLE jobs ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}'"
+                    )
                 connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             finally:
                 connection.close()
@@ -220,7 +246,13 @@ class ProjectStore:
         if row is None:
             return None
         result = dict(row)
-        for key in ("edit_plan_json", "suggestion_json", "result_json"):
+        for key in (
+            "edit_plan_json",
+            "suggestion_json",
+            "result_json",
+            "payload_json",
+            "data_json",
+        ):
             if key in result:
                 result[key.removesuffix("_json")] = _json_load(result.pop(key), {})
         return result
@@ -920,8 +952,15 @@ class ProjectStore:
         clip_id: Optional[str] = None,
         analysis_id: Optional[str] = None,
         state: str = "queued",
+        attempt: int = 1,
+        parent_job_id: Optional[str] = None,
+        payload: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         self.get_project(project_id)
+        if parent_job_id is not None:
+            self.get_job(parent_job_id)
+        if int(attempt) < 1:
+            raise DomainValidationError("Job attempt must be positive")
         job_id = _new_id("job")
         timestamp = _now()
         with self._write_lock:
@@ -931,8 +970,9 @@ class ProjectStore:
                     """
                     INSERT INTO jobs(
                         job_id, project_id, clip_id, analysis_id, kind, state,
-                        attempt, run_id, error, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1, NULL, NULL, ?, ?)
+                        attempt, parent_job_id, payload_json, run_id, error,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)
                     """,
                     (
                         job_id,
@@ -941,6 +981,9 @@ class ProjectStore:
                         analysis_id,
                         str(kind),
                         str(state),
+                        int(attempt),
+                        parent_job_id,
+                        _json_dump(payload or {}),
                         timestamp,
                         timestamp,
                     ),
@@ -986,9 +1029,35 @@ class ProjectStore:
             ).fetchone()
             if row is None:
                 raise DomainNotFoundError("Job not found")
-            return self._row(row) or {}
+            job = self._row(row) or {}
         finally:
             connection.close()
+        events = self.list_job_events(job_id)
+        job["events"] = events
+        if events:
+            latest = events[-1]
+            job.update(
+                {
+                    "progress": latest["progress"],
+                    "stage": latest["data"].get("stage"),
+                    "message": latest["message"],
+                    "action": latest["data"].get("action"),
+                    "event_timestamp_ms": latest["timestamp_ms"],
+                    "result": latest["data"],
+                }
+            )
+        else:
+            job.update(
+                {
+                    "progress": 0,
+                    "stage": None,
+                    "message": None,
+                    "action": None,
+                    "event_timestamp_ms": None,
+                    "result": {},
+                }
+            )
+        return job
 
     def list_jobs(
         self,
@@ -1022,9 +1091,93 @@ class ProjectStore:
                     """,
                     (project_id, normalized_limit),
                 ).fetchall()
-            return [self._row(row) or {} for row in rows]
+            job_ids = [str(row["job_id"]) for row in rows]
         finally:
             connection.close()
+        return [self.get_job(job_id) for job_id in job_ids]
+
+    def record_job_event(
+        self,
+        job_id: str,
+        *,
+        event_type: str,
+        state: str,
+        progress: int,
+        message: str,
+        data: Optional[dict[str, Any]] = None,
+        timestamp_ms: int,
+    ) -> dict[str, Any]:
+        self.get_job(job_id)
+        with self._write_lock:
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                seq = int(
+                    connection.execute(
+                        "SELECT COALESCE(MAX(seq), 0) + 1 FROM job_events WHERE job_id = ?",
+                        (job_id,),
+                    ).fetchone()[0]
+                )
+                connection.execute(
+                    """
+                    INSERT INTO job_events(
+                        job_id, seq, event_type, state, progress, message,
+                        data_json, timestamp_ms
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        job_id,
+                        seq,
+                        str(event_type),
+                        str(state),
+                        max(0, min(100, int(progress))),
+                        str(message),
+                        _json_dump(data or {}),
+                        int(timestamp_ms),
+                    ),
+                )
+                connection.commit()
+            except BaseException:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
+        return self.list_job_events(job_id, after_seq=seq - 1)[0]
+
+    def list_job_events(
+        self,
+        job_id: str,
+        *,
+        after_seq: int = 0,
+    ) -> list[dict[str, Any]]:
+        self._require_id(job_id, "job")
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """
+                SELECT * FROM job_events
+                WHERE job_id = ? AND seq > ?
+                ORDER BY seq ASC
+                """,
+                (job_id, max(0, int(after_seq))),
+            ).fetchall()
+            events = []
+            for row in rows:
+                event = self._row(row) or {}
+                event["type"] = event.pop("event_type")
+                events.append(event)
+            return events
+        finally:
+            connection.close()
+
+    def get_latest_asset(self, clip_id: str, kind: str) -> dict[str, Any]:
+        clip = self.get_clip(clip_id)
+        for asset in clip["assets"]:
+            if asset["kind"] == kind and asset["valid"]:
+                return asset
+        raise DomainConflictError(
+            f"Clip requires a valid {kind} asset before this action"
+        )
 
     def add_asset(
         self,

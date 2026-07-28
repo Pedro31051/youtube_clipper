@@ -70,7 +70,26 @@ export type Job = Record<string, unknown> & {
   kind: string;
   state: string;
   project_id: string;
+  clip_id?: string | null;
+  attempt: number;
+  parent_job_id?: string | null;
+  progress: number;
+  stage?: string | null;
+  message?: string | null;
+  action?: string | null;
+  created_at: string;
   updated_at: string;
+  event_timestamp_ms?: number | null;
+  result?: Record<string, unknown>;
+  events?: Array<{
+    seq: number;
+    type: string;
+    state: string;
+    progress: number;
+    message: string;
+    data: Record<string, unknown>;
+    timestamp_ms: number;
+  }>;
   error?: string | null;
 };
 export type AnalysisInput = {
@@ -238,4 +257,46 @@ export async function renderFinal(
     { method: "POST" }
   );
   return payload.job;
+}
+
+export async function cancelJob(jobId: string): Promise<Job> {
+  const payload = await requestJson<{ job: Job }>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/cancel`,
+    { method: "POST" }
+  );
+  return payload.job;
+}
+
+export async function retryJob(jobId: string): Promise<Job> {
+  const payload = await requestJson<{ job: Job }>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/retry`,
+    { method: "POST" }
+  );
+  return payload.job;
+}
+
+export async function exportToDrive(
+  clipId: string,
+  folderName: string,
+  folderId?: string
+): Promise<Job> {
+  const payload = await requestJson<{ job: Job }>(
+    `/api/v1/clips/${encodeURIComponent(clipId)}/drive-jobs`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        folder_name: folderName,
+        folder_id: folderId?.trim() || null
+      })
+    }
+  );
+  return payload.job;
+}
+
+export function finalDownloadUrl(clipId: string) {
+  return `/api/v1/clips/${encodeURIComponent(clipId)}/export/download`;
+}
+
+export function jobReportUrl(jobId: string) {
+  return `/api/v1/jobs/${encodeURIComponent(jobId)}/report`;
 }
