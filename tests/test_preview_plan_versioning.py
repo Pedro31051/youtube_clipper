@@ -44,7 +44,10 @@ def test_visual_plan_change_versions_and_invalidates_preview(tmp_path: Path) -> 
             "overlay_position": "bottom",
         },
         "audio": {"include_source": False},
-        "editorial": {"overlay_text": "Plano persistido"},
+        "editorial": {
+            "overlay_enabled": True,
+            "overlay_text": "Plano persistido",
+        },
     }
 
     updated = store.update_clip(clip["clip_id"], changes)

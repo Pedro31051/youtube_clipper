@@ -18,27 +18,33 @@ from youtube_clipper.exceptions import ProcessingError
 
 @functools.lru_cache(maxsize=1)
 def detect_h264_encoder(ffmpeg_bin: str = "ffmpeg") -> str:
-    """Detects if h264_nvenc is available and operational on the host system.
+    """Return NVENC when FFmpeg advertises it and a local NVIDIA device exists.
 
-    Returns 'h264_nvenc' if hardware acceleration is supported, else 'libx264'.
+    The real render remains the operational proof and already retries with libx264
+    on failure. Avoiding a throwaway NVENC encode removes GPU initialization from
+    the latency of every fresh process.
     """
     if not shutil.which(ffmpeg_bin):
         return "libx264"
+    if os.name == "posix" and not (
+        os.path.exists("/dev/nvidia0") and os.path.exists("/dev/nvidiactl")
+    ):
+        return "libx264"
     try:
-        res = run_cmd(
-            [ffmpeg_bin, "-y", "-f", "lavfi", "-i", "nullsrc", "-frames:v", "1", "-c:v", "h264_nvenc", "-f", "null", "-"],
+        result = run_cmd(
+            [ffmpeg_bin, "-hide_banner", "-encoders"],
             stage="transform",
             audit=False,
         )
-        if res.returncode == 0:
+        if result.returncode == 0 and "h264_nvenc" in str(result.stdout or ""):
             return "h264_nvenc"
     except Exception:
         pass
     return "libx264"
+    """FFmpeg video layout transform engine."""
 
 
 class VideoFormatter:
-    """FFmpeg video layout transform engine."""
 
     @staticmethod
     def build_vertical_filter(

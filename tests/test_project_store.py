@@ -69,7 +69,7 @@ def test_project_and_clip_identity_survive_store_reload(tmp_path: Path) -> None:
         item["clip_id"] for item in clips
     ]
     assert restored_project["clip_count"] == 2
-    assert reloaded.database_user_version() == 2
+    assert reloaded.database_user_version() == 3
 
 
 def test_each_clip_gets_an_independent_versioned_asset(tmp_path: Path) -> None:

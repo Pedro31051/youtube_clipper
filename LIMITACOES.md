@@ -67,3 +67,20 @@
   automática de licença, Content ID, disponibilidade territorial ou royalties.
 
 - A prévia da sugestão usa o vídeo-fonte do YouTube limitado por `start`/`end`; o MP4 vertical com as transformações só existe depois da geração. O embed arredonda os limites para segundos inteiros e o navegador pode exigir um segundo clique no player se bloquear autoplay.
+
+# Limitações — Correção intermediária do painel
+
+- Legendas queimadas permanecem indisponíveis. Tema e posição não podem ser
+  alterados enquanto não houver asset de legenda ligado à versão do plano.
+- Narração externa e TTS permanecem indisponíveis. Nenhum caminho de áudio é
+  aceito sem um fluxo de upload e validação de direitos dedicado.
+- `split_blur` e templates `variant_news`/`variant_impact` são recusados porque
+  ainda não produzem uma composição física distinta.
+- O preview usa resolução e parâmetros de encoder reduzidos; a intenção
+  editorial e os recursos aplicados são os mesmos do render final.
+- WebKit no Playwright aproxima o motor do Safari, mas não substitui uma rodada
+  manual em hardware Apple para homologação final.
+- A reconciliação considera jobs locais de processos anteriores irrecuperáveis;
+  ela não tenta reanexar a um FFmpeg iniciado por outro host.
+- Runs auditáveis continuam imutáveis. Limpeza do workspace e retenção de mídia
+  exigem ação explícita do operador.

@@ -50,6 +50,7 @@ const STATUS_ICONS: Record<string, LucideIcon> = {
   completed: CircleCheck,
   ready: CircleCheck,
   failed: CircleX,
+  interrupted: CircleAlert,
   rejected: CircleX,
   error: CircleX,
   proposed: CircleDashed,

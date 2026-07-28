@@ -555,7 +555,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     continue
 
                 status = str(event.get("status") or "")
-                failed = failed or status == "failed"
+                if event.get("component") != "subprocess":
+                    failed = failed or status == "failed"
                 error_data = event.get("error")
                 error_message = None
                 if isinstance(error_data, dict):
@@ -1451,10 +1452,15 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 return
             status_payload = self._request_status_payload(raw_request_id)
             if status_payload is None:
-                self._send_status_json(
-                    404, {"success": False, "error": "Operation not found"}
-                )
-                return
+                status_payload = {
+                    "success": True,
+                    "request_id": raw_request_id,
+                    "state": "pending",
+                    "completed": False,
+                    "run_ids": [],
+                    "events": [],
+                    "drive_upload": None,
+                }
             self._send_status_json(200, status_payload)
             return
 
@@ -1994,7 +2000,11 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                                 "overlay_position": overlay_position,
                             },
                             "audio": {"include_source": include_audio},
-                            "editorial": {"overlay_text": overlay_text},
+                            "editorial": {
+                                "overlay_enabled": True,
+                                "overlay_text": overlay_text,
+                                "template_variant": "variant_default",
+                            },
                         },
                     )
                     render_plan = persisted_clip["edit_plan"]
@@ -2365,14 +2375,21 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
         if not self._require_authorization():
             return
         all_routes = self.GET_ROUTES | self.TECHNICAL_GET_ROUTES | self.POST_ROUTES
+        is_api = self.path.startswith("/api/")
         if (
             self.path in all_routes
             or self.path.startswith("/api/download/")
             or self.path.startswith(self.STATUS_ROUTE_PREFIX)
         ):
-            self.send_error(405, "Method Not Allowed")
+            if is_api:
+                self.send_json(405, {"success": False, "error": "Method Not Allowed"}, no_store=True)
+            else:
+                self.send_error(405, "Method Not Allowed")
         else:
-            self.send_error(404, "Not Found")
+            if is_api:
+                self.send_json(404, {"success": False, "error": "Not Found"}, no_store=True)
+            else:
+                self.send_error(404, "Not Found")
 
 
 def start_dashboard_server(
@@ -2403,4 +2420,17 @@ def start_dashboard_server(
 
 
 if __name__ == "__main__":
-    start_dashboard_server(8080)
+    import argparse
+    parser = argparse.ArgumentParser(description="YouTube Clipper Web Dashboard Server")
+    parser.add_argument("--port", type=int, default=8080, help="Port to bind to")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
+    parser.add_argument("--api-token", type=str, default=None, help="Bearer token for auth")
+    parser.add_argument("--output-dir", type=str, default=None, help="Dedicated output directory")
+    args = parser.parse_args()
+
+    start_dashboard_server(
+        port=args.port,
+        host=args.host,
+        api_token=args.api_token,
+        output_dir=args.output_dir,
+    )

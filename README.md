@@ -36,6 +36,20 @@ A Python 3.x tool and glassmorphism web dashboard for automated YouTube and loca
    ```bash
    pip install -e .
    ```
+
+   The default installation is CPU-only and does not download CUDA libraries.
+   For development and API contract tests:
+
+   ```bash
+   python -m pip install -e ".[dev]"
+   ```
+
+   On a machine with a supported NVIDIA runtime, install the explicit GPU extra:
+
+   ```bash
+   python -m pip install -e ".[dev,gpu]"
+   ```
+
    Or install requirements directly:
    ```bash
    pip install -r requirements.txt
@@ -76,7 +90,7 @@ cd web
 npm ci
 npm run build
 cd ..
-.venv/bin/python -m youtube_clipper.api
+python -m youtube_clipper.api
 ```
 
 Open `http://127.0.0.1:8080`. During frontend development, run the API on port
@@ -144,12 +158,33 @@ Use only media you own, license, or are authorized to edit.
 
 Execute the test suite using `pytest`:
 ```bash
-.venv/bin/pytest -v
+python -m pytest -v
 ```
 To run specific unit or integration test modules:
 ```bash
-.venv/bin/pytest tests/test_e2e_pipeline.py -v
+python -m pytest tests/test_e2e_pipeline.py -v
 ```
+
+Validate the React client and generated API contract:
+
+```bash
+cd web
+npm ci
+npm test
+npm run build
+```
+
+Run the browser flows after installing the Playwright engines:
+
+```bash
+npx playwright install --with-deps chromium firefox webkit
+npm run test:e2e
+```
+
+The capability matrix in [docs/PAINEL_CAPABILITIES.md](docs/PAINEL_CAPABILITIES.md)
+is the source of truth for enabled controls, physical implementation, preview,
+final render, and evidence. Unsupported features remain disabled in the UI and
+are rejected by the API rather than being persisted as no-ops.
 
 ## Audit Logs and Troubleshooting
 

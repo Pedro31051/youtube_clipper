@@ -670,7 +670,7 @@ class TestWebDashboardErrors:
         assert exc_info.value.code == 404
 
     def test_invalid_http_method_returns_http_405(self, dashboard_server: str) -> None:
-        """Test issuing an unsupported HTTP method (e.g. PUT) returns HTTP 405 Method Not Allowed."""
+        """Test issuing an unsupported HTTP method (e.g. PUT) returns HTTP 405 Method Not Allowed with JSON payload."""
         url = f"{dashboard_server}/api/analyze"
         payload = json.dumps({"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).encode("utf-8")
         req = urllib.request.Request(
@@ -682,6 +682,23 @@ class TestWebDashboardErrors:
         with pytest.raises(urllib.error.HTTPError) as exc_info:
             urllib.request.urlopen(req)
         assert exc_info.value.code == 405
+        assert "application/json" in exc_info.value.headers.get("Content-Type", "")
+        data = json.loads(exc_info.value.read().decode("utf-8"))
+        assert data["success"] is False
+        assert "Method Not Allowed" in data["error"]
+
+    def test_status_pending_for_valid_unregistered_request_id(self, dashboard_server: str) -> None:
+        """Test status check returns 200 OK and pending state for a valid but unregistered request ID."""
+        valid_id = "req_1234567890_abcdefg"
+        url = f"{dashboard_server}/api/status/{valid_id}"
+        with urllib.request.urlopen(url) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["success"] is True
+            assert data["request_id"] == valid_id
+            assert data["state"] == "pending"
+            assert data["completed"] is False
+            assert data["events"] == []
 
     def test_post_missing_param_returns_http_400(self, dashboard_server: str) -> None:
         """Test POST with missing required parameters returns HTTP 400."""

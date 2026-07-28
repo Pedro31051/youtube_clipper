@@ -167,3 +167,32 @@ truncar silenciosamente a edição para caber no limite de Shorts.
 **Decisão:** cada card começa com uma tela própria contendo número, título e intervalo da sugestão. O iframe do YouTube só é montado após o clique em `Reproduzir sugestão #N`; ao abrir outro card, o iframe anterior é desmontado e volta ao seu resumo.
 
 **Alternativa descartada:** pré-carregar cinco iframes do mesmo vídeo, pois todos exibiam a mesma capa e `0:00`, ocultando que os intervalos eram diferentes e consumindo recursos sem interação.
+
+# Decisões — Correção intermediária do painel
+
+## Compilador canônico
+
+**Decisão:** preview e render final recebem um `RenderRequest` produzido pelo
+mesmo compilador tipado de `EditPlan`. O perfil altera somente parâmetros de
+qualidade e dimensões compatíveis com o mesmo aspecto.
+
+**Alternativa descartada:** manter lógica de interpretação do plano dentro de
+cada worker, pois isso permite divergência editorial silenciosa.
+
+## Capacidades honestas
+
+**Decisão:** legendas, narração, `split_blur` e templates alternativos são
+recusados pela API e ficam indisponíveis na interface até existir implementação
+física e teste. A matriz em `docs/PAINEL_CAPABILITIES.md` é normativa.
+
+**Alternativa descartada:** persistir opções para uso futuro, porque o usuário
+não consegue distinguir configuração aplicada de um no-op.
+
+## Recuperação de jobs
+
+**Decisão:** jobs ativos sem worker após startup tornam-se `interrupted`, com
+evento persistente e estado de domínio recuperável. Retry sempre cria nova
+identidade ligada por `parent_job_id`.
+
+**Alternativa descartada:** reutilizar `job_id` ou deixar `queued/running`, pois
+ambas apagam a fronteira auditável entre a execução perdida e a tentativa nova.

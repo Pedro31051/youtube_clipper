@@ -1484,7 +1484,7 @@
                     setMarker('step2', 'running', '2. Processando');
                 } else if (!String(event.action || '').startsWith('http.') && event.status === 'started') {
                     setMarker('step2', 'running', '2. Processando');
-                } else if (event.status === 'failed') {
+                } else if (event.status === 'failed' && event.component !== 'subprocess') {
                     operationState.hadBackendFailure = true;
                     setMarker('step2', 'error', '2. Falha detectada');
                 }

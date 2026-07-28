@@ -17,13 +17,30 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from youtube_clipper.edit_plan import EditPlanError, validate_edit_plan
 from youtube_clipper.validator import parse_timestamp
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ID_PATTERN = re.compile(
     r"^(?:prj|src|anl|clp|ast|job|rnd|prv)_[0-9a-f]{32}$"
 )
+JOB_STATES = {
+    "queued",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+    "interrupted",
+}
+JOB_TRANSITIONS = {
+    "queued": {"running", "failed", "cancelled", "interrupted"},
+    "running": {"completed", "failed", "cancelled", "interrupted"},
+    "completed": set(),
+    "failed": set(),
+    "cancelled": set(),
+    "interrupted": set(),
+}
 CLIP_STATES = {
     "proposed",
     "previewing",
@@ -183,6 +200,7 @@ class ProjectStore:
             clip_id TEXT NOT NULL REFERENCES clips(clip_id) ON DELETE CASCADE,
             kind TEXT NOT NULL,
             version INTEGER NOT NULL,
+            plan_version INTEGER,
             file_path TEXT NOT NULL UNIQUE,
             sha256 TEXT NOT NULL,
             size_bytes INTEGER NOT NULL,
@@ -190,6 +208,7 @@ class ProjectStore:
             width INTEGER,
             height INTEGER,
             mime_type TEXT NOT NULL,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
             valid INTEGER NOT NULL DEFAULT 1,
             invalidated_at TEXT,
             created_at TEXT NOT NULL,
@@ -229,6 +248,18 @@ class ProjectStore:
                     connection.execute(
                         "ALTER TABLE jobs ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}'"
                     )
+                asset_columns = {
+                    str(row["name"])
+                    for row in connection.execute("PRAGMA table_info(assets)").fetchall()
+                }
+                if "plan_version" not in asset_columns:
+                    connection.execute(
+                        "ALTER TABLE assets ADD COLUMN plan_version INTEGER"
+                    )
+                if "metadata_json" not in asset_columns:
+                    connection.execute(
+                        "ALTER TABLE assets ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'"
+                    )
                 connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             finally:
                 connection.close()
@@ -251,6 +282,7 @@ class ProjectStore:
             "suggestion_json",
             "result_json",
             "payload_json",
+            "metadata_json",
             "data_json",
         ):
             if key in result:
@@ -466,6 +498,8 @@ class ProjectStore:
             ) from exc
         if start_ms < 0 or end_ms <= start_ms:
             raise DomainValidationError("Analysis candidate interval is invalid")
+        if end_ms - start_ms > 59_900:
+            raise DomainValidationError("Analysis candidate exceeds 59900 ms")
         return start_ms, end_ms
 
     def finish_analysis(
@@ -661,7 +695,13 @@ class ProjectStore:
             clip["assets"] = [self._public_asset(self._row(item) or {}) for item in assets]
             latest_valid = {}
             for asset in clip["assets"]:
-                if asset["valid"] and asset["kind"] not in latest_valid:
+                if not asset["valid"]:
+                    continue
+                if asset["kind"] in {"preview", "poster", "render"} and int(
+                    asset.get("plan_version") or 0
+                ) != int(clip["plan_version"]):
+                    continue
+                if asset["kind"] not in latest_valid:
                     latest_valid[asset["kind"]] = asset
             preview = latest_valid.get("preview")
             poster = latest_valid.get("poster")
@@ -842,6 +882,17 @@ class ProjectStore:
                 "end_ms": end_ms,
                 "duration_ms": end_ms - start_ms,
             }
+        if plan_changed:
+            try:
+                validated_plan = validate_edit_plan(
+                    plan,
+                    clip_id=clip_id,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
+                )
+            except EditPlanError as exc:
+                raise DomainValidationError(str(exc)) from exc
+            plan = validated_plan.model_dump(mode="json")
 
         timestamp = _now()
         with self._write_lock:
@@ -970,6 +1021,9 @@ class ProjectStore:
         payload: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         self.get_project(project_id)
+        clean_state = str(state).strip().lower()
+        if clean_state not in JOB_STATES:
+            raise DomainValidationError("Job state is invalid")
         if parent_job_id is not None:
             self.get_job(parent_job_id)
         if int(attempt) < 1:
@@ -993,7 +1047,7 @@ class ProjectStore:
                         clip_id,
                         analysis_id,
                         str(kind),
-                        str(state),
+                        clean_state,
                         int(attempt),
                         parent_job_id,
                         _json_dump(payload or {}),
@@ -1014,9 +1068,26 @@ class ProjectStore:
         error: Optional[str] = None,
     ) -> dict[str, Any]:
         self._require_id(job_id, "job")
+        clean_state = str(state).strip().lower()
+        if clean_state not in JOB_STATES:
+            raise DomainValidationError("Job state is invalid")
         with self._write_lock:
             connection = self._connect()
             try:
+                current = connection.execute(
+                    "SELECT state FROM jobs WHERE job_id = ?",
+                    (job_id,),
+                ).fetchone()
+                if current is None:
+                    raise DomainNotFoundError("Job not found")
+                current_state = str(current["state"])
+                if (
+                    clean_state != current_state
+                    and clean_state not in JOB_TRANSITIONS[current_state]
+                ):
+                    raise DomainConflictError(
+                        f"Cannot transition job from {current_state} to {clean_state}"
+                    )
                 cursor = connection.execute(
                     """
                     UPDATE jobs
@@ -1024,7 +1095,7 @@ class ProjectStore:
                         updated_at = ?
                     WHERE job_id = ?
                     """,
-                    (state, run_id, error, _now(), job_id),
+                    (clean_state, run_id, error, _now(), job_id),
                 )
                 if cursor.rowcount != 1:
                     raise DomainNotFoundError("Job not found")
@@ -1051,6 +1122,7 @@ class ProjectStore:
             latest = events[-1]
             job.update(
                 {
+                    "state": latest["state"],
                     "progress": latest["progress"],
                     "stage": latest["data"].get("stage"),
                     "message": latest["message"],
@@ -1104,6 +1176,20 @@ class ProjectStore:
                     """,
                     (project_id, normalized_limit),
                 ).fetchall()
+            job_ids = [str(row["job_id"]) for row in rows]
+        finally:
+            connection.close()
+        return [self.get_job(job_id) for job_id in job_ids]
+
+    def list_active_jobs(self) -> list[dict[str, Any]]:
+        """Return every persisted job that cannot have a live worker after restart."""
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """SELECT job_id FROM jobs
+                WHERE state IN ('queued', 'running')
+                ORDER BY created_at, job_id"""
+            ).fetchall()
             job_ids = [str(row["job_id"]) for row in rows]
         finally:
             connection.close()
@@ -1186,8 +1272,13 @@ class ProjectStore:
     def get_latest_asset(self, clip_id: str, kind: str) -> dict[str, Any]:
         clip = self.get_clip(clip_id)
         for asset in clip["assets"]:
-            if asset["kind"] == kind and asset["valid"]:
-                return asset
+            if asset["kind"] != kind or not asset["valid"]:
+                continue
+            if kind in {"preview", "poster", "render"} and int(
+                asset.get("plan_version") or 0
+            ) != int(clip["plan_version"]):
+                continue
+            return asset
         raise DomainConflictError(
             f"Clip requires a valid {kind} asset before this action"
         )
@@ -1199,6 +1290,8 @@ class ProjectStore:
         kind: str,
         source_path: Path | str,
         mime_type: str,
+        plan_version: Optional[int] = None,
+        metadata: Optional[dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -1210,6 +1303,17 @@ class ProjectStore:
         clean_kind = re.sub(r"[^a-z0-9_-]+", "-", str(kind).lower()).strip("-")
         if not clean_kind:
             raise DomainValidationError("Asset kind is required")
+        resolved_plan_version = int(plan_version or clip["plan_version"])
+        if resolved_plan_version < 1:
+            raise DomainValidationError("Asset plan_version must be positive")
+        if clean_kind in {"preview", "poster", "render"} and (
+            resolved_plan_version != int(clip["plan_version"])
+        ):
+            raise DomainConflictError("Asset was rendered from a stale edit plan")
+        try:
+            metadata_json = _json_dump(metadata or {})
+        except (TypeError, ValueError) as exc:
+            raise DomainValidationError("Asset metadata must be JSON serializable") from exc
         suffix = source.suffix.lower() or ".bin"
         asset_id = _new_id("ast")
         timestamp = _now()
@@ -1247,10 +1351,11 @@ class ProjectStore:
                         """
                         INSERT INTO assets(
                             asset_id, project_id, clip_id, kind, version,
+                            plan_version, metadata_json,
                             file_path, sha256, size_bytes, duration_ms,
                             width, height, mime_type, valid, invalidated_at,
                             created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?)
                         """,
                         (
                             asset_id,
@@ -1258,6 +1363,8 @@ class ProjectStore:
                             clip_id,
                             clean_kind,
                             version,
+                            resolved_plan_version,
+                            metadata_json,
                             str(destination),
                             sha256,
                             size_bytes,

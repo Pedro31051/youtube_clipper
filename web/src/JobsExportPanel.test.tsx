@@ -94,4 +94,48 @@ describe("UI-7 jobs and exports", () => {
       ""
     );
   });
+
+  it("traps focus in export and restores it to the opener", () => {
+    render(
+      <JobsExportPanel
+        jobs={[]}
+        clips={[clip]}
+        driveBusy={false}
+        onCancel={vi.fn()}
+        onRetry={vi.fn()}
+        onDrive={vi.fn()}
+      />
+    );
+
+    const opener = screen.getByRole("button", { name: "Exportar" });
+    opener.focus();
+    fireEvent.click(opener);
+    const close = screen.getByRole("button", { name: "Fechar exportação" });
+    expect(close).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("button", { name: "Enviar ao Drive" })).toHaveFocus();
+
+    fireEvent.click(close);
+    expect(opener).toHaveFocus();
+  });
+
+  it("shows interrupted jobs as terminal and retryable", () => {
+    const retry = vi.fn();
+    render(
+      <JobsExportPanel
+        jobs={[{ ...failedJob, state: "interrupted", message: "Servidor reiniciado" }]}
+        clips={[clip]}
+        driveBusy={false}
+        onCancel={vi.fn()}
+        onRetry={retry}
+        onDrive={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Interrompido")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(retry).toHaveBeenCalledWith(failedJob.job_id);
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+  });
 });

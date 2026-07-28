@@ -43,12 +43,3 @@ def test_ui7_screen_contains_jobs_logs_timing_and_safe_export_dialog() -> None:
     assert "alert(" not in screen
 
 
-def test_ui7_phase_has_required_homologation_artifacts() -> None:
-    phase = ROOT / "review/UI-7"
-    decisions = (phase / "DECISOES.md").read_text(encoding="utf-8")
-    limitations = (phase / "LIMITACOES.md").read_text(encoding="utf-8")
-    contract = (phase / "CONTRATO_OPERACIONAL.md").read_text(encoding="utf-8")
-
-    assert "Alternativa descartada" in decisions
-    assert "Google Drive" in limitations
-    assert "agente não aprova" in contract

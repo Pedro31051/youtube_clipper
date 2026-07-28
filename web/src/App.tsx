@@ -40,6 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
   rendering: "Renderizando",
   rendered: "Render pronto",
   exported: "Exportado",
+  interrupted: "Interrompido",
   failed: "Falhou"
 };
 
@@ -402,7 +403,8 @@ export function App() {
     if (
       live.event?.state === "completed" ||
       live.event?.state === "failed" ||
-      live.event?.state === "cancelled"
+      live.event?.state === "cancelled" ||
+      live.event?.state === "interrupted"
     ) {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       void queryClient.invalidateQueries({ queryKey: ["project", selectedProjectId] });

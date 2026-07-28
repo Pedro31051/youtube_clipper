@@ -12,6 +12,8 @@ export type JobEvent = {
   timestamp_ms: number;
 };
 
+const TERMINAL_STATES = ["completed", "failed", "cancelled", "interrupted"];
+
 export function useJobEvents(job: Job | undefined) {
   const [event, setEvent] = useState<JobEvent | null>(null);
   const [connection, setConnection] = useState<
@@ -32,14 +34,18 @@ export function useJobEvents(job: Job | undefined) {
     const consume = (message: MessageEvent<string>) => {
       const next = JSON.parse(message.data) as JobEvent;
       setEvent(next);
-      setConnection(
-        ["completed", "failed", "cancelled"].includes(next.state)
-          ? "closed"
-          : "live"
-      );
+      setConnection(TERMINAL_STATES.includes(next.state) ? "closed" : "live");
     };
-    ["job_queued", "stage_start", "progress", "stage_completed", "job_failed", "job_cancelled"].forEach(
-      (type) => stream.addEventListener(type, consume as EventListener)
+    [
+      "job_queued",
+      "stage_start",
+      "progress",
+      "stage_completed",
+      "job_failed",
+      "job_cancelled",
+      "job_interrupted"
+    ].forEach((type) =>
+      stream.addEventListener(type, consume as EventListener)
     );
     stream.onopen = () => setConnection("live");
     stream.onerror = () => setConnection("closed");

@@ -51,14 +51,34 @@ def build_render_filtergraph(
             f"[blurred][scaled_fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2"
         )
     elif mode == "crop_center":
-        v_filter = f"crop=ih*9/16:ih:{crop_x}:0,scale={width}:{height}"
+        v_filter = (
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height}:{crop_x}:(ih-oh)/2"
+        )
     else:
         raise ValueError(f"Unsupported vertical render mode: {mode}")
 
     if analytical_overlay:
         txt = overlay_text or "ANALYTICAL OVERLAY | VIRAL HOOK SCORE: 9.8"
-        esc_txt = txt.replace(":", "\\:").replace("'", "")
-        v_filter = f"{v_filter},drawbox=x=40:y={overlay_y}:w=1000:h=100:color=black@0.6:t=fill,drawtext=text='{esc_txt}':x=60:y={overlay_y + 35}:fontsize=36:fontcolor=yellow"
+        esc_txt = (
+            txt.replace("\\", "\\\\")
+            .replace(":", "\\:")
+            .replace("'", "\\'")
+            .replace("%", "\\%")
+        )
+        box_x = max(12, width // 27)
+        box_width = max(1, width - (box_x * 2))
+        box_height = max(48, height // 19)
+        text_x = box_x + max(8, width // 54)
+        text_y = overlay_y + max(18, box_height // 3)
+        font_size = max(18, height // 53)
+        v_filter = (
+            f"{v_filter},"
+            f"drawbox=x={box_x}:y={overlay_y}:w={box_width}:h={box_height}:"
+            "color=black@0.6:t=fill,"
+            f"drawtext=text='{esc_txt}':x={text_x}:y={text_y}:"
+            f"fontsize={font_size}:fontcolor=yellow"
+        )
 
     if subtitles_path is not None:
         sub_p = pathlib.Path(subtitles_path).resolve()

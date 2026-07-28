@@ -54,8 +54,8 @@ def test_build_render_filtergraph():
     assert "scale=1080:1920" in fg_blur
 
     fg_crop = build_render_filtergraph(mode="crop_center", width=1080, height=1920)
-    assert "crop=ih*9/16:ih" in fg_crop
-    assert "scale=1080:1920" in fg_crop
+    assert "scale=1080:1920:force_original_aspect_ratio=increase" in fg_crop
+    assert "crop=1080:1920" in fg_crop
 
 
 def test_process_vertical_render_success(

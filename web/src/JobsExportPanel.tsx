@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Ban,
   Clock3,
@@ -26,6 +26,25 @@ const KIND_LABELS: Record<string, string> = {
   drive_upload: "Google Drive"
 };
 
+const STATE_LABELS: Record<string, string> = {
+  queued: "Na fila",
+  running: "Em andamento",
+  completed: "Concluído",
+  failed: "Falhou",
+  cancelled: "Cancelado",
+  interrupted: "Interrompido"
+};
+
+const TERMINAL_STATES = ["completed", "failed", "cancelled", "interrupted"];
+const FOCUSABLE = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])"
+].join(",");
+
 function duration(seconds: number | null) {
   if (seconds === null || !Number.isFinite(seconds)) return "Calculando";
   if (seconds < 60) return `${Math.max(0, Math.round(seconds))} s`;
@@ -36,7 +55,7 @@ function duration(seconds: number | null) {
 
 function JobTiming({ job, now }: { job: Job; now: number }) {
   const created = Date.parse(job.created_at);
-  const terminal = ["completed", "failed", "cancelled"].includes(job.state);
+  const terminal = TERMINAL_STATES.includes(job.state);
   const eventTime = job.event_timestamp_ms ?? Date.parse(job.updated_at);
   const elapsed = Math.max(0, ((terminal ? eventTime : now) - created) / 1000);
   const progress = Number(job.progress ?? 0);
@@ -68,30 +87,76 @@ function ExportDialog({
 }) {
   const [folderName, setFolderName] = useState("YouTube_Clips");
   const [folderId, setFolderId] = useState("");
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog.querySelector<HTMLElement>("#export-dialog-close")?.focus();
+
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(FOCUSABLE)
+      ).filter(
+        (element) =>
+          element.getAttribute("aria-hidden") !== "true" &&
+          !element.hasAttribute("disabled")
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable.at(-1)!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", closeOnEscape);
-    document.getElementById("export-dialog-close")?.focus();
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+
+    window.addEventListener("keydown", keyboard);
+    return () => {
+      window.removeEventListener("keydown", keyboard);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [clip.clip_id]);
 
   return (
     <div className="dialog-backdrop">
       <section
+        ref={dialogRef}
         className="export-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-dialog-title"
+        tabIndex={-1}
       >
         <header>
           <div>
             <span className="eyebrow">Entrega validada</span>
             <h2 id="export-dialog-title">Exportar “{clip.title}”</h2>
           </div>
-          <Button id="export-dialog-close" variant="ghost" icon={X} aria-label="Fechar exportação" onClick={onClose}>
+          <Button id="export-dialog-close" variant="ghost" icon={X} aria-label="Fechar exportação" onClick={() => onCloseRef.current()}>
             Fechar
           </Button>
         </header>
@@ -216,7 +281,7 @@ export function JobsExportPanel({
                         <code>{job.job_id}</code>
                       </details>
                     </div>
-                    <StatusBadge status={job.state}>{job.state}</StatusBadge>
+                    <StatusBadge status={job.state}>{STATE_LABELS[job.state] ?? job.state}</StatusBadge>
                   </header>
                   <progress max="100" value={Number(job.progress ?? 0)}>{job.progress}%</progress>
                   <div className="job-stage">

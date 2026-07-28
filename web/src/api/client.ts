@@ -4,6 +4,17 @@ export type ProjectSummary = components["schemas"]["ProjectSummary"];
 export type Project = ProjectSummary & {
   sources: Array<{ source_id: string; kind: string; uri: string }>;
 };
+export type ClipAsset = {
+  asset_id: string;
+  kind: string;
+  url: string;
+  valid: boolean;
+  version?: number;
+  duration_ms?: number | null;
+  width?: number | null;
+  height?: number | null;
+  plan_version?: number | null;
+};
 export type Clip = {
   clip_id: string;
   project_id: string;
@@ -17,15 +28,14 @@ export type Clip = {
   plan_version: number;
   updated_at?: string;
   preview_status: string;
+  preview_plan_version?: number | null;
+  source_duration_ms?: number | null;
   preview_url?: string | null;
   poster_url?: string | null;
+  preview_asset?: ClipAsset | null;
+  poster_asset?: ClipAsset | null;
   edit_plan: EditPlan;
-  assets?: Array<{
-    asset_id: string;
-    kind: string;
-    url: string;
-    valid: boolean;
-  }>;
+  assets?: ClipAsset[];
   suggestion: {
     summary?: string;
     transcript?: string;
@@ -173,6 +183,13 @@ export async function getJobs(projectId?: string): Promise<Job[]> {
   return payload.jobs as Job[];
 }
 
+export async function getJob(jobId: string): Promise<Job> {
+  const payload = await requestJson<{ job: Job }>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}`
+  );
+  return payload.job;
+}
+
 export async function createAnalysis(input: AnalysisInput): Promise<{
   project: Project;
   job: Job;
@@ -245,13 +262,7 @@ export async function updateEditPlan(
   return payload.clip;
 }
 
-export async function renderFinal(
-  clipId: string,
-  currentStatus: string
-): Promise<Job> {
-  if (currentStatus !== "approved") {
-    await reviewClips([clipId], "approve");
-  }
+export async function renderFinal(clipId: string): Promise<Job> {
   const payload = await requestJson<{ job: Job }>(
     `/api/v1/clips/${encodeURIComponent(clipId)}/render-jobs`,
     { method: "POST" }
@@ -299,4 +310,11 @@ export function finalDownloadUrl(clipId: string) {
 
 export function jobReportUrl(jobId: string) {
   return `/api/v1/jobs/${encodeURIComponent(jobId)}/report`;
+}
+
+export async function getClip(clipId: string): Promise<Clip> {
+  const payload = await requestJson<{ clip: Clip }>(
+    `/api/v1/clips/${encodeURIComponent(clipId)}`
+  );
+  return payload.clip;
 }
