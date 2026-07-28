@@ -830,6 +830,42 @@ class ProjectStore:
         finally:
             connection.close()
 
+    def list_jobs(
+        self,
+        *,
+        project_id: Optional[str] = None,
+        limit: int = 25,
+    ) -> list[dict[str, Any]]:
+        if project_id is not None:
+            self.get_project(project_id)
+        normalized_limit = int(limit)
+        if normalized_limit < 1 or normalized_limit > 100:
+            raise DomainValidationError("Job limit must be between 1 and 100")
+        connection = self._connect()
+        try:
+            if project_id is None:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM jobs
+                    ORDER BY updated_at DESC, job_id DESC
+                    LIMIT ?
+                    """,
+                    (normalized_limit,),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM jobs
+                    WHERE project_id = ?
+                    ORDER BY updated_at DESC, job_id DESC
+                    LIMIT ?
+                    """,
+                    (project_id, normalized_limit),
+                ).fetchall()
+            return [self._row(row) or {} for row in rows]
+        finally:
+            connection.close()
+
     def add_asset(
         self,
         *,

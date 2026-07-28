@@ -1,5 +1,7 @@
 yt-dlp>=2023.3.4
 google-api-python-client>=2.100.0
 google-auth>=2.20.0
+fastapi>=0.140.8,<0.141
+uvicorn>=0.51.0,<0.52
 pytest>=7.0.0
 -e .

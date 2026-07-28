@@ -19,3 +19,8 @@ token.json
 client_secret*.json
 service-account*.json
 .env
+
+# Build e dependências do frontend UI-3.
+/web/node_modules/
+/web/dist/
+/panel_workspace/

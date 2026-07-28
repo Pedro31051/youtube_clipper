@@ -67,7 +67,29 @@ Extract a clip and upload to Google Drive:
 python3 -m youtube_clipper local_video.mp4 --start 0 --end 15 --gdrive
 ```
 
-## Web Dashboard Usage
+## Web Dashboard Usage — React + FastAPI
+
+Build the typed React client and start the versioned FastAPI application:
+
+```bash
+cd web
+npm ci
+npm run build
+cd ..
+.venv/bin/python -m youtube_clipper.api
+```
+
+Open `http://127.0.0.1:8080`. During frontend development, run the API on port
+8080 and `npm run dev` in `web/`; Vite proxies `/api` and `/openapi.json` to the
+FastAPI process.
+
+`npm run build` exports FastAPI's OpenAPI document and regenerates the
+TypeScript API contract before compiling. Job progress reaches the shell
+through `/api/v1/jobs/{job_id}/events` using Server-Sent Events.
+
+### Legacy dashboard adapter
+
+The previous dashboard remains available during the incremental migration:
 
 Start the web dashboard server from the CLI:
 ```bash

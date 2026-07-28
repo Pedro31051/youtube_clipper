@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
+    <title>YouTube AI Clipper & Google Drive Storage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            --card-bg: rgba(30, 41, 59, 0.75);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #a855f7, #ec4899, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .search-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 2;
+            min-width: 280px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+        }
+
+        select.format-selector {
+            flex: 1;
+            min-width: 220px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        button.btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0.85rem 1.75rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button.btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(236, 72, 153, 0.4);
+        }
+
+        /* Loading Container */
+        .loading-container {
+            display: none;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: var(--accent-pink);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.25rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .step-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .step-indicator {
+            padding: 0.4rem 0.8rem;
+            border-radius: 2rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step-indicator.active {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: var(--accent-purple);
+            color: #c084fc;
+        }
+
+        /* Preview Dual Player Container */
+        .preview-container {
+            display: none;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .preview-header {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .preview-players {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .player-box {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .player-box h4 {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .youtube-embed {
+            width: 100%;
+            height: 240px;
+            border-radius: 0.75rem;
+            border: 1px solid var(--card-border);
+        }
+
+        .vertical-player {
+            width: 220px;
+            height: 390px;
+            border-radius: 1rem;
+            border: 2px solid var(--accent-purple);
+            background: #000;
+            object-fit: cover;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-preview {
+            margin: 1rem 0 0.2rem;
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            border-radius: 0.85rem;
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.78);
+        }
+
+        .card-preview-header,
+        .card-preview-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.55rem 0.7rem;
+        }
+
+        .card-preview-header {
+            color: #e2e8f0;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .card-preview-state {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-align: right;
+        }
+
+        .card-preview-screen {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            background: #020617;
+        }
+
+        .card-preview-screen iframe,
+        .card-preview-screen video {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: #000;
+            object-fit: cover;
+        }
+
+        .card-preview-placeholder {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            place-content: center;
+            gap: 0.5rem;
+            padding: 1.1rem;
+            text-align: center;
+            background:
+                radial-gradient(circle at 20% 15%, rgba(59, 130, 246, 0.28), transparent 35%),
+                radial-gradient(circle at 80% 85%, rgba(236, 72, 153, 0.24), transparent 38%),
+                #071026;
+        }
+
+        .card-preview-placeholder[hidden] { display: none; }
+
+        .card-preview-placeholder span {
+            color: #a5b4fc;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .card-preview-placeholder strong {
+            color: #f8fafc;
+            font-size: 0.95rem;
+            line-height: 1.35;
+        }
+
+        .card-preview-placeholder time {
+            color: #67e8f9;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .card-preview-screen[data-preview-mode="rendered"] {
+            width: min(100%, 230px);
+            aspect-ratio: 9 / 16;
+            margin: 0 auto;
+            border-inline: 1px solid rgba(139, 92, 246, 0.22);
+        }
+
+        .card-preview-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .card-preview-button {
+            padding: 0.38rem 0.55rem;
+            border: 1px solid rgba(96, 165, 250, 0.45);
+            border-radius: 0.48rem;
+            background: rgba(37, 99, 235, 0.18);
+            color: #dbeafe;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .card-preview-button:hover { background: rgba(59, 130, 246, 0.34); }
+
+        /* Clips Grid */
+        .clips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .clip-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 1rem;
+            padding: 1.35rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .clip-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .badge-score {
+            background: rgba(236, 72, 153, 0.2);
+            color: #f472b6;
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            padding: 0.25rem 0.65rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-rank {
+            background: rgba(139, 92, 246, 0.2);
+            color: #c084fc;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            padding: 0.25rem 0.65rem;
+            border-radius: 2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+
+        .card-time {
+            font-size: 0.9rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+        }
+
+        .card-transcript {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+            margin-bottom: 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 0.85rem;
+            border-radius: 0.6rem;
+            border-left: 3px solid var(--accent-purple);
+            max-height: 110px;
+            overflow-y: auto;
+        }
+
+        .hashtags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .chip {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            padding: 0.2rem 0.55rem;
+            border-radius: 2rem;
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .btn-action {
+            width: 100%;
+            color: white;
+            border: none;
+            border-radius: 0.6rem;
+            padding: 0.7rem;
+            font-weight: 600;
+            font-size: 0.92rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .btn-action:hover {
+            opacity: 0.9;
+        }
+
+        .btn-clip {
+            background: linear-gradient(135deg, #3b82f6, var(--accent-purple));
+        }
+
+        .btn-gdrive {
+            background: linear-gradient(135deg, var(--accent-green), #059669);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            text-decoration: none;
+        }
+
+        .drive-link-badge {
+            display: inline-block;
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.8rem;
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .operation-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-align: left;
+        }
+
+        .operation-copy {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .operation-copy h3 {
+            font-size: 1.05rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .operation-status-badge {
+            border-radius: 999px;
+            padding: 0.35rem 0.7rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            background: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+            border: 1px solid rgba(139, 92, 246, 0.45);
+            white-space: nowrap;
+        }
+
+        .loading-container[data-state="success"] .spinner,
+        .loading-container[data-state="warning"] .spinner,
+        .loading-container[data-state="error"] .spinner {
+            display: none;
+        }
+
+        .loading-container[data-state="success"] .operation-status-badge {
+            color: #6ee7b7;
+            border-color: rgba(16, 185, 129, 0.55);
+            background: rgba(16, 185, 129, 0.18);
+        }
+
+        .loading-container[data-state="warning"] .operation-status-badge {
+            color: #fcd34d;
+            border-color: rgba(245, 158, 11, 0.55);
+            background: rgba(245, 158, 11, 0.18);
+        }
+
+        .loading-container[data-state="error"] .operation-status-badge {
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.55);
+            background: rgba(239, 68, 68, 0.18);
+        }
+
+        .step-indicator[data-state="running"] {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: var(--accent-purple);
+            color: #c084fc;
+        }
+
+        .step-indicator[data-state="success"] {
+            background: rgba(16, 185, 129, 0.18);
+            border-color: rgba(16, 185, 129, 0.55);
+            color: #6ee7b7;
+        }
+
+        .step-indicator[data-state="warning"] {
+            background: rgba(245, 158, 11, 0.18);
+            border-color: rgba(245, 158, 11, 0.55);
+            color: #fcd34d;
+        }
+
+        .step-indicator[data-state="error"] {
+            background: rgba(239, 68, 68, 0.18);
+            border-color: rgba(239, 68, 68, 0.55);
+            color: #fca5a5;
+        }
+
+        .activity-shell {
+            margin-top: 1.25rem;
+            background: rgba(2, 6, 23, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.7rem 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .request-reference {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: #c4b5fd;
+        }
+
+        .activity-log {
+            list-style: none;
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .activity-log li {
+            display: grid;
+            grid-template-columns: auto auto 1fr;
+            gap: 0.55rem;
+            align-items: start;
+            padding: 0.42rem 0;
+            color: #cbd5e1;
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
+
+        .activity-log time {
+            color: #64748b;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        .log-dot {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 50%;
+            background: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        li[data-state="running"] .log-dot { background: #a78bfa; }
+        li[data-state="success"] .log-dot { background: #34d399; }
+        li[data-state="warning"] .log-dot { background: #fbbf24; }
+        li[data-state="error"] .log-dot { background: #f87171; }
+        li[data-state="skipped"] .log-dot { background: #94a3b8; }
+
+        .clip-card.editor-open {
+            grid-column: 1 / -1;
+            transform: none;
+        }
+
+        .metadata-label {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .clip-editor {
+            margin-top: 0.9rem;
+            padding: 1rem;
+            border-radius: 0.8rem;
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            background: rgba(2, 6, 23, 0.48);
+        }
+
+        .clip-editor[hidden], .render-receipt[hidden], .result-actions[hidden] {
+            display: none;
+        }
+
+        .editor-header, .receipt-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .editor-state {
+            color: #c4b5fd;
+            border: 1px solid rgba(139, 92, 246, 0.45);
+            background: rgba(139, 92, 246, 0.14);
+            border-radius: 999px;
+            padding: 0.25rem 0.55rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .control-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .control-section h4 {
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.7rem;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.8rem;
+        }
+
+        .control-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            min-width: 0;
+            color: #cbd5e1;
+            font-size: 0.82rem;
+        }
+
+        .control-field input[type="number"],
+        .control-field input[type="text"],
+        .control-field select {
+            width: 100%;
+            min-width: 0;
+            flex: none;
+            padding: 0.65rem 0.7rem;
+            border-radius: 0.55rem;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(15, 23, 42, 0.9);
+            color: #fff;
+            font: inherit;
+        }
+
+        .control-field input:focus, .control-field select:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.22);
+        }
+
+        .nudge-controls {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.35rem;
+        }
+
+        .btn-small {
+            min-height: 36px;
+            padding: 0.45rem 0.65rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(51, 65, 85, 0.75);
+            color: #e2e8f0;
+            cursor: pointer;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            color: #e2e8f0;
+            font-size: 0.86rem;
+            line-height: 1.35;
+            margin-top: 0.7rem;
+        }
+
+        .toggle-row input {
+            width: 1.05rem;
+            height: 1.05rem;
+            margin-top: 0.08rem;
+            accent-color: var(--accent-purple);
+            flex: 0 0 auto;
+        }
+
+        .range-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 0.7rem;
+        }
+
+        .range-row output {
+            min-width: 2.5rem;
+            text-align: right;
+            color: #c4b5fd;
+        }
+
+        .inclusion-summary {
+            margin-top: 1rem;
+            padding: 0.85rem;
+            border-radius: 0.65rem;
+            border: 1px solid rgba(6, 182, 212, 0.28);
+            background: rgba(8, 47, 73, 0.24);
+            font-size: 0.84rem;
+            line-height: 1.5;
+        }
+
+        .summary-title {
+            font-weight: 700;
+            color: #e0f2fe;
+            margin-bottom: 0.35rem;
+        }
+
+        .included-line { color: #6ee7b7; }
+        .excluded-line { color: #fcd34d; }
+
+        .editor-validation {
+            min-height: 1.25rem;
+            margin: 0.55rem 0;
+            color: #fca5a5;
+            font-size: 0.8rem;
+        }
+
+        .confirmation-row {
+            padding: 0.8rem;
+            border: 1px solid rgba(245, 158, 11, 0.38);
+            border-radius: 0.65rem;
+            background: rgba(120, 53, 15, 0.16);
+        }
+
+        .confirmation-row strong { color: #fde68a; }
+
+        .render-receipt {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.8rem;
+            border: 1px solid rgba(16, 185, 129, 0.45);
+            background: rgba(6, 78, 59, 0.18);
+        }
+
+        .receipt-id {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: #a7f3d0;
+            font-size: 0.73rem;
+            overflow-wrap: anywhere;
+        }
+
+        .receipt-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem 1rem;
+            font-size: 0.82rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .receipt-grid div {
+            padding: 0.4rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .receipt-list {
+            font-size: 0.82rem;
+            line-height: 1.45;
+            margin-top: 0.35rem;
+        }
+
+        .unsupported-note {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            margin-top: 0.45rem;
+        }
+
+        .btn-review {
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+        }
+
+        .btn-preview-range {
+            background: rgba(6, 182, 212, 0.18);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+        }
+
+        .gemini-chat { margin: 0.9rem 0; border: 1px solid rgba(96, 165, 250, 0.32); border-radius: 0.85rem; overflow: hidden; background: radial-gradient(circle at 100% 0, rgba(236, 72, 153, 0.14), transparent 13rem), rgba(2, 6, 23, 0.58); }
+        .gemini-chat-toggle { width: 100%; border: 0; padding: 0.8rem 0.9rem; color: #f8fafc; background: transparent; display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; cursor: pointer; text-align: left; }
+        .gemini-chat-toggle:hover { background: rgba(96, 165, 250, 0.08); }
+        .gemini-identity { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+        .gemini-mark { width: 1.9rem; height: 1.9rem; flex: 0 0 auto; display: grid; place-items: center; border-radius: 0.65rem; background: linear-gradient(145deg, #60a5fa, #8b5cf6 55%, #ec4899); box-shadow: 0 0 22px rgba(139, 92, 246, 0.28); font-size: 1rem; }
+        .gemini-identity strong { display: block; font-size: 0.88rem; }
+        .gemini-identity small { display: block; color: var(--text-muted); font-size: 0.7rem; margin-top: 0.08rem; }
+        .gemini-model-badge { flex: 0 0 auto; padding: 0.25rem 0.5rem; border: 1px solid rgba(96, 165, 250, 0.35); border-radius: 999px; color: #bfdbfe; background: rgba(37, 99, 235, 0.12); font-size: 0.67rem; font-weight: 700; white-space: nowrap; }
+        .gemini-chat-body { padding: 0 0.85rem 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+        .gemini-chat-body[hidden] { display: none; }
+        .gemini-messages { max-height: 210px; overflow-y: auto; padding: 0.75rem 0.1rem 0.35rem; display: flex; flex-direction: column; gap: 0.55rem; scrollbar-width: thin; }
+        .gemini-message { max-width: 92%; padding: 0.58rem 0.68rem; border-radius: 0.7rem; font-size: 0.79rem; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .gemini-message[data-role="assistant"] { align-self: flex-start; color: #dbeafe; background: rgba(30, 64, 175, 0.2); border: 1px solid rgba(96, 165, 250, 0.2); border-bottom-left-radius: 0.2rem; }
+        .gemini-message[data-role="user"] { align-self: flex-end; color: #fce7f3; background: rgba(157, 23, 77, 0.22); border: 1px solid rgba(244, 114, 182, 0.2); border-bottom-right-radius: 0.2rem; }
+        .gemini-message[data-state="error"] { color: #fecaca; background: rgba(127, 29, 29, 0.2); border-color: rgba(248, 113, 113, 0.3); }
+        .gemini-quick-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0 0.55rem; }
+        .gemini-chip { min-height: 32px; padding: 0.35rem 0.55rem; border-radius: 999px; border: 1px solid rgba(139, 92, 246, 0.35); color: #ddd6fe; background: rgba(124, 58, 237, 0.12); font-size: 0.71rem; cursor: pointer; }
+        .gemini-composer { display: grid; grid-template-columns: 1fr auto; gap: 0.45rem; align-items: end; }
+        .gemini-composer textarea { width: 100%; min-height: 62px; max-height: 130px; resize: vertical; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 0.65rem; padding: 0.62rem 0.7rem; color: #fff; background: rgba(15, 23, 42, 0.86); font: inherit; font-size: 0.8rem; }
+        .gemini-composer textarea:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.16); }
+        .gemini-send { min-width: 44px; min-height: 44px; border: 0; border-radius: 0.65rem; color: #fff; background: linear-gradient(145deg, #2563eb, #7c3aed, #db2777); cursor: pointer; font-size: 1rem; }
+        .gemini-change-list { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.45rem; }
+        .gemini-change { padding: 0.25rem 0.45rem; border-radius: 999px; border: 1px solid rgba(16, 185, 129, 0.35); color: #a7f3d0; background: rgba(6, 78, 59, 0.18); font-size: 0.68rem; }
+        .asset-controls { margin-top: 0.85rem; padding: 0.8rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.65rem; background: rgba(15, 23, 42, 0.48); }
+        .asset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; margin-top: 0.65rem; }
+        .asset-card { min-width: 0; padding: 0.7rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.6rem; background: rgba(2, 6, 23, 0.45); }
+        .asset-card strong { display: block; font-size: 0.8rem; margin-bottom: 0.45rem; }
+        .asset-file-label { display: block; min-height: 1.1rem; margin-top: 0.4rem; color: #93c5fd; font-size: 0.7rem; overflow-wrap: anywhere; }
+        .asset-upload-button { width: 100%; min-height: 38px; padding: 0.5rem 0.65rem; border-radius: 0.55rem; border: 1px dashed rgba(96, 165, 250, 0.42); color: #dbeafe; background: rgba(30, 64, 175, 0.12); cursor: pointer; font-size: 0.75rem; }
+        .rights-row { margin-top: 0; padding-bottom: 0.65rem; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+
+        .drive-progress {
+            margin: 1rem 0;
+            padding: 0.9rem;
+            border: 1px solid rgba(139, 92, 246, 0.38);
+            border-radius: 0.8rem;
+            background: rgba(15, 23, 42, 0.72);
+        }
+
+        .drive-progress[hidden] { display: none; }
+
+        .drive-progress-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .drive-progress-header span {
+            color: #ddd6fe;
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+        }
+
+        .drive-progress-track {
+            height: 0.72rem;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.2);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        }
+
+        .drive-progress-fill {
+            width: 0;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #8b5cf6, #ec4899);
+            transition: width 0.25s ease;
+        }
+
+        .drive-progress[data-mode="indeterminate"] .drive-progress-fill {
+            width: 40%;
+            animation: drive-progress-slide 1.1s ease-in-out infinite;
+        }
+
+        @keyframes drive-progress-slide {
+            0% { transform: translateX(-120%); }
+            100% { transform: translateX(320%); }
+        }
+
+        .drive-progress-copy {
+            min-height: 1.25rem;
+            margin-top: 0.55rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .drive-progress-steps {
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+            margin-top: 0.65rem;
+        }
+
+        .drive-progress-steps span {
+            padding: 0.28rem 0.55rem;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 999px;
+            color: #94a3b8;
+            font-size: 0.72rem;
+        }
+
+        .drive-progress-steps span[data-state="active"] {
+            border-color: rgba(139, 92, 246, 0.65);
+            color: #ddd6fe;
+            background: rgba(124, 58, 237, 0.16);
+        }
+
+        .drive-progress-steps span[data-state="complete"] {
+            border-color: rgba(16, 185, 129, 0.55);
+            color: #6ee7b7;
+            background: rgba(6, 78, 59, 0.18);
+        }
+
+        .drive-progress-steps span[data-state="retrying"] {
+            border-color: rgba(245, 158, 11, 0.58);
+            color: #fcd34d;
+            background: rgba(120, 53, 15, 0.16);
+        }
+
+        .drive-progress-steps span[data-state="error"] {
+            border-color: rgba(239, 68, 68, 0.58);
+            color: #fca5a5;
+            background: rgba(127, 29, 29, 0.16);
+        }
+
+        .drive-progress[data-state="failed"],
+        .drive-progress[data-state="link_warning"] {
+            border-color: rgba(239, 68, 68, 0.52);
+        }
+
+        .drive-progress[data-state="retrying"] {
+            border-color: rgba(245, 158, 11, 0.58);
+        }
+
+        .drive-progress[data-state="succeeded"] {
+            border-color: rgba(16, 185, 129, 0.55);
+        }
+
+        .drive-progress-card {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-operation-status {
+            display: none;
+            border-radius: 0.55rem;
+            padding: 0.55rem 0.7rem;
+            margin-bottom: 0.65rem;
+            font-size: 0.82rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.65);
+        }
+
+        .card-operation-status[data-state="running"],
+        .card-operation-status[data-state="success"],
+        .card-operation-status[data-state="warning"],
+        .card-operation-status[data-state="error"] {
+            display: block;
+        }
+
+        .card-operation-status[data-state="running"] { color: #c4b5fd; border-color: rgba(139, 92, 246, 0.45); }
+        .card-operation-status[data-state="success"] { color: #6ee7b7; border-color: rgba(16, 185, 129, 0.45); }
+        .card-operation-status[data-state="warning"] { color: #fcd34d; border-color: rgba(245, 158, 11, 0.45); }
+        .card-operation-status[data-state="error"] { color: #fca5a5; border-color: rgba(239, 68, 68, 0.45); }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.62;
+            transform: none !important;
+        }
+
+        button:disabled:not([aria-busy="true"]) { cursor: not-allowed; }
+
+        @media (max-width: 640px) {
+            body { padding: 1rem 0.65rem; }
+            header h1 { font-size: 2rem; }
+            .search-card, .loading-container, .preview-container { padding: 1rem; }
+            .clips-grid { grid-template-columns: 1fr; }
+            .clip-card { padding: 1rem; }
+            .clip-editor { padding: 0.8rem; }
+            .control-grid, .receipt-grid { grid-template-columns: 1fr; }
+            .btn-action, .btn-small { min-height: 44px; }
+            .editor-header, .receipt-header { align-items: flex-start; flex-direction: column; }
+            .operation-header { align-items: flex-start; flex-wrap: wrap; }
+            .step-indicators { gap: 0.45rem; flex-wrap: wrap; }
+            .step-indicator { font-size: 0.78rem; }
+            .activity-header { flex-direction: column; gap: 0.25rem; }
+            .drive-progress-header { align-items: flex-start; flex-direction: column; }
+            .asset-grid { grid-template-columns: 1fr; }
+            .gemini-model-badge { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ YouTube AI Clipper & Google Drive</h1>
+            <p>Cortes Automáticos Verticais (9:16) integrados ao Google Drive MCP</p>
+            <p><a href="/technical">Abrir Pipeline Técnico T2/T3 (arquivo local, Whisper e legendas queimadas)</a></p>
+        </header>
+
+        <div class="search-card">
+            <div class="input-group">
+                <input type="text" id="youtubeUrl" placeholder="Cole a URL do vídeo do YouTube" value="https://www.youtube.com/watch?v=3Vpf3EaE1mc">
+                <input type="text" id="gdriveFolderId" placeholder="ID da Pasta Google Drive" value="1mYLUnTMhdflzmYhee804Nj52jBQuOI8H" style="flex: 1; min-width: 240px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 0.75rem; padding: 0.85rem 1.25rem; color: #fff; font-size: 1rem; outline: none;">
+                <button class="btn-primary" id="analyzeButton" onclick="analyzeVideo(this)">
+                    <span>🔍 Analisar Vídeo</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Persistent operation status and audited activity log -->
+        <section class="loading-container" id="loadingSpinner" data-state="idle" aria-live="polite" aria-atomic="false">
+            <div class="operation-header">
+                <div class="spinner" id="operationSpinner" aria-hidden="true"></div>
+                <div class="operation-copy">
+                    <h3 id="operationTitle">Aguardando uma operação</h3>
+                    <p id="statusMessage">Clique em uma ação para acompanhar cada etapa.</p>
+                </div>
+                <span class="operation-status-badge" id="operationBadge">AGUARDANDO</span>
+            </div>
+            <div class="step-indicators" aria-label="Etapas da operação">
+                <div class="step-indicator" data-state="pending" id="step1">1. Solicitação</div>
+                <div class="step-indicator" data-state="pending" id="step2">2. Processamento</div>
+                <div class="step-indicator" data-state="pending" id="step3">3. Resultado</div>
+            </div>
+            <div class="drive-progress" id="driveProgressGlobal" hidden aria-live="polite" data-state="pending" data-mode="indeterminate">
+                <div class="drive-progress-header">
+                    <strong>☁️ Upload ao Google Drive</strong>
+                    <span data-drive-percent>aguardando</span>
+                </div>
+                <div class="drive-progress-track" data-drive-track role="progressbar" aria-label="Progresso do upload ao Google Drive" aria-valuemin="0" aria-valuemax="100">
+                    <div class="drive-progress-fill" data-drive-fill></div>
+                </div>
+                <div class="drive-progress-copy" data-drive-copy>Upload aguardando a conclusão do MP4.</div>
+                <div class="drive-progress-steps" aria-label="Etapas do envio ao Drive">
+                    <span data-drive-step="auth" data-state="pending">Autenticação</span>
+                    <span data-drive-step="upload" data-state="pending">Envio</span>
+                    <span data-drive-step="link" data-state="pending">Link</span>
+                </div>
+            </div>
+            <div class="activity-shell">
+                <div class="activity-header">
+                    <strong>Logs da operação</strong>
+                    <span class="request-reference" id="requestReference">sem operação ativa</span>
+                </div>
+                <ol class="activity-log" id="activityLog" role="log" aria-live="polite" aria-relevant="additions"></ol>
+            </div>
+        </section>
+
+        <!-- Dual Interactive Preview Player Container -->
+        <div class="preview-container" id="previewContainer">
+            <div class="preview-header">
+                <span>🎬 Player de Preview Interativo</span>
+            </div>
+            <div class="preview-players">
+                <div class="player-box">
+                    <h4>Vídeo Original YouTube</h4>
+                    <iframe id="youtubeEmbed" class="youtube-embed" src="" frameborder="0" allowfullscreen></iframe>
+                </div>
+                <div class="player-box" id="verticalPlayerBox" style="display: none;">
+                    <h4>Clipe Vertical (9:16)</h4>
+                    <video id="clipPreviewPlayer" class="vertical-player" controls></video>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ranked Engagement Clips Cards Grid -->
+        <div class="clips-grid" id="clipsGrid"></div>
+    </div>
+
+    <script>
+        const operationState = {
+            stopPolling: null,
+            seenEvents: new Set(),
+            hadBackendFailure: false,
+            activeRank: null,
+            driveRequested: false
+        };
+
+        const eventStatusLabels = {
+            planned: 'planejado',
+            started: 'iniciado',
+            retrying: 'nova tentativa',
+            succeeded: 'concluído',
+            skipped: 'ignorado',
+            failed: 'falhou',
+            cancelled: 'cancelado',
+            interrupted: 'interrompido'
+        };
+
+        function createRequestId() {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return window.crypto.randomUUID();
+            }
+            return `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        }
+
+        function getYouTubeVideoId(url) {
+            const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            return match ? match[1] : null;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>'"]/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            })[char]);
+        }
+
+        function friendlyAction(action) {
+            const value = String(action || 'operação');
+            if (value.includes('/api/analyze')) return 'Requisição de análise';
+            if (value.includes('/api/generate-clip')) return 'Requisição de renderização';
+            if (value.includes('/api/gdrive-upload')) return 'Requisição de upload';
+            if (value === 'youtube.extract_transcript_and_analyze') return 'Extração e análise da transcrição';
+            if (value === 'youtube.parse_vtt') return 'Leitura das legendas VTT';
+            if (value === 'youtube.rank_clips') return 'Seleção dos melhores cortes';
+            if (value.includes('command.yt-dlp')) return 'Download das legendas com yt-dlp';
+            if (value === 'public.validate_input') return 'Validação do vídeo e dos tempos';
+            if (value === 'public.resolve_output') return 'Preparação do arquivo de saída';
+            if (value === 'public.download') return 'Download do trecho do vídeo';
+            if (value === 'youtube.download_segment') return 'Captura do segmento selecionado';
+            if (value === 'public.vertical_transform') return 'Conversão vertical 9:16';
+            if (value.includes('media.convert_vertical')) return 'Renderização do vídeo com FFmpeg';
+            if (value.includes('command.ffmpeg')) return 'Processamento FFmpeg';
+            if (value === 'public.cleanup') return 'Limpeza dos arquivos temporários';
+            if (value.includes('gdrive.auth')) return 'Autenticação no Google Drive';
+            if (value === 'gdrive.build_client') return 'Conexão com o Google Drive';
+            if (value === 'gdrive.resolve_folder') return 'Localização da pasta no Drive';
+            if (value.startsWith('gdrive.upload.progress.')) return 'Progresso do upload ao Drive';
+            if (value === 'gdrive.upload') return 'Envio do MP4 ao Google Drive';
+            if (value === 'gdrive.set_permission') return 'Configuração do link do Drive';
+            if (value === 'http.authorize') return 'Autorização da requisição';
+            if (value === 'http.send_json') return 'Preparação da resposta';
+            return value.replaceAll('.', ' · ');
+        }
+
+        function setMarker(id, state, text) {
+            const marker = document.getElementById(id);
+            if (!marker) return;
+            marker.dataset.state = state;
+            if (text) marker.textContent = text;
+        }
+
+        function setCardStatus(rank, state, message) {
+            if (rank === undefined || rank === null) return;
+            const status = document.getElementById(`cardStatus-${rank}`);
+            if (!status) return;
+            status.dataset.state = state;
+            status.textContent = message;
+        }
+
+        function driveProgressTargets(rank = operationState.activeRank) {
+            const targets = [document.getElementById("driveProgressGlobal")];
+            if (rank !== undefined && rank !== null) {
+                targets.push(document.getElementById(`driveProgress-${rank}`));
+            }
+            return targets.filter(Boolean);
+        }
+
+        function resetDriveProgress(rank, requested) {
+            const targets = driveProgressTargets(rank);
+            for (const container of targets) {
+                const isGlobal = container.id === "driveProgressGlobal";
+                if (!requested) {
+                    if (isGlobal || container.id === `driveProgress-${rank}`) container.hidden = true;
+                    continue;
+                }
+                container.hidden = false;
+                container.dataset.state = "pending";
+                container.dataset.mode = "indeterminate";
+                delete container.dataset.percent;
+                const fill = container.querySelector("[data-drive-fill]");
+                const track = container.querySelector("[data-drive-track]");
+                if (fill) fill.style.width = "40%";
+                if (track) {
+                    track.removeAttribute("aria-valuenow");
+                    track.setAttribute("aria-valuetext", "Upload aguardando a conclusão do MP4");
+                }
+                const percentLabel = container.querySelector("[data-drive-percent]");
+                const copy = container.querySelector("[data-drive-copy]");
+                if (percentLabel) percentLabel.textContent = "aguardando";
+                if (copy) copy.textContent = "Upload aguardando a conclusão do MP4.";
+                container.querySelectorAll("[data-drive-step]").forEach(step => {
+                    step.dataset.state = "pending";
+                });
+            }
+        }
+
+        function renderDriveProgress(status = {}, rank = operationState.activeRank) {
+            const state = String(status.state || "pending");
+            const finalPercentStates = new Set(["uploaded", "finalizing", "succeeded", "link_warning"]);
+            const hasIncomingPercent = status.progress_percent !== null
+                && status.progress_percent !== undefined
+                && status.progress_percent !== "";
+            const rawPercent = Number(status.progress_percent);
+            const incomingPercent = hasIncomingPercent && Number.isFinite(rawPercent)
+                ? Math.max(0, Math.min(100, rawPercent))
+                : null;
+            const uploadedBytes = Number(status.uploaded_bytes);
+            const totalBytes = Number(status.total_bytes);
+            const hasUploadedBytes = status.uploaded_bytes !== null
+                && status.uploaded_bytes !== undefined
+                && Number.isFinite(uploadedBytes)
+                && uploadedBytes >= 0;
+            const hasTotalBytes = status.total_bytes !== null
+                && status.total_bytes !== undefined
+                && Number.isFinite(totalBytes)
+                && totalBytes >= 0;
+
+            for (const container of driveProgressTargets(rank)) {
+                container.hidden = false;
+                container.dataset.state = state;
+                const storedPercent = Number(container.dataset.percent);
+                const hasStoredPercent = container.dataset.percent !== undefined && Number.isFinite(storedPercent);
+                let percent = finalPercentStates.has(state) ? 100 : incomingPercent;
+                if (hasStoredPercent && (percent === null || percent < storedPercent)) percent = storedPercent;
+                const determinate = percent !== null && (
+                    status.determinate === true || hasStoredPercent || finalPercentStates.has(state)
+                );
+                container.dataset.mode = determinate ? "determinate" : "indeterminate";
+
+                const fill = container.querySelector("[data-drive-fill]");
+                const track = container.querySelector("[data-drive-track]");
+                const percentLabel = container.querySelector("[data-drive-percent]");
+                const copy = container.querySelector("[data-drive-copy]");
+                const displayPercent = determinate
+                    ? Number(percent.toFixed(1)).toLocaleString("pt-BR")
+                    : null;
+
+                if (determinate) {
+                    container.dataset.percent = String(percent);
+                    if (fill) fill.style.width = `${percent}%`;
+                    if (track) track.setAttribute("aria-valuenow", String(percent));
+                } else {
+                    if (fill) fill.style.width = "40%";
+                    if (track) track.removeAttribute("aria-valuenow");
+                }
+
+                let label = determinate ? `${displayPercent}%` : "em andamento";
+                let message = "Preparando o envio ao Google Drive…";
+                if (state === "pending") {
+                    label = "aguardando";
+                    message = "Upload aguardando a conclusão do MP4.";
+                } else if (state === "authenticating") {
+                    message = "Autenticando no Google Drive…";
+                } else if (state === "preparing") {
+                    message = "Localizando a pasta de destino…";
+                } else if (state === "uploading") {
+                    message = determinate && hasUploadedBytes && hasTotalBytes
+                        ? `${formatFileSize(uploadedBytes)} de ${formatFileSize(totalBytes)} confirmados pelo Drive.`
+                        : "Enviando o arquivo; este transporte ainda não informou bytes confirmados.";
+                } else if (state === "retrying") {
+                    label = determinate ? `${displayPercent}% · nova tentativa` : "nova tentativa";
+                    message = `Tentativa ${status.attempt || "adicional"}; o último progresso confirmado foi preservado.`;
+                } else if (state === "uploaded") {
+                    message = "Arquivo enviado; preparando o link de compartilhamento.";
+                } else if (state === "finalizing") {
+                    message = "100% enviado; configurando o link de compartilhamento.";
+                } else if (state === "succeeded") {
+                    message = "Upload concluído e link do Google Drive disponível.";
+                } else if (state === "failed") {
+                    label = determinate ? `falhou em ${displayPercent}%` : "falhou";
+                    message = determinate
+                        ? `Upload interrompido após ${displayPercent}% confirmados pelo Drive.`
+                        : "O upload falhou antes de o Drive confirmar o progresso.";
+                } else if (state === "link_warning") {
+                    label = "100% · link pendente";
+                    message = "Arquivo enviado, mas o link de compartilhamento não pôde ser configurado.";
+                }
+
+                if (percentLabel) percentLabel.textContent = label;
+                if (copy) copy.textContent = message;
+                if (track) track.setAttribute("aria-valuetext", `${label}. ${message}`);
+
+                const authStep = container.querySelector("[data-drive-step=auth]");
+                const uploadStep = container.querySelector("[data-drive-step=upload]");
+                const linkStep = container.querySelector("[data-drive-step=link]");
+                if (authStep) authStep.dataset.state = state === "authenticating" ? "active" : (state === "pending" ? "pending" : "complete");
+                if (uploadStep) {
+                    if (["preparing", "uploading", "retrying"].includes(state)) uploadStep.dataset.state = state === "retrying" ? "retrying" : "active";
+                    else if (state === "failed") uploadStep.dataset.state = "error";
+                    else if (["uploaded", "finalizing", "succeeded", "link_warning"].includes(state)) uploadStep.dataset.state = "complete";
+                    else uploadStep.dataset.state = "pending";
+                }
+                if (linkStep) {
+                    if (state === "finalizing") linkStep.dataset.state = "active";
+                    else if (state === "succeeded") linkStep.dataset.state = "complete";
+                    else if (state === "link_warning") linkStep.dataset.state = "error";
+                    else linkStep.dataset.state = "pending";
+                }
+            }
+        }
+
+        function appendActivity(message, state = 'running', timestamp = null, eventId = null) {
+            if (eventId && operationState.seenEvents.has(eventId)) return;
+            if (eventId) operationState.seenEvents.add(eventId);
+
+            const log = document.getElementById('activityLog');
+            const item = document.createElement('li');
+            item.dataset.state = state;
+            const dot = document.createElement('span');
+            dot.className = 'log-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            const time = document.createElement('time');
+            const parsed = timestamp ? new Date(timestamp) : new Date();
+            time.dateTime = Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+            time.textContent = Number.isNaN(parsed.getTime())
+                ? '--:--:--'
+                : parsed.toLocaleTimeString('pt-BR', { hour12: false });
+            const copy = document.createElement('span');
+            copy.textContent = message;
+            item.append(dot, time, copy);
+            log.appendChild(item);
+            while (log.children.length > 200) log.firstElementChild.remove();
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function setControlsBusy(busy, activeButton = null, busyLabel = '') {
+            document.querySelectorAll('button').forEach(button => {
+                if (busy) {
+                    if (!button.disabled) button.dataset.operationEnabled = 'true';
+                    button.disabled = true;
+                } else if (button.dataset.operationEnabled === 'true') {
+                    button.disabled = false;
+                    delete button.dataset.operationEnabled;
+                }
+            });
+
+            if (!activeButton) return;
+            if (busy) {
+                activeButton.dataset.originalContent = activeButton.innerHTML;
+                activeButton.textContent = busyLabel || '⏳ Processando...';
+                activeButton.setAttribute('aria-busy', 'true');
+            } else {
+                if (activeButton.dataset.originalContent && activeButton.isConnected) {
+                    activeButton.innerHTML = activeButton.dataset.originalContent;
+                }
+                delete activeButton.dataset.originalContent;
+                activeButton.removeAttribute('aria-busy');
+            }
+        }
+
+        function beginOperation({ title, message, button, busyLabel, rank = null, driveRequested = false }) {
+            if (operationState.stopPolling) operationState.stopPolling();
+            operationState.seenEvents = new Set();
+            operationState.hadBackendFailure = false;
+            operationState.activeRank = rank;
+            operationState.driveRequested = Boolean(driveRequested);
+            resetDriveProgress(rank, operationState.driveRequested);
+            const requestId = createRequestId();
+            const panel = document.getElementById('loadingSpinner');
+            panel.style.display = 'block';
+            panel.dataset.state = 'running';
+            document.getElementById('operationTitle').textContent = title;
+            document.getElementById('statusMessage').textContent = message;
+            document.getElementById('operationBadge').textContent = 'EM ANDAMENTO';
+            document.getElementById('requestReference').textContent = `ID ${requestId}`;
+            document.getElementById('activityLog').replaceChildren();
+            setMarker('step1', 'running', '1. Enviando');
+            setMarker('step2', 'pending', '2. Processando');
+            setMarker('step3', 'pending', '3. Resultado');
+            setControlsBusy(true, button, busyLabel);
+            setCardStatus(rank, 'running', message);
+            appendActivity('Ação iniciada no navegador.', 'running');
+            const stopPolling = startStatusPolling(requestId);
+            operationState.stopPolling = stopPolling;
+            return { requestId, button, rank, stopPolling, driveRequested: operationState.driveRequested };
+        }
+
+        async function finishOperation(context, state, title, message) {
+            if (context.stopPolling) await context.stopPolling();
+            if (state === 'success' && operationState.hadBackendFailure) {
+                state = 'warning';
+                title = title + ' com alertas';
+                message = message + ' Uma etapa interna falhou e foi recuperada; consulte o log.';
+            }
+            if (operationState.stopPolling === context.stopPolling) {
+                operationState.stopPolling = null;
+            }
+            const panel = document.getElementById('loadingSpinner');
+            panel.dataset.state = state;
+            document.getElementById('operationTitle').textContent = title;
+            document.getElementById('statusMessage').textContent = message;
+            const badgeLabels = {
+                success: 'CONCLUÍDO', warning: 'ATENÇÃO', error: 'ERRO'
+            };
+            document.getElementById('operationBadge').textContent = badgeLabels[state] || state.toUpperCase();
+            setMarker('step1', 'success', '1. Enviado');
+            setMarker('step2', state === 'error' ? 'error' : 'success', state === 'error' ? '2. Falhou' : '2. Processado');
+            setMarker('step3', state, state === 'success' ? '3. Concluído' : (state === 'warning' ? '3. Parcial' : '3. Erro'));
+            appendActivity(message, state);
+            setCardStatus(context.rank, state, message);
+            setControlsBusy(false, context.button);
+        }
+
+        function showImmediateError(title, message) {
+            const panel = document.getElementById('loadingSpinner');
+            panel.style.display = 'block';
+            panel.dataset.state = 'error';
+            document.getElementById('operationTitle').textContent = title;
+            document.getElementById('statusMessage').textContent = message;
+            document.getElementById('operationBadge').textContent = 'ERRO';
+            document.getElementById('requestReference').textContent = 'validação local';
+            document.getElementById('activityLog').replaceChildren();
+            setMarker('step1', 'error', '1. Não enviado');
+            setMarker('step2', 'pending', '2. Processamento');
+            setMarker('step3', 'error', '3. Corrija os dados');
+            appendActivity(message, 'error');
+        }
+
+        function renderBackendStatus(data) {
+            const events = Array.isArray(data.events) ? data.events : [];
+            for (const event of events) {
+                const eventId = event.event_id || `${event.run_id}:${event.seq}:${event.status}`;
+                if (event.status === 'planned') continue;
+                const visualState = event.status === 'succeeded'
+                    ? 'success'
+                    : (event.status === 'failed' ? 'error' : event.status);
+                const statusLabel = eventStatusLabels[event.status] || event.status || 'atualizado';
+                let message = `${friendlyAction(event.action)} — ${statusLabel}`;
+                if (event.error) message += `: ${event.error}`;
+                appendActivity(message, visualState, event.ts, eventId);
+
+                if (String(event.action || '').startsWith('http.') && event.status === 'started') {
+                    setMarker('step1', 'success', '1. Recebido');
+                    setMarker('step2', 'running', '2. Processando');
+                } else if (!String(event.action || '').startsWith('http.') && event.status === 'started') {
+                    setMarker('step2', 'running', '2. Processando');
+                } else if (event.status === 'failed') {
+                    operationState.hadBackendFailure = true;
+                    setMarker('step2', 'error', '2. Falha detectada');
+                }
+            }
+            if (data && data.drive_upload && operationState.driveRequested) {
+                renderDriveProgress(data.drive_upload, operationState.activeRank);
+            }
+        }
+
+        function startStatusPolling(requestId) {
+            let stopped = false;
+            let polling = false;
+            let timer = null;
+
+            const poll = async () => {
+                if (stopped || polling) return;
+                polling = true;
+                try {
+                    const response = await fetch(`/api/status/${encodeURIComponent(requestId)}`, {
+                        cache: 'no-store'
+                    });
+                    if (response.ok) renderBackendStatus(await response.json());
+                } catch (_) {
+                    // The main request will report a definitive network error.
+                } finally {
+                    polling = false;
+                }
+            };
+
+            timer = window.setInterval(poll, 750);
+            poll();
+            return async () => {
+                if (stopped) return;
+                window.clearInterval(timer);
+                await new Promise(resolve => window.setTimeout(resolve, 100));
+                stopped = false;
+                await poll();
+                stopped = true;
+            };
+        }
+
+        async function trackedPost(endpoint, payload, operation) {
+            const context = beginOperation(operation);
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Request-ID': context.requestId
+                    },
+                    body: JSON.stringify(payload)
+                });
+                let data;
+                try {
+                    data = await response.json();
+                } catch (_) {
+                    data = { success: false, error: `Resposta HTTP ${response.status} sem JSON válido.` };
+                }
+                await context.stopPolling();
+                context.stopPolling = null;
+                operationState.stopPolling = null;
+                return { response, data, context };
+            } catch (error) {
+                if (context.driveRequested) renderDriveProgress({ state: "failed" }, context.rank);
+                await finishOperation(
+                    context,
+                    'error',
+                    'Falha de comunicação',
+                    `Não foi possível concluir a requisição: ${error.message}`
+                );
+                return { response: null, data: null, context, error };
+            }
+        }
+
+        async function analyzeVideo(button) {
+            const url = document.getElementById('youtubeUrl').value.trim();
+            if (!url) {
+                showImmediateError('Análise não iniciada', 'Informe a URL do vídeo do YouTube.');
+                return;
+            }
+
+            const videoId = getYouTubeVideoId(url);
+            if (videoId) {
+                document.getElementById('youtubeEmbed').src = `https://www.youtube.com/embed/${videoId}`;
+                document.getElementById('previewContainer').style.display = 'block';
+            }
+
+            const result = await trackedPost('/api/analyze', { url }, {
+                title: 'Analisando vídeo',
+                message: 'Extraindo legendas e procurando os melhores momentos.',
+                button,
+                busyLabel: '⏳ Analisando vídeo...'
+            });
+            if (result.error) return;
+            const { response, data, context } = result;
+            if (!response.ok || !data.success) {
+                await finishOperation(
+                    context,
+                    'error',
+                    'Análise não concluída',
+                    data.error || `Falha HTTP ${response.status}`
+                );
+                return;
+            }
+
+            renderClips(data.clips, url);
+            const count = Array.isArray(data.clips) ? data.clips.length : 0;
+            await finishOperation(
+                context,
+                'success',
+                'Análise concluída',
+                `${count} sugest${count === 1 ? 'ão' : 'ões'} de corte encontrada${count === 1 ? '' : 's'}.`
+            );
+        }
+
+        function parseTimeValue(value) {
+            if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+            const raw = String(value ?? '').trim();
+            if (!raw) return NaN;
+            const parts = raw.split(':').map(Number);
+            if (parts.some(part => !Number.isFinite(part))) return NaN;
+            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+            if (parts.length === 2) return parts[0] * 60 + parts[1];
+            if (parts.length === 1) return parts[0];
+            return NaN;
+        }
+
+        function clipExactTime(clip, numericKey, timestampKey) {
+            const exact = clip[numericKey];
+            if (exact !== null && exact !== undefined && exact !== '') {
+                const parsed = Number(exact);
+                if (Number.isFinite(parsed)) return parsed;
+            }
+            return parseTimeValue(clip[timestampKey]);
+        }
+
+        function formatTimecode(seconds) {
+            if (!Number.isFinite(seconds)) return '--:--.--';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = (seconds % 60).toFixed(2).padStart(5, '0');
+            return hours > 0
+                ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${secs}`
+                : `${String(minutes).padStart(2, '0')}:${secs}`;
+        }
+
+        function formatFileSize(bytes) {
+            const value = Number(bytes);
+            if (!Number.isFinite(value) || value < 0) return 'não informado';
+            if (value < 1024) return `${value} B`;
+            if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+            return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function renderClips(clips, videoUrl) {
+            const grid = document.getElementById('clipsGrid');
+            grid.innerHTML = '';
+
+            if (!clips || clips.length === 0) {
+                const empty = document.createElement('p');
+                empty.style.cssText = 'color: var(--text-muted); text-align: center; grid-column: 1/-1;';
+                empty.textContent = 'Nenhum corte encontrado.';
+                grid.appendChild(empty);
+                return;
+            }
+
+            clips.forEach((clip, index) => {
+                const rank = Number(clip.rank) || index + 1;
+                const clipId = String(clip.clip_id || 'legacy-rank-' + rank);
+                const projectId = String(clip.project_id || "");
+                const analysisId = String(clip.analysis_id || "");
+                const startSeconds = clipExactTime(clip, 'start_time', 'start_timestamp');
+                const endSeconds = clipExactTime(clip, 'end_time', 'end_timestamp');
+                const durationSeconds = endSeconds - startSeconds;
+                const card = document.createElement('div');
+                card.className = 'clip-card';
+                card.id = `card-${rank}`;
+                card.dataset.videoUrl = videoUrl;
+                card.dataset.clipId = clipId;
+                card.dataset.projectId = projectId;
+                card.dataset.analysisId = analysisId;
+                card.dataset.dirtyAfterRender = 'false';
+                const hashtagsHtml = (clip.hashtags || ['#shorts', '#viral'])
+                    .map(tag => `<span class="chip">${escapeHtml(tag)}</span>`)
+                    .join('');
+                const transcript = clip.transcript ? String(clip.transcript).substring(0, 150) : '';
+                const overlayDefault = String(clip.title || `Corte ${rank}`).slice(0, 90);
+                const startValue = Number.isFinite(startSeconds) ? Number(startSeconds.toFixed(3)) : 0;
+                const endValue = Number.isFinite(endSeconds) ? Number(endSeconds.toFixed(3)) : 10;
+                card.geminiHistory = [];
+                card.geminiContext = {
+                    rank,
+                    clip_id: clipId,
+                    project_id: projectId,
+                    analysis_id: analysisId,
+                    title: String(clip.title || `Corte ${rank}`).slice(0, 180),
+                    score: Number(clip.score) || 0,
+                    transcript: String(clip.transcript || '').slice(0, 6000),
+                    hashtags: Array.isArray(clip.hashtags) ? clip.hashtags.slice(0, 12) : [],
+                    start: startValue,
+                    end: endValue
+                };
+
+                card.innerHTML = `
+                    <div>
+                        <div class="card-header">
+                            <span class="badge-rank">Corte #${rank}</span>
+                            <span class="badge-score">🔥 Score: ${escapeHtml(clip.score)}/100</span>
+                        </div>
+                        <div class="card-title">${escapeHtml(clip.title)}</div>
+                        <div class="card-time" id="cardTime-${rank}">⏱ ${formatTimecode(startValue)} ➔ ${formatTimecode(endValue)} (${Number.isFinite(durationSeconds) ? durationSeconds.toFixed(2) : '?'}s)</div>
+                        <section class="card-preview" aria-label="Prévia do corte ${rank}">
+                            <div class="card-preview-header">
+                                <span>🎬 Tela deste corte</span>
+                                <span class="card-preview-state" id="cardPreviewState-${rank}" aria-live="polite">Sugestão #${rank} pronta</span>
+                            </div>
+                            <div class="card-preview-screen" id="cardPreviewScreen-${rank}" data-preview-mode="source">
+                                <div class="card-preview-placeholder" id="clipSuggestionPlaceholder-${rank}">
+                                    <span>Sugestão #${rank}</span>
+                                    <strong>${escapeHtml(clip.title || `Corte #${rank}`)}</strong>
+                                    <time>${formatTimecode(startValue)} → ${formatTimecode(endValue)}</time>
+                                </div>
+                                <iframe id="clipSourcePreview-${rank}" title="Prévia da sugestão ${rank}" loading="lazy" hidden referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                                <video id="clipOutputPreview-${rank}" title="MP4 vertical do corte ${rank}" controls playsinline hidden></video>
+                            </div>
+                            <div class="card-preview-footer">
+                                <span class="card-preview-state" id="cardPreviewDetail-${rank}">Trecho sugerido · carregado somente ao reproduzir</span>
+                                <button type="button" class="card-preview-button" data-action="play-card-preview">▶ Reproduzir sugestão #${rank}</button>
+                            </div>
+                        </section>
+                        <div class="card-transcript">"${escapeHtml(transcript)}..."</div>
+                        <div class="metadata-label">Hashtags sugeridas — metadados; não entram na imagem do vídeo</div>
+                        <div class="hashtags-container">${hashtagsHtml}</div>
+                    </div>
+                    <section class="gemini-chat" id="geminiChat-${rank}" aria-label="Chat de edição do corte ${rank}">
+                        <button type="button" class="gemini-chat-toggle" data-action="toggle-gemini" aria-expanded="false" aria-controls="geminiBody-${rank}">
+                            <span class="gemini-identity">
+                                <span class="gemini-mark" aria-hidden="true">✦</span>
+                                <span><strong>Editar com Gemini</strong><small>Converse para ajustar este corte</small></span>
+                            </span>
+                            <span class="gemini-model-badge" id="geminiModel-${rank}">Gemini 3.6 Flash</span>
+                        </button>
+                        <div class="gemini-chat-body" id="geminiBody-${rank}" hidden>
+                            <div class="gemini-messages" id="geminiMessages-${rank}" role="log" aria-live="polite">
+                                <div class="gemini-message" data-role="assistant">Posso mudar o trecho, enquadramento, selo, áudio, trilha sonora e imagem inicial. Descreva o resultado que você quer.</div>
+                            </div>
+                            <div class="gemini-quick-actions" aria-label="Sugestões rápidas">
+                                <button type="button" class="gemini-chip" data-gemini-prompt="Deixe o gancho mais rápido, cortando silêncios do começo e do fim sem passar de 59 segundos.">Gancho mais rápido</button>
+                                <button type="button" class="gemini-chip" data-gemini-prompt="Use fundo desfocado e melhore o texto editorial para ficar curto e forte.">Visual para Shorts</button>
+                                <button type="button" class="gemini-chip" data-gemini-prompt="Quero uma trilha sonora discreta abaixo do áudio original.">Adicionar trilha</button>
+                                <button type="button" class="gemini-chip" data-gemini-prompt="Quero uma imagem inicial por 2 segundos antes do corte.">Imagem inicial</button>
+                            </div>
+                            <div class="gemini-composer">
+                                <textarea id="geminiInput-${rank}" maxlength="1200" aria-label="Pedido de edição para o Gemini" placeholder="Ex.: tire 1 segundo do começo, use crop à direita e coloque a trilha em 15%..."></textarea>
+                                <button type="button" class="gemini-send" data-action="gemini-send" aria-label="Enviar pedido ao Gemini">➤</button>
+                            </div>
+                            <div class="gemini-change-list" id="geminiChanges-${rank}" aria-live="polite"></div>
+                            <p class="unsupported-note">A IA aplica ajustes reversíveis à configuração. O MP4 só é criado depois da sua revisão e confirmação.</p>
+                        </div>
+                    </section>
+                    <div class="card-operation-status" id="cardStatus-${rank}" data-state="idle" role="status"></div>
+                    <div class="drive-progress drive-progress-card" id="driveProgress-${rank}" hidden aria-live="polite" data-state="pending" data-mode="indeterminate">
+                        <div class="drive-progress-header">
+                            <strong>☁️ Envio deste corte</strong>
+                            <span data-drive-percent>aguardando</span>
+                        </div>
+                        <div class="drive-progress-track" data-drive-track role="progressbar" aria-label="Progresso do upload do corte ${rank} ao Google Drive" aria-valuemin="0" aria-valuemax="100">
+                            <div class="drive-progress-fill" data-drive-fill></div>
+                        </div>
+                        <div class="drive-progress-copy" data-drive-copy>Upload aguardando a conclusão do MP4.</div>
+                        <div class="drive-progress-steps" aria-label="Etapas do envio deste corte ao Drive">
+                            <span data-drive-step="auth" data-state="pending">Autenticação</span>
+                            <span data-drive-step="upload" data-state="pending">Envio</span>
+                            <span data-drive-step="link" data-state="pending">Link</span>
+                        </div>
+                    </div>
+                    <div class="btn-group" id="btnGroup-${rank}">
+                        <button class="btn-action btn-review" data-action="review">⚙️ Revisar e configurar</button>
+                    </div>
+                    <section class="clip-editor" id="editor-${rank}" hidden aria-label="Editor do corte ${rank}">
+                        <div class="editor-header">
+                            <strong>Configuração do corte #${rank}</strong>
+                            <span class="editor-state" id="editorState-${rank}">Aguardando revisão</span>
+                        </div>
+
+                        <div class="control-section">
+                            <h4>1. Trecho contínuo</h4>
+                            <div class="control-grid">
+                                <label class="control-field">
+                                    <span>Início exato (segundos)</span>
+                                    <input type="number" min="0" step="0.1" value="${startValue}" data-editor-field="start" id="start-${rank}">
+                                    <span class="nudge-controls">
+                                        <button type="button" class="btn-small" data-nudge="start:-0.5">−0,5 s</button>
+                                        <button type="button" class="btn-small" data-nudge="start:0.5">+0,5 s</button>
+                                    </span>
+                                </label>
+                                <label class="control-field">
+                                    <span>Fim exato (segundos)</span>
+                                    <input type="number" min="0" step="0.1" value="${endValue}" data-editor-field="end" id="end-${rank}">
+                                    <span class="nudge-controls">
+                                        <button type="button" class="btn-small" data-nudge="end:-0.5">−0,5 s</button>
+                                        <button type="button" class="btn-small" data-nudge="end:0.5">+0,5 s</button>
+                                    </span>
+                                </label>
+                            </div>
+                            <button type="button" class="btn-action btn-preview-range" data-action="preview-range">▶️ Reproduzir nesta tela</button>
+                            <p class="unsupported-note">Este editor gera um único intervalo contínuo; seleção de frases ou cenas separadas ainda não está disponível.</p>
+                        </div>
+
+                        <div class="control-section">
+                            <h4>2. Visual e áudio</h4>
+                            <div class="control-grid">
+                                <label class="control-field">
+                                    <span>Enquadramento 9:16</span>
+                                    <select data-editor-field="format" id="format-${rank}">
+                                        <option value="blur_background">Fundo desfocado</option>
+                                        <option value="split_blur">Fundo desfocado (split)</option>
+                                        <option value="crop_center">Crop vertical</option>
+                                    </select>
+                                </label>
+                                <label class="control-field">
+                                    <span>Foco horizontal do crop</span>
+                                    <select data-editor-field="crop_focus" id="cropFocus-${rank}" disabled>
+                                        <option value="left">Esquerda</option>
+                                        <option value="center" selected>Centro</option>
+                                        <option value="right">Direita</option>
+                                    </select>
+                                </label>
+                                <label class="control-field">
+                                    <span>Intensidade do desfoque</span>
+                                    <span class="range-row">
+                                        <input type="range" min="0" max="50" step="1" value="12" data-editor-field="blur_sigma" id="blurSigma-${rank}">
+                                        <output id="blurValue-${rank}">12</output>
+                                    </span>
+                                </label>
+                                <label class="control-field">
+                                    <span>Posição do selo editorial</span>
+                                    <select data-editor-field="overlay_position" id="overlayPosition-${rank}">
+                                        <option value="top">Topo</option>
+                                        <option value="bottom">Rodapé</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <label class="toggle-row">
+                                <input type="checkbox" checked data-editor-field="include_audio" id="includeAudio-${rank}">
+                                <span><strong>Incluir áudio no arquivo</strong><br><span class="unsupported-note">Mantém o áudio original e permite trilha. Desmarque para gerar um MP4 totalmente silencioso.</span></span>
+                            </label>
+                            <label class="control-field" style="margin-top: 0.8rem;">
+                                <span>Selo editorial sobreposto (obrigatório neste fluxo)</span>
+                                <input type="text" maxlength="90" required value="${escapeHtml(overlayDefault)}" data-editor-field="overlay_text" id="overlayText-${rank}">
+                            </label>
+                            <div class="asset-controls">
+                                <label class="toggle-row rights-row">
+                                    <input type="checkbox" id="assetRights-${rank}">
+                                    <span><strong>Confirmo que tenho direito de usar os arquivos anexados.</strong><br><span class="unsupported-note">Use somente mídia própria, licenciada ou autorizada.</span></span>
+                                </label>
+                                <div class="asset-grid">
+                                    <div class="asset-card">
+                                        <strong>🎵 Trilha sonora</strong>
+                                        <input type="file" id="musicFile-${rank}" accept=".mp3,.wav,.m4a,.aac,.ogg,.flac,audio/mpeg,audio/wav,audio/aac,audio/ogg,audio/flac" hidden>
+                                        <input type="hidden" id="musicAssetId-${rank}" data-editor-field="background_music_asset_id" value="">
+                                        <input type="hidden" id="musicAssetName-${rank}" value="">
+                                        <button type="button" class="asset-upload-button" data-action="attach-music">Anexar áudio</button>
+                                        <span class="asset-file-label" id="musicAssetLabel-${rank}">Nenhuma trilha anexada</span>
+                                        <label class="toggle-row">
+                                            <input type="checkbox" id="musicEnabled-${rank}" data-editor-field="music_enabled">
+                                            <span>Usar no render</span>
+                                        </label>
+                                        <label class="control-field">
+                                            <span>Volume da trilha</span>
+                                            <span class="range-row">
+                                                <input type="range" min="0" max="1" step="0.05" value="0.2" id="musicVolume-${rank}" data-editor-field="music_volume">
+                                                <output id="musicVolumeValue-${rank}">20%</output>
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="asset-card">
+                                        <strong>🖼️ Imagem inicial</strong>
+                                        <input type="file" id="introFile-${rank}" accept="image/jpeg,image/png,image/webp" hidden>
+                                        <input type="hidden" id="introAssetId-${rank}" data-editor-field="intro_image_asset_id" value="">
+                                        <input type="hidden" id="introAssetName-${rank}" value="">
+                                        <button type="button" class="asset-upload-button" data-action="attach-intro">Anexar imagem</button>
+                                        <span class="asset-file-label" id="introAssetLabel-${rank}">Nenhuma imagem anexada</span>
+                                        <label class="toggle-row">
+                                            <input type="checkbox" id="introEnabled-${rank}" data-editor-field="intro_enabled">
+                                            <span>Mostrar antes do vídeo</span>
+                                        </label>
+                                        <label class="control-field">
+                                            <span>Duração da abertura</span>
+                                            <input type="number" min="0.5" max="5" step="0.5" value="2" id="introDuration-${rank}" data-editor-field="intro_duration">
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="control-section">
+                            <h4>3. Conteúdo incluído e entrega</h4>
+                            <label class="toggle-row">
+                                <input type="checkbox" disabled>
+                                <span>Legendas queimadas — <strong>não incluídas</strong> neste render rápido</span>
+                            </label>
+                            <label class="toggle-row">
+                                <input type="checkbox" disabled>
+                                <span>Narração — <strong>não incluída</strong> neste render rápido</span>
+                            </label>
+                            <label class="toggle-row">
+                                <input type="checkbox" data-editor-field="gdrive" id="gdrive-${rank}">
+                                <span><strong>Enviar também ao Google Drive</strong><br><span class="unsupported-note">O arquivo local é sempre gerado. Upload é uma etapa separada e pode terminar parcialmente.</span></span>
+                            </label>
+                        </div>
+
+                        <div class="inclusion-summary" id="configSummary-${rank}" aria-live="polite"></div>
+                        <label class="toggle-row confirmation-row">
+                            <input type="checkbox" data-editor-field="confirmed_configuration" id="confirm-${rank}">
+                            <span><strong>Revisei o resumo acima e confirmo esta configuração.</strong><br>Qualquer alteração exige nova confirmação antes de renderizar.</span>
+                        </label>
+                        <div class="editor-validation" id="editorValidation-${rank}" role="alert"></div>
+                        <button type="button" class="btn-action btn-clip btn-confirm" data-action="confirm-generate" disabled>Confirmar e gerar MP4</button>
+                    </section>
+                    <section class="render-receipt" id="receipt-${rank}" hidden aria-live="polite"></section>
+                    <div class="btn-group result-actions" id="resultActions-${rank}" hidden></div>
+                `;
+                grid.appendChild(card);
+                setCardSourcePreview(rank);
+
+                card.querySelector('[data-action="review"]').addEventListener('click', () => {
+                    setEditorOpen(rank, document.getElementById(`editor-${rank}`).hidden);
+                });
+                card.querySelector('[data-action="preview-range"]').addEventListener('click', () => {
+                    previewSelectedRange(rank);
+                });
+                card.querySelector('[data-action="play-card-preview"]').addEventListener('click', () => {
+                    playCardPreview(rank);
+                });
+                card.querySelector('[data-action="confirm-generate"]').addEventListener('click', event => {
+                    generateClip(videoUrl, rank, event.currentTarget);
+                });
+                card.querySelector('[data-action="toggle-gemini"]').addEventListener('click', event => {
+                    toggleGeminiChat(rank, event.currentTarget);
+                });
+                card.querySelector('[data-action="gemini-send"]').addEventListener('click', event => {
+                    sendGeminiMessage(rank, event.currentTarget);
+                });
+                card.querySelector(`#geminiInput-${rank}`).addEventListener('keydown', event => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        sendGeminiMessage(rank, card.querySelector('[data-action="gemini-send"]'));
+                    }
+                });
+                card.querySelectorAll('[data-gemini-prompt]').forEach(button => {
+                    button.addEventListener('click', () => {
+                        document.getElementById(`geminiInput-${rank}`).value = button.dataset.geminiPrompt;
+                        sendGeminiMessage(rank, card.querySelector('[data-action="gemini-send"]'));
+                    });
+                });
+                card.querySelector('[data-action="attach-music"]').addEventListener('click', () => document.getElementById(`musicFile-${rank}`).click());
+                card.querySelector('[data-action="attach-intro"]').addEventListener('click', () => document.getElementById(`introFile-${rank}`).click());
+                document.getElementById(`musicFile-${rank}`).addEventListener('change', event => {
+                    if (event.target.files[0]) uploadEditorAsset(rank, 'music', event.target.files[0], event.target);
+                });
+                document.getElementById(`introFile-${rank}`).addEventListener('change', event => {
+                    if (event.target.files[0]) uploadEditorAsset(rank, 'intro_image', event.target.files[0], event.target);
+                });
+                card.querySelectorAll('[data-nudge]').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const [field, delta] = button.dataset.nudge.split(':');
+                        nudgeEditorTime(rank, field, Number(delta));
+                    });
+                });
+                card.querySelectorAll('[data-editor-field]').forEach(field => {
+                    const eventName = field.type === 'range' || field.type === 'text' || field.type === 'number'
+                        ? 'input'
+                        : 'change';
+                    field.addEventListener(eventName, () => editorFieldChanged(rank, field));
+                });
+                updateEditorSummary(rank);
+            });
+        }
+
+        function toggleGeminiChat(rank, button) {
+            const body = document.getElementById(`geminiBody-${rank}`);
+            if (!body) return;
+            const open = body.hidden;
+            body.hidden = !open;
+            button.setAttribute('aria-expanded', String(open));
+            if (open) window.setTimeout(() => document.getElementById(`geminiInput-${rank}`)?.focus(), 0);
+        }
+
+        function appendGeminiMessage(rank, role, text, state = '') {
+            const messages = document.getElementById(`geminiMessages-${rank}`);
+            if (!messages) return null;
+            const message = document.createElement('div');
+            message.className = 'gemini-message';
+            message.dataset.role = role;
+            if (state) message.dataset.state = state;
+            message.textContent = String(text || '');
+            messages.appendChild(message);
+            while (messages.children.length > 24) messages.firstElementChild.remove();
+            messages.scrollTop = messages.scrollHeight;
+            return message;
+        }
+
+        function showGeminiChanges(rank, patch) {
+            const target = document.getElementById(`geminiChanges-${rank}`);
+            if (!target) return;
+            target.replaceChildren();
+            const labels = {
+                start: 'início', end: 'fim', format: 'enquadramento', crop_focus: 'foco',
+                blur_sigma: 'desfoque', include_audio: 'áudio original', overlay_text: 'selo',
+                overlay_position: 'posição do selo', music_enabled: 'trilha', music_volume: 'volume da trilha',
+                intro_enabled: 'imagem inicial', intro_duration: 'duração da abertura'
+            };
+            Object.keys(patch || {}).forEach(key => {
+                if (!labels[key]) return;
+                const chip = document.createElement('span');
+                chip.className = 'gemini-change';
+                chip.textContent = `✓ ${labels[key]}`;
+                target.appendChild(chip);
+            });
+        }
+
+        function applyGeminiPatch(rank, patch) {
+            if (!patch || typeof patch !== 'object') return;
+            const mapping = {
+                start: [`start-${rank}`, 'value'],
+                end: [`end-${rank}`, 'value'],
+                format: [`format-${rank}`, 'value'],
+                crop_focus: [`cropFocus-${rank}`, 'value'],
+                blur_sigma: [`blurSigma-${rank}`, 'value'],
+                include_audio: [`includeAudio-${rank}`, 'checked'],
+                overlay_text: [`overlayText-${rank}`, 'value'],
+                overlay_position: [`overlayPosition-${rank}`, 'value'],
+                music_enabled: [`musicEnabled-${rank}`, 'checked'],
+                music_volume: [`musicVolume-${rank}`, 'value'],
+                intro_enabled: [`introEnabled-${rank}`, 'checked'],
+                intro_duration: [`introDuration-${rank}`, 'value']
+            };
+            Object.entries(patch).forEach(([key, value]) => {
+                const spec = mapping[key];
+                if (!spec) return;
+                const element = document.getElementById(spec[0]);
+                if (!element) return;
+                if (spec[1] === 'checked') element.checked = Boolean(value);
+                else element.value = String(value);
+            });
+            const confirmation = document.getElementById(`confirm-${rank}`);
+            if (confirmation) confirmation.checked = false;
+            const card = document.getElementById(`card-${rank}`);
+            if (card && !document.getElementById(`receipt-${rank}`).hidden) card.dataset.dirtyAfterRender = 'true';
+            updateEditorSummary(rank);
+            if (Object.prototype.hasOwnProperty.call(patch, 'start') || Object.prototype.hasOwnProperty.call(patch, 'end')) {
+                scheduleCardSourcePreview(rank);
+            }
+            showGeminiChanges(rank, patch);
+        }
+
+        async function sendGeminiMessage(rank, button) {
+            const card = document.getElementById(`card-${rank}`);
+            const input = document.getElementById(`geminiInput-${rank}`);
+            const message = input?.value.trim();
+            if (!card || !input || !message || button.disabled) return;
+            const previousHistory = Array.isArray(card.geminiHistory) ? card.geminiHistory.slice(-10) : [];
+            appendGeminiMessage(rank, 'user', message);
+            input.value = '';
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            const oldLabel = button.textContent;
+            button.textContent = '…';
+            const typing = appendGeminiMessage(rank, 'assistant', 'Analisando este corte…');
+            const controller = new AbortController();
+            const timer = window.setTimeout(() => controller.abort(), 60000);
+            try {
+                const response = await fetch('/api/editor-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Request-ID': createRequestId() },
+                    body: JSON.stringify({
+                        message,
+                        clip: card.geminiContext || {},
+                        config: editorConfig(rank),
+                        history: previousHistory
+                    }),
+                    signal: controller.signal
+                });
+                let data;
+                try { data = await response.json(); }
+                catch (_) { data = { success: false, error: `Resposta HTTP ${response.status} inválida.` }; }
+                if (typing) typing.remove();
+                if (!response.ok || !data.success) {
+                    const error = data.error || (response.status === 503
+                        ? 'Configure GEMINI_API_KEY no servidor para ativar o chat.'
+                        : `O Gemini não respondeu (HTTP ${response.status}).`);
+                    appendGeminiMessage(rank, 'assistant', error, 'error');
+                    return;
+                }
+                const modelBadge = document.getElementById(`geminiModel-${rank}`);
+                if (modelBadge && typeof data.model === 'string' && data.model.trim()) {
+                    modelBadge.textContent = data.model.trim();
+                }
+                const reply = data.reply || 'Ajustei a configuração deste corte.';
+                const patch = data.patch && typeof data.patch === 'object' ? data.patch : {};
+                appendGeminiMessage(rank, 'assistant', reply);
+                applyGeminiPatch(rank, patch);
+                card.geminiHistory = [...previousHistory,
+                    { role: 'user', content: message },
+                    { role: 'assistant', content: reply }].slice(-12);
+                const needsAsset = Array.isArray(data.needs_asset) ? data.needs_asset : [];
+                if (needsAsset.length) {
+                    const labels = needsAsset.map(item => item === 'music' ? 'uma trilha sonora' : 'uma imagem inicial');
+                    appendGeminiMessage(rank, 'assistant', `Para concluir, abra “Revisar e configurar” e anexe ${labels.join(' e ')} que você tenha direito de usar.`);
+                }
+                if (Object.keys(patch).length) setCardStatus(rank, 'warning', 'Ajustes do Gemini aplicados. Revise e confirme antes de renderizar.');
+            } catch (error) {
+                if (typing) typing.remove();
+                appendGeminiMessage(rank, 'assistant', error.name === 'AbortError'
+                    ? 'O Gemini demorou demais para responder. Tente novamente.'
+                    : 'Não foi possível conversar com o Gemini agora.', 'error');
+            } finally {
+                window.clearTimeout(timer);
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+                button.textContent = oldLabel;
+            }
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function uploadEditorAsset(rank, kind, file, fileInput) {
+            const rights = document.getElementById(`assetRights-${rank}`);
+            const isMusic = kind === 'music';
+            const maxBytes = isMusic ? 25 * 1024 * 1024 : 8 * 1024 * 1024;
+            if (!rights.checked) {
+                setCardStatus(rank, 'error', 'Confirme que você tem direito de usar o arquivo antes de anexá-lo.');
+                fileInput.value = '';
+                return;
+            }
+            if (!file.size || file.size > maxBytes) {
+                setCardStatus(rank, 'error', `O arquivo deve ter no máximo ${isMusic ? 25 : 8} MB.`);
+                fileInput.value = '';
+                return;
+            }
+            const uploadButton = document.querySelector(`#card-${rank} [data-action="${isMusic ? 'attach-music' : 'attach-intro'}"]`);
+            uploadButton.disabled = true;
+            uploadButton.textContent = 'Enviando…';
+            setCardStatus(rank, 'running', `Enviando ${isMusic ? 'trilha sonora' : 'imagem inicial'}…`);
+            try {
+                const dataUrl = await readFileAsDataUrl(file);
+                const response = await fetch('/api/editor-assets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Request-ID': createRequestId() },
+                    body: JSON.stringify({
+                        kind,
+                        file_name: file.name,
+                        mime_type: file.type,
+                        data_base64: dataUrl,
+                        rights_confirmed: true
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || `Falha HTTP ${response.status}`);
+                const prefix = isMusic ? 'music' : 'intro';
+                document.getElementById(`${prefix}AssetId-${rank}`).value = data.asset_id;
+                document.getElementById(`${prefix}AssetName-${rank}`).value = data.file_name;
+                document.getElementById(`${prefix}AssetLabel-${rank}`).textContent = `${data.file_name} · ${formatFileSize(data.size_bytes)}`;
+                document.getElementById(`${isMusic ? 'musicEnabled' : 'introEnabled'}-${rank}`).checked = true;
+                editorFieldChanged(rank, { dataset: { editorField: `${kind}_asset` } });
+                setCardStatus(rank, 'success', `${isMusic ? 'Trilha' : 'Imagem inicial'} anexada e ativada.`);
+            } catch (error) {
+                setCardStatus(rank, 'error', `Falha ao anexar arquivo: ${error.message}`);
+            } finally {
+                uploadButton.disabled = false;
+                uploadButton.textContent = isMusic ? 'Trocar áudio' : 'Trocar imagem';
+                fileInput.value = '';
+            }
+        }
+
+        function setEditorOpen(rank, open) {
+            const card = document.getElementById(`card-${rank}`);
+            const editor = document.getElementById(`editor-${rank}`);
+            const review = card && card.querySelector('[data-action="review"]');
+            if (!card || !editor) return;
+            editor.hidden = !open;
+            card.classList.toggle('editor-open', open);
+            if (review) review.textContent = open ? 'Fechar configuração' : '⚙️ Revisar e configurar';
+            if (open) {
+                updateEditorSummary(rank);
+                editor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function editorConfig(rank) {
+            return {
+                start: document.getElementById(`start-${rank}`).valueAsNumber,
+                end: document.getElementById(`end-${rank}`).valueAsNumber,
+                format: document.getElementById(`format-${rank}`).value,
+                crop_focus: document.getElementById(`cropFocus-${rank}`).value,
+                blur_sigma: Number(document.getElementById(`blurSigma-${rank}`).value),
+                include_audio: document.getElementById(`includeAudio-${rank}`).checked,
+                overlay_text: document.getElementById(`overlayText-${rank}`).value.trim(),
+                overlay_position: document.getElementById(`overlayPosition-${rank}`).value,
+                music_enabled: document.getElementById(`musicEnabled-${rank}`).checked,
+                music_volume: Number(document.getElementById(`musicVolume-${rank}`).value),
+                background_music_asset_id: document.getElementById(`musicAssetId-${rank}`).value,
+                background_music_asset_name: document.getElementById(`musicAssetName-${rank}`).value,
+                intro_enabled: document.getElementById(`introEnabled-${rank}`).checked,
+                intro_duration: Number(document.getElementById(`introDuration-${rank}`).value),
+                intro_image_asset_id: document.getElementById(`introAssetId-${rank}`).value,
+                intro_image_asset_name: document.getElementById(`introAssetName-${rank}`).value,
+                gdrive: document.getElementById(`gdrive-${rank}`).checked,
+                confirmed_configuration: document.getElementById(`confirm-${rank}`).checked
+            };
+        }
+
+        function editorFieldChanged(rank, field) {
+            const card = document.getElementById(`card-${rank}`);
+            const confirmation = document.getElementById(`confirm-${rank}`);
+            if (field.dataset.editorField !== 'confirmed_configuration') {
+                confirmation.checked = false;
+                if (card && !document.getElementById(`receipt-${rank}`).hidden) {
+                    card.dataset.dirtyAfterRender = 'true';
+                    setCardStatus(rank, 'warning', 'Alterações não renderizadas. Confirme para gerar uma nova versão.');
+                }
+            }
+            updateEditorSummary(rank);
+            if (field?.dataset?.editorField === 'start' || field?.dataset?.editorField === 'end') {
+                scheduleCardSourcePreview(rank);
+            }
+        }
+
+        function nudgeEditorTime(rank, field, delta) {
+            const input = document.getElementById(`${field}-${rank}`);
+            const current = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0;
+            input.value = Math.max(0, current + delta).toFixed(1);
+            editorFieldChanged(rank, input);
+        }
+
+        function updateEditorSummary(rank) {
+            const config = editorConfig(rank);
+            const card = document.getElementById(`card-${rank}`);
+            const duration = config.end - config.start;
+            const totalDuration = duration + (config.intro_enabled ? config.intro_duration : 0);
+            const errors = [];
+            if (!Number.isFinite(config.start) || config.start < 0) errors.push('Início inválido.');
+            if (!Number.isFinite(config.end) || config.end <= config.start) errors.push('O fim deve ser maior que o início.');
+            if (Number.isFinite(totalDuration) && totalDuration > 59.9) errors.push('O corte final, incluindo a abertura, pode ter no máximo 59,9 segundos.');
+            if (!config.overlay_text) errors.push('Informe o texto do selo editorial.');
+            if (config.overlay_text.length > 90) errors.push('O selo editorial aceita no máximo 90 caracteres.');
+            if (config.music_enabled && !config.background_music_asset_id) errors.push('Anexe a trilha sonora solicitada.');
+            if (config.music_enabled && !config.include_audio) errors.push('Ative o áudio para usar a trilha sonora.');
+            if (!Number.isFinite(config.music_volume) || config.music_volume < 0 || config.music_volume > 1) errors.push('Volume da trilha inválido.');
+            if (config.intro_enabled && !config.intro_image_asset_id) errors.push('Anexe a imagem inicial solicitada.');
+            if (!Number.isFinite(config.intro_duration) || config.intro_duration < 0.5 || config.intro_duration > 5) errors.push('A abertura deve durar de 0,5 a 5 segundos.');
+
+            const isCrop = config.format === 'crop_center';
+            document.getElementById(`cropFocus-${rank}`).disabled = !isCrop;
+            document.getElementById(`blurSigma-${rank}`).disabled = isCrop;
+            document.getElementById(`blurValue-${rank}`).value = String(config.blur_sigma);
+            document.getElementById(`musicVolumeValue-${rank}`).value = `${Math.round(config.music_volume * 100)}%`;
+
+            const focusLabels = { left: 'esquerda', center: 'centro', right: 'direita' };
+            const formatLabel = isCrop
+                ? `crop vertical, foco ${focusLabels[config.crop_focus]}`
+                : `fundo desfocado, intensidade ${config.blur_sigma}`;
+            const included = ['vídeo no intervalo', 'selo editorial', config.include_audio ? 'áudio original' : null,
+                config.music_enabled && config.background_music_asset_id ? `trilha ${config.background_music_asset_name || 'anexada'} (${Math.round(config.music_volume * 100)}%)` : null,
+                config.intro_enabled && config.intro_image_asset_id ? `imagem inicial (${config.intro_duration.toFixed(1)} s)` : null]
+                .filter(Boolean);
+            const excluded = ['legendas queimadas', 'narração', 'hashtags visuais', config.include_audio ? null : 'áudio original',
+                config.music_enabled ? null : 'trilha sonora', config.intro_enabled ? null : 'imagem inicial']
+                .filter(Boolean);
+            const destination = config.gdrive ? 'arquivo local + Google Drive' : 'somente arquivo local';
+            document.getElementById(`configSummary-${rank}`).innerHTML = `
+                <div class="summary-title">Corte #${rank} · ${formatTimecode(config.start)}–${formatTimecode(config.end)} · ${Number.isFinite(totalDuration) ? totalDuration.toFixed(2) : '?'} s finais</div>
+                <div>1080×1920 (9:16), ${escapeHtml(formatLabel)}</div>
+                <div class="included-line">✓ Incluído: ${escapeHtml(included.join(', '))}</div>
+                <div class="excluded-line">○ Não incluído: ${escapeHtml(excluded.join(', '))}</div>
+                <div>Entrega: ${escapeHtml(destination)}</div>
+            `;
+            document.getElementById(`cardTime-${rank}`).textContent = `⏱ ${formatTimecode(config.start)} ➔ ${formatTimecode(config.end)} (${Number.isFinite(duration) ? duration.toFixed(2) : '?'}s)`;
+            document.getElementById(`editorValidation-${rank}`).textContent = errors.join(' ');
+            const generateButton = card.querySelector('[data-action="confirm-generate"]');
+            generateButton.disabled = errors.length > 0 || !config.confirmed_configuration;
+            generateButton.textContent = config.gdrive
+                ? 'Confirmar, gerar MP4 e enviar ao Drive'
+                : 'Confirmar e gerar MP4';
+
+            const state = document.getElementById(`editorState-${rank}`);
+            if (card.dataset.dirtyAfterRender === 'true') {
+                state.textContent = 'Alterações não renderizadas';
+            } else if (errors.length > 0) {
+                state.textContent = 'Ajustes necessários';
+            } else if (config.confirmed_configuration) {
+                state.textContent = 'Configuração confirmada';
+            } else {
+                state.textContent = 'Aguardando confirmação';
+            }
+        }
+
+        function buildCardPreviewUrl(videoId, start, end, autoplay = false) {
+            const previewStart = Math.max(0, Math.floor(start));
+            const previewEnd = Math.max(previewStart + 1, Math.ceil(end));
+            const params = new URLSearchParams({
+                start: String(previewStart),
+                end: String(previewEnd),
+                rel: '0',
+                modestbranding: '1',
+                playsinline: '1'
+            });
+            if (autoplay) params.set('autoplay', '1');
+            return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
+        }
+
+        function stopOtherCardPreviews(activeRank) {
+            document.querySelectorAll(`[id^="clipSourcePreview-"]`).forEach(source => {
+                const otherRank = Number(source.id.replace("clipSourcePreview-", ""));
+                if (!Number.isFinite(otherRank) || otherRank === Number(activeRank)) return;
+                const output = document.getElementById(`clipOutputPreview-${otherRank}`);
+                if (output && !output.hidden) output.pause();
+                if (source.hidden) return;
+                source.removeAttribute("src");
+                delete source.dataset.previewSignature;
+                source.hidden = true;
+                const placeholder = document.getElementById(`clipSuggestionPlaceholder-${otherRank}`);
+                const state = document.getElementById(`cardPreviewState-${otherRank}`);
+                const card = document.getElementById(`card-${otherRank}`);
+                const button = card?.querySelector(`[data-action="play-card-preview"]`);
+                if (placeholder) placeholder.hidden = false;
+                if (state) state.textContent = `Sugestão #${otherRank} pausada`;
+                if (button) button.textContent = `▶ Reproduzir sugestão #${otherRank}`;
+            });
+        }
+
+        function setCardSourcePreview(rank, { autoplay = false, force = false } = {}) {
+            const card = document.getElementById(`card-${rank}`);
+            const source = document.getElementById(`clipSourcePreview-${rank}`);
+            const output = document.getElementById(`clipOutputPreview-${rank}`);
+            const placeholder = document.getElementById(`clipSuggestionPlaceholder-${rank}`);
+            const screen = document.getElementById(`cardPreviewScreen-${rank}`);
+            const state = document.getElementById(`cardPreviewState-${rank}`);
+            const detail = document.getElementById(`cardPreviewDetail-${rank}`);
+            const button = card?.querySelector(`[data-action="play-card-preview"]`);
+            if (!card || !source || !output || !placeholder || !screen || !state || !detail) return false;
+
+            const config = editorConfig(rank);
+            const videoId = getYouTubeVideoId(card.dataset.videoUrl || "");
+            if (!videoId || !Number.isFinite(config.start) || !Number.isFinite(config.end) || config.end <= config.start) {
+                state.textContent = "Ajuste o intervalo para pré-visualizar";
+                detail.textContent = "Início e fim precisam formar um trecho válido";
+                source.removeAttribute("src");
+                source.hidden = true;
+                placeholder.hidden = false;
+                return false;
+            }
+
+            if (!force && !output.hidden) {
+                state.textContent = "MP4 vertical desta versão";
+                detail.textContent = "Clique para reproduzir a sugestão original deste card";
+                return true;
+            }
+
+            const previewUrl = buildCardPreviewUrl(videoId, config.start, config.end, autoplay);
+            const signature = `${videoId}:${Math.floor(config.start)}:${Math.ceil(config.end)}:${autoplay ? "play" : "idle"}`;
+            source.dataset.previewUrl = previewUrl;
+
+            if (!autoplay) {
+                source.removeAttribute("src");
+                delete source.dataset.previewSignature;
+                source.hidden = true;
+                placeholder.hidden = false;
+                if (!output.hidden) output.pause();
+                output.hidden = true;
+                screen.dataset.previewMode = "source";
+                state.textContent = `Sugestão #${rank} pronta`;
+                detail.textContent = `Trecho ${formatTimecode(config.start)}–${formatTimecode(config.end)} · clique para reproduzir`;
+                if (button) button.textContent = `▶ Reproduzir sugestão #${rank}`;
+                return true;
+            }
+
+            stopOtherCardPreviews(rank);
+            if (force || source.dataset.previewSignature !== signature || !source.getAttribute("src")) {
+                source.src = previewUrl;
+                source.dataset.previewSignature = signature;
+            }
+            if (!output.hidden) output.pause();
+            output.hidden = true;
+            placeholder.hidden = true;
+            source.hidden = false;
+            screen.dataset.previewMode = "source";
+            state.textContent = `Reproduzindo sugestão #${rank}`;
+            detail.textContent = `YouTube · ${formatTimecode(config.start)}–${formatTimecode(config.end)} · somente este intervalo`;
+            if (button) {
+                button.textContent = output.getAttribute("src")
+                    ? "▶ Ver MP4 desta versão"
+                    : `↻ Reiniciar sugestão #${rank}`;
+            }
+            return true;
+        }
+
+        function scheduleCardSourcePreview(rank) {
+            const card = document.getElementById(`card-${rank}`);
+            if (!card) return;
+            window.clearTimeout(card.previewRefreshTimer);
+            card.previewRefreshTimer = window.setTimeout(() => {
+                const output = document.getElementById(`clipOutputPreview-${rank}`);
+                if (output?.hidden) setCardSourcePreview(rank);
+                else {
+                    const detail = document.getElementById(`cardPreviewDetail-${rank}`);
+                    if (detail) detail.textContent = 'Há ajustes novos: clique para revisar o trecho original.';
+                }
+            }, 450);
+        }
+
+        function showCardRenderedPreview(rank, { autoplay = false } = {}) {
+            const source = document.getElementById(`clipSourcePreview-${rank}`);
+            const output = document.getElementById(`clipOutputPreview-${rank}`);
+            const placeholder = document.getElementById(`clipSuggestionPlaceholder-${rank}`);
+            const screen = document.getElementById(`cardPreviewScreen-${rank}`);
+            const state = document.getElementById(`cardPreviewState-${rank}`);
+            const detail = document.getElementById(`cardPreviewDetail-${rank}`);
+            const card = document.getElementById(`card-${rank}`);
+            const button = card?.querySelector('[data-action="play-card-preview"]');
+            if (!source || !output || !placeholder || !screen || !state || !detail || !output.getAttribute("src")) return false;
+            source.hidden = true;
+            placeholder.hidden = true;
+            output.hidden = false;
+            screen.dataset.previewMode = 'rendered';
+            state.textContent = 'MP4 vertical desta versão';
+            detail.textContent = 'Resultado renderizado deste corte';
+            if (button) button.textContent = `↩ Reproduzir sugestão #${rank}`;
+            if (autoplay) {
+                output.play().catch(() => {
+                    appendActivity(`Preview do MP4 do corte #${rank} pronto; reprodução automática bloqueada pelo navegador.`, 'warning');
+                });
+            }
+            return true;
+        }
+
+        function setCardRenderedPreview(rank, downloadUrl) {
+            const source = document.getElementById(`clipSourcePreview-${rank}`);
+            const output = document.getElementById(`clipOutputPreview-${rank}`);
+            const screen = document.getElementById(`cardPreviewScreen-${rank}`);
+            const state = document.getElementById(`cardPreviewState-${rank}`);
+            const detail = document.getElementById(`cardPreviewDetail-${rank}`);
+            const card = document.getElementById(`card-${rank}`);
+            const button = card?.querySelector('[data-action="play-card-preview"]');
+            if (!source || !output || !screen || !state || !detail || !downloadUrl) return null;
+            output.src = downloadUrl;
+            output.onerror = () => {
+                detail.textContent = 'Não foi possível carregar o MP4 desta versão.';
+                setCardStatus(rank, 'error', 'Falha ao carregar o preview do MP4 deste corte.');
+            };
+            showCardRenderedPreview(rank);
+            return output;
+        }
+
+        function playCardPreview(rank) {
+            const source = document.getElementById(`clipSourcePreview-${rank}`);
+            const output = document.getElementById(`clipOutputPreview-${rank}`);
+            if (source && !source.hidden && output?.hidden && output.getAttribute("src")) {
+                const rendered = showCardRenderedPreview(rank, { autoplay: true });
+                if (rendered) {
+                    document.getElementById(`cardPreviewScreen-${rank}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return true;
+                }
+            }
+            const refreshed = setCardSourcePreview(rank, { autoplay: true, force: true });
+            if (!refreshed) {
+                setCardStatus(rank, 'error', 'Não foi possível abrir o preview: revise o intervalo.');
+                return false;
+            }
+            document.getElementById(`cardPreviewScreen-${rank}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            appendActivity(`Preview do intervalo do corte #${rank} aberto na própria tela do card.`, 'running');
+            return true;
+        }
+
+        function previewSelectedRange(rank) {
+            const refreshed = setCardSourcePreview(rank, { autoplay: true, force: true });
+            if (!refreshed) {
+                setCardStatus(rank, 'error', 'Não foi possível abrir o preview: revise o intervalo.');
+                return;
+            }
+            document.getElementById(`cardPreviewScreen-${rank}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            appendActivity(`Preview do intervalo do corte #${rank} atualizado na própria tela do card.`, 'running');
+        }
+
+        function renderReceipt(data, rank) {
+            const receiptElement = document.getElementById(`receipt-${rank}`);
+            const receipt = data.render_receipt;
+            if (!receipt || !receipt.applied_settings) {
+                receiptElement.hidden = false;
+                receiptElement.innerHTML = '<strong>O servidor não devolveu um recibo de configuração.</strong>';
+                return;
+            }
+            const settings = receipt.applied_settings;
+            const overlay = settings.editorial_overlay || {};
+            const resolution = settings.resolution || {};
+            const destination = settings.destination || {};
+            const generatedAt = receipt.generated_at ? new Date(receipt.generated_at).toLocaleString('pt-BR') : 'não informado';
+            const included = Array.isArray(receipt.included) ? receipt.included : [];
+            const excluded = Array.isArray(receipt.not_included) ? receipt.not_included : [];
+            const file = receipt.file || {};
+            const measured = receipt.measured_media || {};
+            const measuredOutput = measured.verified
+                ? `${measured.width}×${measured.height} · ${measured.duration_seconds} s · ${measured.video_codec}`
+                : `${resolution.width}×${resolution.height} ${resolution.aspect_ratio} (configuração aplicada; ffprobe indisponível)`;
+            const measuredAudio = measured.verified
+                ? (measured.audio_codec && measured.audio_codec !== 'none'
+                    ? `${measured.audio_codec}, ${measured.audio_channels || '?'} canal(is)`
+                    : 'sem faixa de áudio')
+                : (settings.audio_included ? 'AAC solicitado' : 'sem faixa de áudio');
+            const focusLabels = { left: 'esquerda', center: 'centro', right: 'direita' };
+            const imageDetail = settings.format === 'crop_center'
+                ? `foco ${focusLabels[settings.crop_focus] || settings.crop_focus}`
+                : `desfoque ${settings.blur_sigma}`;
+            const uploadText = destination.gdrive_requested
+                ? (destination.gdrive_completed ? 'Drive concluído' : 'Drive solicitado, mas não concluído')
+                : 'Drive não solicitado';
+            receiptElement.hidden = false;
+            receiptElement.innerHTML = `
+                <div class="receipt-header">
+                    <strong>✓ Recibo de renderização do corte #${rank}</strong>
+                    <span>${data.overall_status === 'partial_success' ? 'Concluído parcialmente' : 'Pronto localmente'}</span>
+                </div>
+                <div class="receipt-id">Operação ${escapeHtml(receipt.request_id)} · ${escapeHtml(generatedAt)}</div>
+                <div class="receipt-grid">
+                    <div><strong>Intervalo aplicado</strong><br>${formatTimecode(Number(settings.start_seconds))}–${formatTimecode(Number(settings.end_seconds))} (${Number(settings.duration_seconds).toFixed(2)} s)</div>
+                    <div><strong>Arquivo</strong><br>${escapeHtml(file.name)} · ${formatFileSize(file.size_bytes)}</div>
+                    <div><strong>Imagem</strong><br>${escapeHtml(settings.format_label)} · ${escapeHtml(imageDetail)}</div>
+                    <div><strong>Saída medida</strong><br>${escapeHtml(measuredOutput)}</div>
+                    <div><strong>Áudio medido</strong><br>${escapeHtml(measuredAudio)}</div>
+                    <div><strong>Entrega</strong><br>Arquivo local concluído · ${escapeHtml(uploadText)}</div>
+                    <div><strong>Selo editorial</strong><br>${escapeHtml(overlay.text)} · ${overlay.position === 'bottom' ? 'rodapé' : 'topo'}</div>
+                    <div><strong>Integridade</strong><br>${file.sha256 ? `${escapeHtml(String(file.sha256).slice(0, 23))}…` : `ID ${escapeHtml(receipt.request_id)}`}</div>
+                </div>
+                <div class="receipt-list included-line">✓ Incluído: ${escapeHtml(included.join(', '))}</div>
+                <div class="receipt-list excluded-line">○ Não incluído: ${escapeHtml(excluded.join(', '))}</div>
+            `;
+        }
+
+        function updateGeneratedActions(data, rank) {
+            const group = document.getElementById(`resultActions-${rank}`);
+            if (!group) return;
+            group.hidden = false;
+            group.replaceChildren();
+
+            const download = document.createElement('a');
+            download.href = data.download_url;
+            download.download = '';
+            download.className = 'btn-action btn-download';
+            download.textContent = '⬇️ Baixar esta versão do MP4';
+            download.addEventListener('click', () => {
+                setCardStatus(rank, 'success', 'Download solicitado ao navegador.');
+                appendActivity(`Download do corte #${rank} solicitado.`, 'success');
+            });
+            group.appendChild(download);
+
+            if (data.gdrive_link) {
+                const driveLink = document.createElement('a');
+                driveLink.href = data.gdrive_link;
+                driveLink.target = '_blank';
+                driveLink.rel = 'noopener noreferrer';
+                driveLink.className = 'drive-link-badge';
+                driveLink.textContent = '🔗 Abrir esta versão no Google Drive';
+                group.appendChild(driveLink);
+            } else {
+                const note = document.createElement('div');
+                note.className = 'unsupported-note';
+                note.textContent = 'Esta versão não foi enviada ao Drive. Marque o destino no editor e confirme para gerar uma nova versão.';
+                group.appendChild(note);
+            }
+
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'btn-action btn-review';
+            edit.textContent = '✏️ Editar e gerar nova versão';
+            edit.addEventListener('click', () => setEditorOpen(rank, true));
+            group.appendChild(edit);
+        }
+
+        async function generateClip(videoUrl, rank, button) {
+            const config = editorConfig(rank);
+            const card = document.getElementById(`card-${rank}`);
+            if (!config.confirmed_configuration) {
+                setCardStatus(rank, 'error', 'Revise e confirme a configuração antes de renderizar.');
+                return;
+            }
+            const folderId = document.getElementById('gdriveFolderId').value.trim();
+            const state = document.getElementById(`editorState-${rank}`);
+            document.getElementById(`confirm-${rank}`).checked = false;
+            updateEditorSummary(rank);
+            state.textContent = 'Renderizando';
+            const result = await trackedPost('/api/generate-clip', {
+                url: videoUrl,
+                clip_id: card?.dataset.clipId || null,
+                project_id: card?.dataset.projectId || null,
+                analysis_id: card?.dataset.analysisId || null,
+                start: config.start,
+                end: config.end,
+                format: config.format,
+                crop_focus: config.crop_focus,
+                blur_sigma: config.blur_sigma,
+                include_audio: config.include_audio,
+                overlay_text: config.overlay_text,
+                overlay_position: config.overlay_position,
+                background_music_asset_id: config.music_enabled ? config.background_music_asset_id : null,
+                background_music_volume: config.music_volume,
+                intro_image_asset_id: config.intro_enabled ? config.intro_image_asset_id : null,
+                intro_duration: config.intro_enabled ? config.intro_duration : 0,
+                gdrive: config.gdrive,
+                folder_id: folderId,
+                confirmed_configuration: true
+            }, {
+                title: config.gdrive ? `Gerando e enviando corte #${rank}` : `Gerando corte #${rank}`,
+                message: config.gdrive
+                    ? 'Renderizando a configuração confirmada e, em seguida, enviando ao Google Drive.'
+                    : 'Renderizando exatamente a configuração confirmada em formato vertical 9:16.',
+                button,
+                busyLabel: config.gdrive ? '⏳ Renderizando e enviando...' : '⏳ Renderizando corte...',
+                rank,
+                driveRequested: config.gdrive
+            });
+            if (result.error) {
+                state.textContent = 'Falhou';
+                return;
+            }
+            const { response, data, context } = result;
+            if (!response.ok || !data.success) {
+                state.textContent = 'Falhou';
+                if (config.gdrive) renderDriveProgress({ state: "failed" }, rank);
+                await finishOperation(
+                    context,
+                    'error',
+                    `Corte #${rank} não gerado`,
+                    data.error || `Falha HTTP ${response.status}`
+                );
+                return;
+            }
+
+            if (data.download_url) {
+                const outputPreview = setCardRenderedPreview(rank, data.download_url);
+                outputPreview?.play().catch(() => {
+                    appendActivity(`Preview do MP4 do corte #${rank} pronto; reprodução automática bloqueada pelo navegador.`, 'warning');
+                });
+            }
+            renderReceipt(data, rank);
+            updateGeneratedActions(data, rank);
+            document.getElementById(`card-${rank}`).dataset.dirtyAfterRender = 'false';
+            updateEditorSummary(rank);
+
+            const uploadFailed = config.gdrive && data.upload && data.upload.success === false;
+            const linkWarning = config.gdrive && data.upload?.success === true
+                && data.upload.permission_configured === false;
+            state.textContent = uploadFailed || linkWarning ? "Concluído parcialmente" : "Pronto localmente";
+            if (uploadFailed) {
+                renderDriveProgress({ state: "failed" }, rank);
+                await finishOperation(
+                    context,
+                    'warning',
+                    `Corte #${rank} gerado; upload pendente`,
+                    `O MP4 foi criado, mas o Google Drive falhou: ${data.upload.error || 'erro não informado'}`
+                );
+                return;
+            }
+
+            if (linkWarning) {
+                renderDriveProgress({
+                    state: "link_warning",
+                    determinate: true,
+                    progress_percent: data.upload?.progress_percent ?? 100,
+                    uploaded_bytes: data.upload?.uploaded_bytes,
+                    total_bytes: data.upload?.total_bytes
+                }, rank);
+                await finishOperation(
+                    context,
+                    "warning",
+                    "Corte #" + rank + " enviado; link pendente",
+                    "O arquivo chegou ao Drive, mas a permissão de compartilhamento não pôde ser configurada."
+                );
+                return;
+            }
+
+            if (config.gdrive) {
+                renderDriveProgress({
+                    state: "succeeded",
+                    determinate: true,
+                    progress_percent: data.upload?.progress_percent ?? 100,
+                    uploaded_bytes: data.upload?.uploaded_bytes,
+                    total_bytes: data.upload?.total_bytes
+                }, rank);
+            }
+
+            await finishOperation(
+                context,
+                'success',
+                config.gdrive ? `Corte #${rank} enviado` : `Corte #${rank} gerado`,
+                config.gdrive
+                    ? 'A configuração confirmada foi renderizada e enviada ao Google Drive.'
+                    : 'A configuração confirmada foi renderizada; o recibo do servidor está no card.'
+            );
+        }
+
+        async function uploadExistingToDrive(filePath, rank, button) {
+            const folderId = document.getElementById('gdriveFolderId').value.trim();
+            const result = await trackedPost('/api/gdrive-upload', {
+                file_path: filePath,
+                folder_id: folderId
+            }, {
+                title: `Enviando corte #${rank} ao Drive`,
+                message: 'Autenticando e enviando o MP4 ao Google Drive.',
+                button,
+                busyLabel: '⏳ Enviando ao Drive...',
+                rank,
+                driveRequested: true
+            });
+            if (result.error) return;
+            const { response, data, context } = result;
+            if (!response.ok || !(data.status === 'success' || data.success)) {
+                renderDriveProgress({ state: "failed" }, rank);
+                await finishOperation(
+                    context,
+                    'error',
+                    `Upload do corte #${rank} falhou`,
+                    data.error || `Falha HTTP ${response.status}`
+                );
+                return;
+            }
+
+            const completedProgress = data.upload_progress || {};
+            const linkWarning = data.permission_configured === false;
+            renderDriveProgress({
+                state: linkWarning ? "link_warning" : "succeeded",
+                determinate: true,
+                progress_percent: completedProgress.progress_percent ?? 100,
+                uploaded_bytes: completedProgress.uploaded_bytes,
+                total_bytes: completedProgress.total_bytes
+            }, rank);
+            const link = data.web_view_link || data.link;
+            const group = document.getElementById(`btnGroup-${rank}`);
+            if (group && link && !group.querySelector('.drive-link-badge')) {
+                const driveLink = document.createElement('a');
+                driveLink.href = link;
+                driveLink.target = '_blank';
+                driveLink.rel = 'noopener noreferrer';
+                driveLink.className = 'drive-link-badge';
+                driveLink.textContent = '🔗 Abrir no Google Drive';
+                group.appendChild(driveLink);
+            }
+            await finishOperation(
+                context,
+                linkWarning ? "warning" : "success",
+                linkWarning ? "Corte #" + rank + " enviado; link pendente" : "Corte #" + rank + " enviado",
+                linkWarning
+                    ? "O arquivo chegou ao Drive, mas a permissão de compartilhamento não pôde ser configurada."
+                    : "Upload concluído e link do Google Drive disponível."
+            );
+        }
+    </script>
+
+</body>
+</html>

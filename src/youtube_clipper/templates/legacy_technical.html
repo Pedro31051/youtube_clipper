@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
+    <title>Pipeline técnico de cortes · T2/T3</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #07111f;
+            --panel: rgba(17, 30, 49, 0.92);
+            --line: #29415f;
+            --text: #edf6ff;
+            --muted: #9db0c7;
+            --accent: #55d6be;
+            --running: #f5c451;
+            --failed: #ff718b;
+            --measured: #65b9ff;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 12% 8%, #17345b 0, transparent 32rem),
+                linear-gradient(145deg, #07111f, #0b1727 60%, #101a2d);
+            color: var(--text);
+            font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 4rem; }
+        a { color: var(--accent); }
+        header { display: flex; justify-content: space-between; gap: 1rem; align-items: start; margin-bottom: 1.5rem; }
+        h1 { margin: 0 0 .35rem; font-size: clamp(1.8rem, 4vw, 3rem); letter-spacing: -.04em; }
+        h2 { margin: 0 0 1rem; font-size: 1.15rem; }
+        p { margin: .2rem 0; color: var(--muted); }
+        .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .75rem; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 1.25rem;
+            box-shadow: 0 22px 70px rgba(0, 0, 0, .28);
+        }
+        .layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 1rem; align-items: start; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
+        .span-2 { grid-column: 1 / -1; }
+        label { display: grid; gap: .35rem; color: #cfe0f2; font-weight: 650; font-size: .86rem; }
+        .hint { color: var(--muted); font-size: .74rem; font-weight: 400; }
+        input, select, textarea {
+            width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: .72rem .78rem;
+            background: #091524; color: var(--text); font: inherit;
+        }
+        input:focus, select:focus, textarea:focus { outline: 2px solid rgba(85, 214, 190, .35); border-color: var(--accent); }
+        input:disabled { opacity: .45; cursor: not-allowed; }
+        .check-row { display: flex; align-items: center; gap: .6rem; min-height: 44px; }
+        .check-row input { width: auto; }
+        button {
+            border: 0; border-radius: 11px; padding: .82rem 1.1rem; cursor: pointer;
+            color: #041411; background: var(--accent); font: inherit; font-weight: 750;
+        }
+        button:disabled { opacity: .55; cursor: wait; }
+        .notice { border-left: 3px solid var(--accent); padding: .7rem .9rem; background: rgba(85, 214, 190, .08); color: #cfe9e4; }
+        .timeline { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
+        .stage { display: grid; grid-template-columns: 2rem 1fr auto; gap: .7rem; align-items: center; padding: .65rem; border: 1px solid var(--line); border-radius: 11px; }
+        .stage-index { width: 2rem; height: 2rem; display: grid; place-items: center; border-radius: 50%; background: #16283e; font-weight: 750; }
+        .stage-name { font-weight: 700; }
+        .stage-state { color: var(--muted); font-size: .75rem; }
+        .stage[data-state="running"] { border-color: var(--running); }
+        .stage[data-state="running"] .stage-state { color: var(--running); }
+        .stage[data-state="measured"] { border-color: var(--measured); }
+        .stage[data-state="measured"] .stage-state { color: var(--measured); }
+        .stage[data-state="failed"] { border-color: var(--failed); }
+        .stage[data-state="failed"] .stage-state { color: var(--failed); }
+        .log { margin-top: 1rem; max-height: 250px; overflow: auto; border: 1px solid var(--line); border-radius: 11px; background: #050d18; }
+        .log-line { display: grid; grid-template-columns: 5.2rem 6rem 1fr; gap: .5rem; padding: .45rem .65rem; border-bottom: 1px solid rgba(41, 65, 95, .5); font: .76rem/1.35 ui-monospace, monospace; }
+        .log-line:last-child { border-bottom: 0; }
+        .log-line span:first-child, .log-line span:nth-child(2) { color: var(--muted); }
+        .operation { margin-bottom: 1rem; padding: .8rem; border: 1px solid var(--line); border-radius: 11px; }
+        .operation strong { display: block; }
+        .request-id { color: var(--muted); font: .75rem ui-monospace, monospace; overflow-wrap: anywhere; }
+        .receipt { margin-top: 1rem; }
+        .receipt[hidden] { display: none; }
+        .receipt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+        .metric { padding: .7rem; border: 1px solid var(--line); border-radius: 10px; background: rgba(5, 13, 24, .55); }
+        .metric small { display: block; color: var(--muted); }
+        .download { display: inline-block; margin-top: .85rem; padding: .7rem .9rem; border-radius: 10px; background: var(--accent); color: #041411; font-weight: 750; text-decoration: none; }
+        .error { color: #ff9aad; white-space: pre-wrap; }
+        @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+        @media (max-width: 620px) { header { display: block; } .form-grid, .receipt-grid { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <div class="eyebrow">Pipeline local · 9 estágios auditados</div>
+            <h1>Cortes técnicos T2/T3</h1>
+            <p>Whisper, detecção de cenas, legendas ASS e render vertical com libass.</p>
+        </div>
+        <a href="/">Ir para o corte rápido</a>
+    </header>
+
+    <div class="layout">
+        <section class="panel">
+            <h2>Configuração aplicada ao pipeline</h2>
+            <p class="notice">Somente arquivos locais. T2 não exige camada editorial; T3 exige overlay analítico e/ou narração física.</p>
+            <form id="technicalForm" class="form-grid">
+                <label>
+                    Fase
+                    <select id="phase" name="phase" required>
+                        <option value="t2">T2 · transcrição, cenas, legendas e render</option>
+                        <option value="t3" selected>T3 · transformação editorial obrigatória</option>
+                    </select>
+                </label>
+                <label>
+                    Arquivo de vídeo local
+                    <input id="inputPath" name="input_path" type="text" placeholder="/caminho/absoluto/video.mp4" required>
+                </label>
+                <label>
+                    Modelo Whisper
+                    <select id="whisperModel" name="whisper_model">
+                        <option value="tiny">tiny</option>
+                        <option value="base">base</option>
+                        <option value="small" selected>small</option>
+                        <option value="medium">medium</option>
+                        <option value="large-v3">large-v3</option>
+                        <option value="turbo">turbo</option>
+                    </select>
+                </label>
+                <label>
+                    Dispositivo
+                    <select id="device" name="device"><option value="cpu" selected>CPU</option><option value="cuda">CUDA</option></select>
+                </label>
+                <label>
+                    Idioma (opcional)
+                    <input id="language" name="language" type="text" maxlength="5" placeholder="pt">
+                </label>
+                <label>
+                    Limiar de cena
+                    <input id="sceneThreshold" name="scene_threshold" type="number" min="0.1" max="100" step="0.1" value="27">
+                </label>
+                <label>
+                    Cena mínima (s)
+                    <input id="minSceneLen" name="min_scene_len" type="number" min="0.1" max="60" step="0.1" value="0.6">
+                </label>
+                <label>
+                    Enquadramento vertical
+                    <select id="verticalMode" name="vertical_mode">
+                        <option value="blur_background" selected>Fundo desfocado</option>
+                        <option value="split_blur">Fundo desfocado (split)</option>
+                        <option value="crop_center">Corte central</option>
+                    </select>
+                </label>
+                <label>
+                    Intensidade do desfoque
+                    <input id="blurSigma" name="blur_sigma" type="number" min="0" max="50" step="0.5" value="12">
+                    <span class="hint">Desabilitado no corte central.</span>
+                </label>
+                <label>
+                    Fonte da legenda
+                    <input id="subtitleFontName" name="subtitle_font_name" type="text" maxlength="64" value="Roboto">
+                </label>
+                <label>
+                    Tamanho da legenda
+                    <input id="subtitleFontSize" name="subtitle_font_size" type="number" min="16" max="160" step="1" value="80">
+                </label>
+                <label>
+                    Margem vertical da legenda
+                    <input id="subtitleMarginV" name="subtitle_margin_v" type="number" min="0" max="1600" step="1" value="400">
+                </label>
+                <label class="span-2">
+                    <span class="check-row"><input id="analyticalOverlay" name="analytical_overlay" type="checkbox" checked> Aplicar overlay analítico</span>
+                </label>
+                <label class="span-2">
+                    Texto do overlay
+                    <input id="overlayText" name="overlay_text" type="text" maxlength="120" value="ANÁLISE · ponto-chave do corte">
+                </label>
+                <label class="span-2">
+                    Narração local (opcional)
+                    <input id="narrationPath" name="narration_path" type="text" placeholder="/caminho/narracao.wav">
+                    <span class="hint">Quando informada, precisa ser um arquivo de áudio local; o pipeline mede duração e mixagem.</span>
+                </label>
+                <label class="span-2">
+                    Variante do template
+                    <input id="templateVariant" name="template_variant" type="text" maxlength="64" required>
+                    <span class="hint">T3 exige variante explícita e não repetida; T2 aceita variant_default.</span>
+                </label>
+                <button id="runButton" class="span-2" type="submit">Executar pipeline técnico</button>
+            </form>
+        </section>
+
+        <aside class="panel">
+            <h2>Status e logs após a análise</h2>
+            <div class="operation" aria-live="polite">
+                <strong id="operationState">Aguardando configuração</strong>
+                <span id="requestReference" class="request-id">Nenhuma operação iniciada</span>
+            </div>
+            <ol class="timeline" id="stageTimeline">
+                <li class="stage" data-stage="ingest" data-state="pending"><span class="stage-index">1</span><span class="stage-name">Ingest</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="transcribe" data-state="pending"><span class="stage-index">2</span><span class="stage-name">Whisper</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="scenes" data-state="pending"><span class="stage-index">3</span><span class="stage-name">Cenas</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="select" data-state="pending"><span class="stage-index">4</span><span class="stage-name">Seleção</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="cut" data-state="pending"><span class="stage-index">5</span><span class="stage-name">Corte</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="subtitles" data-state="pending"><span class="stage-index">6</span><span class="stage-name">Legendas ASS</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="audio" data-state="pending"><span class="stage-index">7</span><span class="stage-name">Áudio</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="render" data-state="pending"><span class="stage-index">8</span><span class="stage-name">Render 9:16</span><span class="stage-state">pendente</span></li>
+                <li class="stage" data-stage="report" data-state="pending"><span class="stage-index">9</span><span class="stage-name">Snapshot do relatório</span><span class="stage-state">pendente</span></li>
+            </ol>
+            <div id="activityLog" class="log" role="log" aria-live="polite"><div class="log-line"><span>--:--:--</span><span>painel</span><span>Os eventos auditados aparecerão aqui.</span></div></div>
+            <div id="technicalReceipt" class="receipt" hidden></div>
+        </aside>
+    </div>
+</main>
+<script>
+(() => {
+    const form = document.getElementById('technicalForm');
+    const phase = document.getElementById('phase');
+    const verticalMode = document.getElementById('verticalMode');
+    const blurSigma = document.getElementById('blurSigma');
+    const overlay = document.getElementById('analyticalOverlay');
+    const overlayText = document.getElementById('overlayText');
+    const templateVariant = document.getElementById('templateVariant');
+    const runButton = document.getElementById('runButton');
+    const operationState = document.getElementById('operationState');
+    const requestReference = document.getElementById('requestReference');
+    const activityLog = document.getElementById('activityLog');
+    const receiptNode = document.getElementById('technicalReceipt');
+    let pollTimer = null;
+
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    const newRequestId = () => `cortes-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+    function syncConditionalFields() {
+        const crop = verticalMode.value === 'crop_center';
+        blurSigma.disabled = crop;
+        overlayText.disabled = !overlay.checked;
+        if (phase.value === 't2' && (!templateVariant.value || templateVariant.dataset.generated === 'true')) {
+            templateVariant.value = 'variant_default';
+            templateVariant.dataset.generated = 'false';
+        } else if (phase.value === 't3' && templateVariant.value === 'variant_default') {
+            templateVariant.value = `variant_web_${Date.now().toString(36)}`;
+            templateVariant.dataset.generated = 'true';
+        }
+    }
+
+    function resetStatus() {
+        document.querySelectorAll('.stage').forEach(node => {
+            node.dataset.state = 'pending';
+            node.querySelector('.stage-state').textContent = 'pendente';
+        });
+        activityLog.innerHTML = '<div class="log-line"><span>--:--:--</span><span>painel</span><span>Operação registrada; aguardando eventos.</span></div>';
+        receiptNode.hidden = true;
+        receiptNode.innerHTML = '';
+    }
+
+    function updateStatus(data) {
+        const labels = {started: 'em execução', succeeded: 'medido', failed: 'falhou', skipped: 'não executado', planned: 'planejado'};
+        const states = {started: 'running', succeeded: 'measured', failed: 'failed', skipped: 'skipped', planned: 'pending'};
+        const pipelineEvents = (data.events || []).filter(event => String(event.action || '').startsWith('pipeline.'));
+        for (const event of pipelineEvents) {
+            const stageName = String(event.action).split('.')[1] || event.stage;
+            const node = document.querySelector(`.stage[data-stage="${stageName}"]`);
+            if (!node) continue;
+            node.dataset.state = states[event.status] || node.dataset.state;
+            node.querySelector('.stage-state').textContent = labels[event.status] || event.status;
+        }
+        const visibleEvents = (data.events || []).slice(-80);
+        if (visibleEvents.length) {
+            activityLog.innerHTML = visibleEvents.map(event => {
+                const stamp = event.ts ? new Date(event.ts).toLocaleTimeString('pt-BR') : '--:--:--';
+                const detail = `${event.action || event.component || 'evento'} · ${event.status || 'registrado'}${event.error ? ` · ${event.error}` : ''}`;
+                return `<div class="log-line"><span>${escapeHtml(stamp)}</span><span>${escapeHtml(event.stage || 'env')}</span><span>${escapeHtml(detail)}</span></div>`;
+            }).join('');
+            activityLog.scrollTop = activityLog.scrollHeight;
+        }
+        if (data.state === 'failed') operationState.textContent = 'Execução encerrada com falha registrada';
+        else if (data.completed) operationState.textContent = 'Execução encerrada; consulte a medição';
+        else operationState.textContent = 'Pipeline em execução';
+    }
+
+    async function pollStatus(requestId) {
+        try {
+            const response = await fetch(`/api/status/${encodeURIComponent(requestId)}`, {cache: 'no-store'});
+            if (response.status === 404) return;
+            const data = await response.json();
+            if (response.ok) updateStatus(data);
+        } catch (_) {
+            operationState.textContent = 'Aguardando atualização do status';
+        }
+    }
+
+    function showReceipt(receipt, downloadUrl) {
+        const verification = receipt.verification || {};
+        const report = receipt.report_snapshot || {};
+        receiptNode.innerHTML = `
+            <h2>Medição pós-run</h2>
+            <div class="receipt-grid">
+                <div class="metric"><small>Run técnico</small>${escapeHtml(receipt.run_id)}</div>
+                <div class="metric"><small>Arquivo exportado</small>${escapeHtml(receipt.file && receipt.file.name)}</div>
+                <div class="metric"><small>Checks medidos</small>${escapeHtml(verification.passed_checks)} / ${escapeHtml(verification.total_checks)}</div>
+                <div class="metric"><small>Checks com falha</small>${escapeHtml(verification.failed_checks)}</div>
+                <div class="metric span-2"><small>Resultado da medição (não é declaração de fase)</small>${verification.overall_passed ? 'Todos os checks passaram' : 'Há checks que não passaram'}</div>
+                <div class="metric span-2"><small>${escapeHtml(report.label || 'Snapshot não verificado')}</small>${escapeHtml(report.path || '')}</div>
+            </div>
+            <a class="download" href="${escapeHtml(downloadUrl)}" download>Baixar MP4 medido</a>`;
+        receiptNode.hidden = false;
+    }
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const requestId = newRequestId();
+        resetStatus();
+        requestReference.textContent = requestId;
+        operationState.textContent = 'Registrando pipeline técnico';
+        runButton.disabled = true;
+        const payload = {
+            phase: phase.value,
+            input_path: document.getElementById('inputPath').value.trim(),
+            whisper_model: document.getElementById('whisperModel').value,
+            device: document.getElementById('device').value,
+            language: document.getElementById('language').value.trim() || null,
+            scene_threshold: Number(document.getElementById('sceneThreshold').value),
+            min_scene_len: Number(document.getElementById('minSceneLen').value),
+            vertical_mode: verticalMode.value,
+            blur_sigma: verticalMode.value === 'crop_center' ? null : Number(blurSigma.value),
+            subtitle_font_name: document.getElementById('subtitleFontName').value.trim(),
+            subtitle_font_size: Number(document.getElementById('subtitleFontSize').value),
+            subtitle_margin_v: Number(document.getElementById('subtitleMarginV').value),
+            analytical_overlay: overlay.checked,
+            overlay_text: overlay.checked ? overlayText.value.trim() : null,
+            narration_path: document.getElementById('narrationPath').value.trim() || null,
+            template_variant: templateVariant.value.trim()
+        };
+        pollTimer = window.setInterval(() => pollStatus(requestId), 800);
+        await pollStatus(requestId);
+        try {
+            const response = await fetch('/api/cortes/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-Request-ID': requestId},
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            await pollStatus(requestId);
+            if (!response.ok || data.success === false) throw new Error(data.error || `HTTP ${response.status}`);
+            showReceipt(data.render_receipt, data.download_url);
+        } catch (error) {
+            operationState.textContent = 'Execução não produziu recibo';
+            receiptNode.innerHTML = `<p class="error">${escapeHtml(error.message || error)}</p>`;
+            receiptNode.hidden = false;
+        } finally {
+            window.clearInterval(pollTimer);
+            pollTimer = null;
+            runButton.disabled = false;
+            await pollStatus(requestId);
+        }
+    });
+
+    phase.addEventListener('change', syncConditionalFields);
+    verticalMode.addEventListener('change', syncConditionalFields);
+    overlay.addEventListener('change', syncConditionalFields);
+    templateVariant.value = `variant_web_${Date.now().toString(36)}`;
+    templateVariant.dataset.generated = 'true';
+    syncConditionalFields();
+})();
+</script>
+</body>
+</html>
