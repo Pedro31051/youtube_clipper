@@ -21,7 +21,7 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: "npm run build && ../.venv/bin/python ../tests/run_ui7_playwright_server.py",
+    command: "npm run build && python ../tests/run_ui7_playwright_server.py",
     url: "http://127.0.0.1:8765/api/v1/health",
     timeout: 120_000,
     reuseExistingServer: false
