@@ -15,13 +15,54 @@ export type Clip = {
   score: number;
   status: string;
   plan_version: number;
+  updated_at?: string;
   preview_status: string;
   preview_url?: string | null;
   poster_url?: string | null;
+  edit_plan: EditPlan;
+  assets?: Array<{
+    asset_id: string;
+    kind: string;
+    url: string;
+    valid: boolean;
+  }>;
   suggestion: {
     summary?: string;
     transcript?: string;
     hashtags?: string[];
+  };
+};
+export type EditPlan = {
+  schema_version: string;
+  plan_version: number;
+  clip_id: string;
+  source_id: string;
+  timeline: { start_ms: number; end_ms: number; duration_ms: number };
+  layout: {
+    mode: "crop_center" | "blur_background" | "split_blur";
+    crop_focus?: "left" | "center" | "right";
+    blur_sigma?: number;
+    overlay_position?: "top" | "bottom";
+  };
+  captions: {
+    enabled: boolean;
+    theme?: "classic" | "solid" | "highlight";
+    position?: "bottom" | "center" | "top";
+  };
+  audio: {
+    include_source: boolean;
+    normalize?: boolean;
+    narration_type?: "none" | "external";
+    narration_path?: string | null;
+  };
+  editorial: {
+    overlay_enabled?: boolean;
+    overlay_text?: string | null;
+    template_variant?: "variant_default" | "variant_news" | "variant_impact";
+  };
+  output: {
+    aspect_ratio: "9:16" | "1:1" | "16:9";
+    resolution?: "720x1280" | "1080x1920" | "1080x1080" | "1920x1080";
   };
 };
 export type Job = Record<string, unknown> & {
@@ -156,6 +197,44 @@ export async function reviewClips(
 export async function retryPreview(clipId: string): Promise<Job> {
   const payload = await requestJson<{ job: Job }>(
     `/api/v1/clips/${encodeURIComponent(clipId)}/preview-jobs`,
+    { method: "POST" }
+  );
+  return payload.job;
+}
+
+export async function updateEditPlan(
+  clipId: string,
+  plan: EditPlan,
+  expectedPlanVersion: number
+): Promise<Clip> {
+  const payload = await requestJson<{ clip: Clip }>(
+    `/api/v1/clips/${encodeURIComponent(clipId)}/edit-plan`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        expected_plan_version: expectedPlanVersion,
+        start_ms: plan.timeline.start_ms,
+        end_ms: plan.timeline.end_ms,
+        layout: plan.layout,
+        captions: plan.captions,
+        audio: plan.audio,
+        editorial: plan.editorial,
+        output: plan.output
+      })
+    }
+  );
+  return payload.clip;
+}
+
+export async function renderFinal(
+  clipId: string,
+  currentStatus: string
+): Promise<Job> {
+  if (currentStatus !== "approved") {
+    await reviewClips([clipId], "approve");
+  }
+  const payload = await requestJson<{ job: Job }>(
+    `/api/v1/clips/${encodeURIComponent(clipId)}/render-jobs`,
     { method: "POST" }
   );
   return payload.job;

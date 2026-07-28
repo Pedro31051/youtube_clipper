@@ -21,6 +21,7 @@ def main() -> int:
         schema = application.openapi()
         application.state.analysis_worker.shutdown()
         application.state.preview_worker.shutdown()
+        application.state.render_worker.shutdown()
     output.write_text(
         json.dumps(schema, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",

@@ -56,6 +56,23 @@ export interface paths {
         patch: operations["update_clip_api_v1_clips__clip_id__patch"];
         trace?: never;
     };
+    "/api/v1/clips/{clip_id}/edit-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Edit Plan */
+        put: operations["update_edit_plan_api_v1_clips__clip_id__edit_plan_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clips/{clip_id}/preview-jobs": {
         parameters: {
             query?: never;
@@ -67,6 +84,23 @@ export interface paths {
         put?: never;
         /** Create Preview Job */
         post: operations["create_preview_job_api_v1_clips__clip_id__preview_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clips/{clip_id}/render-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Render Job */
+        post: operations["create_render_job_api_v1_clips__clip_id__render_jobs_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -284,6 +318,35 @@ export interface components {
              * @default true
              */
             success: boolean;
+        };
+        /** EditPlanUpdate */
+        EditPlanUpdate: {
+            /** Audio */
+            audio?: {
+                [key: string]: unknown;
+            } | null;
+            /** Captions */
+            captions?: {
+                [key: string]: unknown;
+            } | null;
+            /** Editorial */
+            editorial?: {
+                [key: string]: unknown;
+            } | null;
+            /** End Ms */
+            end_ms?: number | null;
+            /** Expected Plan Version */
+            expected_plan_version: number;
+            /** Layout */
+            layout?: {
+                [key: string]: unknown;
+            } | null;
+            /** Output */
+            output?: {
+                [key: string]: unknown;
+            } | null;
+            /** Start Ms */
+            start_ms?: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -552,7 +615,73 @@ export interface operations {
             };
         };
     };
+    update_edit_plan_api_v1_clips__clip_id__edit_plan_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_preview_job_api_v1_clips__clip_id__preview_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clip_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewJobResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_render_job_api_v1_clips__clip_id__render_jobs_post: {
         parameters: {
             query?: never;
             header?: never;

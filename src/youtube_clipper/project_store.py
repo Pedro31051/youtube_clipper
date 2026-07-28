@@ -489,10 +489,32 @@ class ProjectStore:
                             "duration_ms": end_ms - start_ms,
                         },
                         "layout": {"mode": "blur_background"},
-                        "captions": {"enabled": False},
-                        "audio": {"include_source": True},
-                        "editorial": {"overlay_text": None},
-                        "output": {"aspect_ratio": aspect_ratio},
+                        "captions": {
+                            "enabled": False,
+                            "theme": "classic",
+                            "position": "bottom",
+                        },
+                        "audio": {
+                            "include_source": True,
+                            "normalize": True,
+                            "narration_type": "none",
+                            "narration_path": None,
+                        },
+                        "editorial": {
+                            "overlay_enabled": False,
+                            "overlay_text": None,
+                            "template_variant": "variant_default",
+                        },
+                        "output": {
+                            "aspect_ratio": aspect_ratio,
+                            "resolution": (
+                                "1080x1080"
+                                if aspect_ratio == "1:1"
+                                else "1920x1080"
+                                if aspect_ratio == "16:9"
+                                else "1080x1920"
+                            ),
+                        },
                     }
                     prepared.append(
                         (
@@ -635,10 +657,12 @@ class ProjectStore:
         self,
         clip_id: str,
         changes: dict[str, Any],
+        *,
+        expected_plan_version: Optional[int] = None,
     ) -> dict[str, Any]:
         allowed = {
             "title", "start_ms", "end_ms", "status",
-            "layout", "captions", "audio", "editorial",
+            "layout", "captions", "audio", "editorial", "output",
         }
         unknown = set(changes) - allowed
         if unknown:
@@ -646,6 +670,13 @@ class ProjectStore:
                 f"Unsupported clip fields: {', '.join(sorted(unknown))}"
             )
         current = self.get_clip(clip_id)
+        if (
+            expected_plan_version is not None
+            and int(expected_plan_version) != int(current["plan_version"])
+        ):
+            raise DomainConflictError(
+                "Edit plan changed since it was loaded; refresh before saving"
+            )
         title = str(changes.get("title", current["title"])).strip()
         start_ms = int(changes.get("start_ms", current["start_ms"]))
         end_ms = int(changes.get("end_ms", current["end_ms"]))
@@ -671,9 +702,14 @@ class ProjectStore:
         plan_changed = timeline_changed
         plan_sections = {
             "layout": {"mode", "crop_focus", "blur_sigma", "overlay_position"},
-            "captions": {"enabled"},
-            "audio": {"include_source"},
-            "editorial": {"overlay_text"},
+            "captions": {"enabled", "theme", "position"},
+            "audio": {
+                "include_source", "normalize", "narration_type", "narration_path",
+            },
+            "editorial": {
+                "overlay_enabled", "overlay_text", "template_variant",
+            },
+            "output": {"aspect_ratio", "resolution"},
         }
         for section, allowed_keys in plan_sections.items():
             if section not in changes:
@@ -710,17 +746,51 @@ class ProjectStore:
             raise DomainValidationError("Layout blur_sigma is invalid")
         if not isinstance((plan.get("captions") or {}).get("enabled", False), bool):
             raise DomainValidationError("Captions enabled must be boolean")
+        if (plan.get("captions") or {}).get("theme", "classic") not in {
+            "classic", "solid", "highlight",
+        }:
+            raise DomainValidationError("Captions theme is invalid")
+        if (plan.get("captions") or {}).get("position", "bottom") not in {
+            "bottom", "center", "top",
+        }:
+            raise DomainValidationError("Captions position is invalid")
         if not isinstance((plan.get("audio") or {}).get("include_source", True), bool):
             raise DomainValidationError("Audio include_source must be boolean")
+        if not isinstance((plan.get("audio") or {}).get("normalize", True), bool):
+            raise DomainValidationError("Audio normalize must be boolean")
+        if (plan.get("audio") or {}).get("narration_type", "none") not in {
+            "none", "external",
+        }:
+            raise DomainValidationError("Audio narration_type is invalid")
+        narration_path = (plan.get("audio") or {}).get("narration_path")
+        if narration_path is not None and not isinstance(narration_path, str):
+            raise DomainValidationError("Audio narration_path is invalid")
         overlay_text = (plan.get("editorial") or {}).get("overlay_text")
         if overlay_text is not None and (
             not isinstance(overlay_text, str) or len(overlay_text) > 240
         ):
             raise DomainValidationError("Editorial overlay_text is invalid")
+        if not isinstance(
+            (plan.get("editorial") or {}).get("overlay_enabled", False), bool
+        ):
+            raise DomainValidationError("Editorial overlay_enabled must be boolean")
+        if (plan.get("editorial") or {}).get(
+            "template_variant", "variant_default"
+        ) not in {"variant_default", "variant_news", "variant_impact"}:
+            raise DomainValidationError("Editorial template_variant is invalid")
+        output = plan.get("output") or {}
+        if output.get("aspect_ratio", "9:16") not in {"9:16", "1:1", "16:9"}:
+            raise DomainValidationError("Output aspect_ratio is invalid")
+        if output.get("resolution", "1080x1920") not in {
+            "720x1280", "1080x1920", "1080x1080", "1920x1080",
+        }:
+            raise DomainValidationError("Output resolution is invalid")
 
         if plan_changed:
             plan_version += 1
             plan["plan_version"] = plan_version
+            if status in {"approved", "rejected", "rendered", "exported", "failed"}:
+                status = "ready"
         if timeline_changed:
             plan["timeline"] = {
                 "start_ms": start_ms,
@@ -757,7 +827,7 @@ class ProjectStore:
                         UPDATE assets
                         SET valid = 0, invalidated_at = ?
                         WHERE clip_id = ?
-                          AND kind IN ('preview', 'poster')
+                          AND kind IN ('preview', 'poster', 'render')
                           AND valid = 1
                         """,
                         (timestamp, clip_id),

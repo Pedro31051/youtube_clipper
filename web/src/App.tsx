@@ -13,6 +13,7 @@ import {
   reviewClips
 } from "./api/client";
 import { useJobEvents } from "./hooks/useJobEvents";
+import { ClipEditor } from "./ClipEditor";
 
 const STATUS_LABELS: Record<string, string> = {
   proposed: "Aguardando preview",
@@ -362,6 +363,16 @@ export function App() {
   const live = useJobEvents(activeJob);
 
   useEffect(() => {
+    if (!editingClip || !clips.data) return;
+    const fresh = clips.data.find(
+      (clip) => clip.clip_id === editingClip.clip_id
+    );
+    if (fresh && fresh.updated_at !== editingClip.updated_at) {
+      setEditingClip(fresh);
+    }
+  }, [clips.data, editingClip]);
+
+  useEffect(() => {
     if (live.event?.state === "completed" || live.event?.state === "failed") {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       void queryClient.invalidateQueries({ queryKey: ["project", selectedProjectId] });
@@ -465,8 +476,8 @@ export function App() {
           ))}
         </nav>
         <div className="sidebar-note">
-          <span>UI-4 · Revisão</span>
-          <p>Análise, previews e decisões persistem no workspace local.</p>
+          <span>UI-5 · Editor compacto</span>
+          <p>Planos versionados, waveform, autosave e render final.</p>
         </div>
       </aside>
 
@@ -631,10 +642,10 @@ export function App() {
               </div>
             </dl>
             <div className="editor-boundary">
-              <strong>Editor compacto na UI-5</strong>
+              <strong>Editor compacto disponível</strong>
               <p>
-                Corte fino, waveform, layout, legendas e áudio serão ajustados
-                aqui sem misturar a curadoria com a edição profunda.
+                Abra a superfície completa para corte fino, waveform, layout,
+                áudio, editorial e saída.
               </p>
             </div>
           </>
@@ -674,6 +685,26 @@ export function App() {
             Limpar
           </button>
         </div>
+      ) : null}
+      {editingClip ? (
+        <ClipEditor
+          clip={editingClip}
+          onClose={() => {
+            setEditingClip(undefined);
+            void clips.refetch();
+            void jobs.refetch();
+          }}
+          onUpdated={(updated) => {
+            setEditingClip(updated);
+            queryClient.setQueryData<Clip[]>(
+              ["clips", selectedProjectId],
+              (current) =>
+                current?.map((item) =>
+                  item.clip_id === updated.clip_id ? updated : item
+                )
+            );
+          }}
+        />
       ) : null}
     </div>
   );

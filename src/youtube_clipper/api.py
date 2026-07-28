@@ -59,6 +59,19 @@ class ClipReviewCreate(BaseModel):
     decision: Literal["approve", "reject"]
 
 
+class EditPlanUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_plan_version: int = Field(ge=1)
+    start_ms: Optional[int] = Field(default=None, ge=0)
+    end_ms: Optional[int] = Field(default=None, ge=1)
+    layout: Optional[dict[str, Any]] = None
+    captions: Optional[dict[str, Any]] = None
+    audio: Optional[dict[str, Any]] = None
+    editorial: Optional[dict[str, Any]] = None
+    output: Optional[dict[str, Any]] = None
+
+
 class ProjectSummary(BaseModel):
     project_id: str
     name: str
@@ -465,6 +478,125 @@ class AnalysisWorker:
         self._executor.shutdown(wait=False, cancel_futures=True)
 
 
+class RenderWorker:
+    """Render final media on a queue independent from interactive previews."""
+
+    def __init__(self, store: ProjectStore, broker: JobEventBroker) -> None:
+        self.store = store
+        self.broker = broker
+        self._executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="render-worker",
+        )
+
+    def submit(self, clip_id: str) -> dict[str, Any]:
+        clip = self.store.get_clip(clip_id)
+        if clip["status"] != "approved":
+            raise DomainConflictError("Only an approved clip can be rendered")
+        if clip["preview_status"] != "ready":
+            raise DomainConflictError("Regenerate the preview before final render")
+        active = [
+            job
+            for job in self.store.list_jobs(project_id=clip["project_id"], limit=100)
+            if job["clip_id"] == clip_id
+            and job["kind"] == "render"
+            and job["state"] in {"queued", "running"}
+        ]
+        if active:
+            raise DomainConflictError("A final render is already active for this clip")
+        job = self.store.create_job(
+            project_id=clip["project_id"],
+            clip_id=clip_id,
+            kind="render",
+            state="queued",
+        )
+        self.broker.publish(
+            job["job_id"],
+            "job_queued",
+            state="queued",
+            progress=0,
+            message="Render final adicionado à fila",
+            data={"clip_id": clip_id},
+        )
+        self.store.update_clip(clip_id, {"status": "rendering"})
+        self._executor.submit(
+            self._run,
+            job["job_id"],
+            clip_id,
+            int(clip["plan_version"]),
+        )
+        return self.store.get_job(job["job_id"])
+
+    def _run(self, job_id: str, clip_id: str, expected_version: int) -> None:
+        run_id = f"run_ui5_render_{job_id}_{uuid.uuid4().hex}"
+        try:
+            self.store.update_job(job_id, state="running", run_id=run_id)
+            self.broker.publish(
+                job_id,
+                "stage_start",
+                state="running",
+                progress=10,
+                message="Renderizando mídia final com o plano salvo",
+                data={"stage": "render"},
+            )
+            clip = self.store.get_clip(clip_id)
+            source = self.store.get_source(clip["source_id"])
+            generated = generate_clip_preview(
+                input_source=source["uri"],
+                start_ms=int(clip["start_ms"]),
+                end_ms=int(clip["end_ms"]),
+                edit_plan=clip["edit_plan"],
+                clip_id=clip_id,
+                run_id=run_id,
+                profile="final",
+            )
+            current = self.store.get_clip(clip_id)
+            if int(current["plan_version"]) != expected_version:
+                raise DomainConflictError("Edit plan changed during final render")
+            asset = self.store.add_asset(
+                clip_id=clip_id,
+                kind="render",
+                source_path=generated["media_path"],
+                mime_type="video/mp4",
+                duration_ms=generated["duration_ms"],
+                width=generated["width"],
+                height=generated["height"],
+            )
+            self.store.create_render(
+                clip_id=clip_id,
+                asset_id=asset["asset_id"],
+                status="rendered",
+            )
+            self.store.update_clip(clip_id, {"status": "rendered"})
+            self.store.update_job(job_id, state="completed", run_id=run_id)
+            self.broker.publish(
+                job_id,
+                "stage_completed",
+                state="completed",
+                progress=100,
+                message="Render final pronto",
+                data={"stage": "render", "render_url": asset["url"]},
+            )
+        except Exception as exc:
+            self.store.update_job(
+                job_id, state="failed", run_id=run_id, error=str(exc)[:500]
+            )
+            try:
+                self.store.update_clip(clip_id, {"status": "failed"})
+            except (DomainConflictError, DomainValidationError):
+                pass
+            self.broker.publish(
+                job_id,
+                "job_failed",
+                state="failed",
+                progress=100,
+                message=str(exc)[:240],
+            )
+
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
+
 def _parse_range(raw_range: Optional[str], size: int) -> tuple[int, int, int]:
     if not raw_range:
         return 0, size - 1, 200
@@ -527,12 +659,14 @@ def create_app(
         preview_worker,
         analyze=analyze,
     )
+    render_worker = RenderWorker(domain_store, broker)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         yield
         analysis_worker.shutdown()
         preview_worker.shutdown()
+        render_worker.shutdown()
 
     app = FastAPI(
         title="YouTube Clipper API",
@@ -544,6 +678,7 @@ def create_app(
     app.state.job_events = broker
     app.state.preview_worker = preview_worker
     app.state.analysis_worker = analysis_worker
+    app.state.render_worker = render_worker
     app.state.web_dist = Path(
         web_dist or Path.cwd() / "web" / "dist"
     ).expanduser().resolve()
@@ -636,6 +771,38 @@ def create_app(
     ) -> ClipResponse:
         return ClipResponse(clip=domain_store.update_clip(clip_id, changes))
 
+    @app.put(
+        "/api/v1/clips/{clip_id}/edit-plan",
+        response_model=ClipResponse,
+    )
+    async def update_edit_plan(
+        clip_id: str,
+        payload: EditPlanUpdate,
+    ) -> ClipResponse:
+        clip = domain_store.get_clip(clip_id)
+        active_render = any(
+            job["kind"] == "render"
+            and job["clip_id"] == clip_id
+            and job["state"] in {"queued", "running"}
+            for job in domain_store.list_jobs(
+                project_id=clip["project_id"],
+                limit=100,
+            )
+        )
+        if active_render:
+            raise DomainConflictError("Clip is locked while final render is active")
+        changes = payload.model_dump(
+            exclude={"expected_plan_version"},
+            exclude_none=True,
+        )
+        return ClipResponse(
+            clip=domain_store.update_clip(
+                clip_id,
+                changes,
+                expected_plan_version=payload.expected_plan_version,
+            )
+        )
+
     @app.post(
         "/api/v1/clips/review",
         response_model=ClipReviewResponse,
@@ -665,6 +832,14 @@ def create_app(
     )
     async def create_preview_job(clip_id: str) -> PreviewJobResponse:
         return PreviewJobResponse(job=preview_worker.submit(clip_id))
+
+    @app.post(
+        "/api/v1/clips/{clip_id}/render-jobs",
+        response_model=PreviewJobResponse,
+        status_code=202,
+    )
+    async def create_render_job(clip_id: str) -> PreviewJobResponse:
+        return PreviewJobResponse(job=render_worker.submit(clip_id))
 
     @app.get("/api/v1/jobs/{job_id}/events")
     async def job_events(
