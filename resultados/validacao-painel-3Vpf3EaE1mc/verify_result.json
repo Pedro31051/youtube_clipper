@@ -1,0 +1,109 @@
+{
+  "schema_version": "2.0.0",
+  "run_id": "run_20260727_215841_666861",
+  "verified_at": "2026-07-27T21:59:52.261300+00:00",
+  "overall_passed": false,
+  "total_checks": 14,
+  "passed_checks": 13,
+  "failed_checks": 1,
+  "checks": [
+    {
+      "check_id": "events_file_exists",
+      "passed": true,
+      "measured": "File exists",
+      "expected": "File exists",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "events_schema_valid",
+      "passed": true,
+      "measured": "Validated 23 events",
+      "expected": "Schema Version 1.0.0 or 2.0.0 valid",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "seq_integrity",
+      "passed": true,
+      "measured": "seq 1..N continuous without gaps",
+      "expected": "seq == index + 1 without gaps or duplicates",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "ts_monotonic",
+      "passed": true,
+      "measured": "Timestamps non-decreasing",
+      "expected": "Monotonic non-decreasing ISO timestamps",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "commands_log_sync",
+      "passed": true,
+      "measured": "Commands log in sync",
+      "expected": "All event commands present in commands.log",
+      "evidence_path": "commands.log"
+    },
+    {
+      "check_id": "exit_codes_zero",
+      "passed": true,
+      "measured": "All ok events have exit_code 0",
+      "expected": "exit_code == 0 for all outcome ok events",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "lifecycle_complete",
+      "passed": true,
+      "measured": "All planned and started actions have terminal events",
+      "expected": "Every planned/started action is terminal or explicitly interrupted",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "run_sealed",
+      "passed": true,
+      "measured": "Run is sealed",
+      "expected": "seal.json exists and matches events.jsonl SHA-256",
+      "evidence_path": "seal.json"
+    },
+    {
+      "check_id": "evidence_paths_relative",
+      "passed": true,
+      "measured": "All evidence paths are run-relative",
+      "expected": "Every evidence path is relative and confined to the run",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "producer_evidence_required",
+      "passed": false,
+      "measured": "Producer stage 'ingest' has no completion event with evidence",
+      "expected": "Producer stages with outcome ok must declare non-empty evidence paths",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "artifact_exists",
+      "passed": true,
+      "measured": "All declared evidence artifacts exist",
+      "expected": "All evidence files exist on disk",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "artifact_sha256",
+      "passed": true,
+      "measured": "All SHA-256 hashes match",
+      "expected": "Calculated SHA-256 matches declared hash",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "artifact_bytes",
+      "passed": true,
+      "measured": "All byte sizes match",
+      "expected": "Disk byte size matches declared size",
+      "evidence_path": "events.jsonl"
+    },
+    {
+      "check_id": "final_render_required",
+      "passed": true,
+      "measured": "No final render declared",
+      "expected": "At least one declared short.mp4 for a T2 run",
+      "evidence_path": "artifacts"
+    }
+  ]
+}

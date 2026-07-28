@@ -92,6 +92,32 @@ python3 -m youtube_clipper --dashboard --host 0.0.0.0 \
 Remote clients must send `Authorization: Bearer <token>`. The upload endpoint
 accepts only files inside the configured output directory.
 
+### Gemini editor in every clip card
+
+Configure Gemini on the server before starting the dashboard. The API key is
+never sent to browser JavaScript:
+
+```bash
+export GEMINI_API_KEY='your-server-side-key'
+# Optional; the default is gemini-3.6-flash
+export GEMINI_MODEL='gemini-3.6-flash'
+python3 -m youtube_clipper --dashboard
+```
+
+Open a suggested clip and select **Editar com Gemini**. The conversation can
+propose a new time range, vertical framing, blur, editorial overlay, audio,
+soundtrack volume, and opening-image duration. Model output is accepted only as
+a validated settings patch: it cannot execute commands or start a render. Review
+the resulting controls and explicitly confirm the configuration to generate a
+new MP4.
+
+Soundtracks (up to 25 MiB) and opening images (PNG, JPEG, or WebP, up to 8 MiB)
+are uploaded as local, opaque asset IDs under the configured output directory.
+The server requires a rights confirmation, verifies extension, media type,
+signature, size, and SHA-256, caps persistent assets at 200 files or 512 MiB,
+and never accepts an asset path from the browser.
+Use only media you own, license, or are authorized to edit.
+
 ## Pytest Test Suite
 
 Execute the test suite using `pytest`:
@@ -102,6 +128,22 @@ To run specific unit or integration test modules:
 ```bash
 .venv/bin/pytest tests/test_e2e_pipeline.py -v
 ```
+
+## Audit Logs and Troubleshooting
+
+Every CLI invocation, dashboard request, pipeline execution, external command,
+and Google Drive upload writes an isolated audit run under `runs/<run_id>/`.
+The canonical `events.jsonl` uses lifecycle schema 2.0 and records whether each
+planned action started, succeeded, failed, retried, was cancelled, or was
+skipped, together with its next action and structured error details.
+
+Subprocess stdout/stderr are stored under `commands/` and referenced by hash
+from the event stream. Completed runs receive `seal.json`; an absent seal or an
+action that started without a terminal event indicates an interrupted run.
+
+See [docs/OBSERVABILIDADE.md](docs/OBSERVABILIDADE.md) for the event contract
+and investigation runbook. Runs are append-only and must never be edited or
+deleted; repeat a failed operation with a new run ID.
 
 ## License
 
