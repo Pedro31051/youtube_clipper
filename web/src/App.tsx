@@ -1,5 +1,15 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Check,
+  CircleAlert,
+  Clapperboard,
+  Play,
+  Plus,
+  RotateCcw,
+  SquarePen,
+  X
+} from "lucide-react";
 
 import {
   type AnalysisInput,
@@ -14,6 +24,7 @@ import {
 } from "./api/client";
 import { useJobEvents } from "./hooks/useJobEvents";
 import { ClipEditor } from "./ClipEditor";
+import { Button, EmptyState, SkeletonCards, StatusBadge } from "./ui";
 
 const STATUS_LABELS: Record<string, string> = {
   proposed: "Aguardando preview",
@@ -69,9 +80,9 @@ function ErrorNotice({
         <strong>Não foi possível carregar a central</strong>
         <p>{message}</p>
       </div>
-      <button type="button" onClick={onRetry}>
+      <Button type="button" icon={RotateCcw} onClick={onRetry}>
         Tentar novamente
-      </button>
+      </Button>
     </section>
   );
 }
@@ -188,9 +199,9 @@ function NewAnalysis({
             </select>
           </label>
         </div>
-        <button className="primary-button" type="submit" disabled={busy}>
+        <Button variant="primary" type="submit" busy={busy} icon={Clapperboard}>
           {busy ? "Criando análise…" : "Analisar vídeo"}
-        </button>
+        </Button>
       </form>
     </section>
   );
@@ -248,16 +259,18 @@ function ClipCard({
             aria-label={`Reproduzir ${clip.title}`}
           >
             <img src={clip.poster_url} alt="" loading="lazy" />
-            <span aria-hidden="true">▶</span>
+            <span aria-hidden="true"><Play size={18} fill="currentColor" /></span>
           </button>
         ) : (
           <div className="media-pending">
-            <span>{clip.status === "failed" ? "!" : "…"}</span>
+            <span aria-hidden="true">
+              {clip.status === "failed" ? <CircleAlert size={28} /> : <Clapperboard size={28} />}
+            </span>
             <strong>{STATUS_LABELS[clip.status] ?? clip.status}</strong>
             {clip.status === "failed" ? (
-              <button type="button" onClick={onRetryPreview}>
+              <Button type="button" icon={RotateCcw} onClick={onRetryPreview}>
                 Tentar preview novamente
-              </button>
+              </Button>
             ) : null}
           </div>
         )}
@@ -277,9 +290,9 @@ function ClipCard({
             <span className="clip-rank">Candidato {clip.rank}</span>
             <h3>{clip.title}</h3>
           </div>
-          <span className="status-badge" data-status={clip.status}>
+          <StatusBadge status={clip.status}>
             {STATUS_LABELS[clip.status] ?? clip.status}
-          </span>
+          </StatusBadge>
         </div>
         <p className="clip-summary">{summary}</p>
         <div className="clip-meta">
@@ -290,28 +303,32 @@ function ClipCard({
           <span>versão {clip.plan_version}</span>
         </div>
         <div className="clip-actions">
-          <button
-            className="primary-button"
+          <Button
+            variant="primary"
+            icon={SquarePen}
             type="button"
             onClick={onEdit}
             disabled={!clip.preview_url}
           >
             Abrir editor
-          </button>
-          <button
+          </Button>
+          <Button
+            icon={Check}
             type="button"
             onClick={() => onDecision("approve")}
             disabled={!canApprove || busy}
           >
             Aprovar
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
+            icon={X}
             type="button"
             onClick={() => onDecision("reject")}
             disabled={!canReject || busy}
           >
             Rejeitar
-          </button>
+          </Button>
         </div>
       </div>
     </article>
@@ -449,18 +466,20 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#projects">Pular para o conteúdo</a>
       <aside className="sidebar">
         <a className="brand" href="/" aria-label="YouTube Clipper — início">
           <span aria-hidden="true">YC</span>
           <strong>YouTube Clipper</strong>
         </a>
-        <button
-          className="new-project-button"
+        <Button
+          variant="primary"
+          icon={Plus}
           type="button"
           onClick={() => setShowNew(true)}
         >
-          + Novo projeto
-        </button>
+          Novo projeto
+        </Button>
         <nav aria-label="Projetos">
           <span className="nav-heading">Projetos recentes</span>
           {projects.data?.map((item) => (
@@ -469,6 +488,7 @@ export function App() {
               type="button"
               key={item.project_id}
               onClick={() => chooseProject(item.project_id)}
+              aria-current={item.project_id === selectedProjectId && !showNew ? "page" : undefined}
             >
               <span>{item.name}</span>
               <small>{item.clip_count} corte(s)</small>
@@ -476,8 +496,8 @@ export function App() {
           ))}
         </nav>
         <div className="sidebar-note">
-          <span>UI-5 · Editor compacto</span>
-          <p>Planos versionados, waveform, autosave e render final.</p>
+          <span>UI-6 · Sistema visual</span>
+          <p>Interface Graphite/Cobalt, compacta e acessível.</p>
         </div>
       </aside>
 
@@ -577,11 +597,7 @@ export function App() {
             </section>
 
             {clips.isPending ? (
-              <div className="clip-grid skeleton-grid" aria-label="Carregando cortes">
-                <span />
-                <span />
-                <span />
-              </div>
+              <SkeletonCards aria-label="Carregando cortes" />
             ) : visibleClips.length ? (
               <section className="clip-grid" aria-label="Candidatos de corte">
                 {visibleClips.map((clip) => (
@@ -602,15 +618,14 @@ export function App() {
                 ))}
               </section>
             ) : (
-              <section className="empty-state panel">
-                <span className="empty-index">00</span>
-                <h3>Nenhum corte neste filtro</h3>
-                <p>
-                  {clips.data?.length
+              <EmptyState
+                title="Nenhum corte neste filtro"
+                description={
+                  clips.data?.length
                     ? "Escolha outro status para continuar a revisão."
-                    : "A análise ainda não produziu candidatos. Acompanhe a atividade acima."}
-                </p>
-              </section>
+                    : "A análise ainda não produziu candidatos. Acompanhe a atividade acima."
+                }
+              />
             )}
           </>
         )}
@@ -621,9 +636,9 @@ export function App() {
         {editingClip ? (
           <>
             <h2 id="inspector-title">{editingClip.title}</h2>
-            <span className="status-badge" data-status={editingClip.status}>
+            <StatusBadge status={editingClip.status}>
               {STATUS_LABELS[editingClip.status] ?? editingClip.status}
-            </span>
+            </StatusBadge>
             <dl className="inspector-details">
               <div>
                 <dt>Intervalo</dt>
@@ -663,7 +678,8 @@ export function App() {
       {selectedIds.length ? (
         <div className="batch-bar" role="region" aria-label="Ações em lote">
           <strong>{selectedIds.length} corte(s) selecionado(s)</strong>
-          <button
+          <Button
+            icon={Check}
             type="button"
             onClick={() =>
               review.mutate({ clipIds: selectedIds, decision: "approve" })
@@ -671,8 +687,10 @@ export function App() {
             disabled={review.isPending}
           >
             Aprovar selecionados
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
+            icon={X}
             type="button"
             onClick={() =>
               review.mutate({ clipIds: selectedIds, decision: "reject" })
@@ -680,10 +698,10 @@ export function App() {
             disabled={review.isPending}
           >
             Rejeitar selecionados
-          </button>
-          <button type="button" onClick={() => setSelectedIds([])}>
+          </Button>
+          <Button variant="ghost" type="button" onClick={() => setSelectedIds([])}>
             Limpar
-          </button>
+          </Button>
         </div>
       ) : null}
       {editingClip ? (

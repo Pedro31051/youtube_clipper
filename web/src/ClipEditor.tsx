@@ -16,6 +16,7 @@ import {
 } from "./api/client";
 import { useEditorStore } from "./editorStore";
 import { WaveformEditor } from "./WaveformEditor";
+import { Button, StatusBadge } from "./ui";
 
 const TABS = ["Corte", "Layout", "Legendas", "Áudio", "Editorial", "Saída"] as const;
 type Tab = (typeof TABS)[number];
@@ -70,6 +71,11 @@ export function ClipEditor({
 
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
       if (!(event.ctrlKey || event.metaKey)) return;
       if (event.key.toLowerCase() === "z") {
         event.preventDefault();
@@ -82,7 +88,16 @@ export function ClipEditor({
     };
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
-  }, [undo, redo]);
+  }, [undo, redo, onClose]);
+
+  useEffect(() => {
+    document.getElementById("editor-close")?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   if (!plan) return null;
   const stale = clip.preview_status !== "ready" || sync !== "synced";
@@ -110,13 +125,19 @@ export function ClipEditor({
   }
 
   return (
-    <div className="editor-overlay">
+    <div
+      className="editor-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="editor-title"
+      data-ui-state={stale ? "stale" : "ready"}
+    >
       <header className="editor-topbar">
-        <button type="button" onClick={onClose} aria-label="Voltar à revisão">
-          <ChevronLeft size={18} /> Revisão
-        </button>
+        <Button id="editor-close" variant="ghost" icon={ChevronLeft} type="button" onClick={onClose} aria-label="Voltar à revisão">
+          Revisão
+        </Button>
         <div>
-          <strong>{clip.title}</strong>
+          <strong id="editor-title">{clip.title}</strong>
           <span>{clip.clip_id}</span>
         </div>
         <div className="editor-history">
@@ -126,8 +147,12 @@ export function ClipEditor({
           <button type="button" onClick={redo} disabled={!future.length} aria-label="Refazer">
             <Redo2 size={17} />
           </button>
-          <span className="sync-state" data-state={sync}>
-            {sync === "saving" ? <RefreshCw size={14} /> : <Check size={14} />}
+          <span className="sync-state" data-state={sync} role="status" aria-live="polite">
+            {sync === "saving" ? (
+              <span className="ui-icon-spin" aria-hidden="true"><RefreshCw size={14} /></span>
+            ) : (
+              <Check size={14} aria-hidden="true" />
+            )}
             {sync === "synced"
               ? "Alterações salvas"
               : sync === "saving"
@@ -147,9 +172,9 @@ export function ClipEditor({
           <img src={clip.poster_url ?? ""} alt="" />
           <strong>{clip.title}</strong>
           <small>{Math.round(clip.score)} pontos · plano v{serverVersion}</small>
-          <span className="status-badge" data-status={stale ? "previewing" : clip.status}>
+          <StatusBadge status={stale ? "stale" : clip.status}>
             {stale ? "Preview desatualizado" : clip.status}
-          </span>
+          </StatusBadge>
         </aside>
 
         <main className="editor-stage">
@@ -172,19 +197,40 @@ export function ClipEditor({
 
         <aside className="editor-inspector">
           <div className="editor-tabs" role="tablist">
-            {TABS.map((item) => (
+            {TABS.map((item, index) => (
               <button
                 key={item}
+                id={`editor-tab-${index}`}
                 type="button"
                 role="tab"
                 aria-selected={tab === item}
+                aria-controls="editor-tabpanel"
+                tabIndex={tab === item ? 0 : -1}
                 onClick={() => setTab(item)}
+                onKeyDown={(event) => {
+                  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                  event.preventDefault();
+                  const nextIndex =
+                    event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? TABS.length - 1
+                        : (index + (event.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length;
+                  setTab(TABS[nextIndex]);
+                  document.getElementById(`editor-tab-${nextIndex}`)?.focus();
+                }}
               >
                 {item}
               </button>
             ))}
           </div>
-          <fieldset className="editor-fields" disabled={sync === "saving"}>
+          <fieldset
+            id="editor-tabpanel"
+            className="editor-fields"
+            role="tabpanel"
+            aria-labelledby={`editor-tab-${TABS.indexOf(tab)}`}
+            disabled={sync === "saving"}
+          >
             {tab === "Corte" ? (
               <>
                 <label>Início (ms)<input type="number" value={plan.timeline.start_ms} onChange={(e) => change((draft) => { draft.timeline.start_ms = Number(e.target.value); })} /></label>
@@ -225,8 +271,8 @@ export function ClipEditor({
             {tab === "Saída" ? (
               <>
                 <label>Resolução<select value={plan.output.resolution ?? "1080x1920"} onChange={(e) => change((draft) => { draft.output.resolution = e.target.value as typeof draft.output.resolution; })}><option value="720x1280">720 × 1280</option><option value="1080x1920">1080 × 1920</option></select></label>
-                <button className="editor-action" type="button" onClick={regenerate} disabled={sync !== "synced" || action !== undefined}><RefreshCw size={16} /> {action === "preview" ? "Agendando…" : "Regenerar preview"}</button>
-                <button className="editor-action primary-button" type="button" onClick={render} disabled={stale || action !== undefined}><Film size={16} /> {action === "render" ? "Agendando…" : "Render final"}</button>
+                <Button type="button" icon={RefreshCw} busy={action === "preview"} onClick={regenerate} disabled={sync !== "synced" || action !== undefined}>Regenerar preview</Button>
+                <Button variant="primary" type="button" icon={Film} busy={action === "render"} onClick={render} disabled={stale || action !== undefined}>Render final</Button>
               </>
             ) : null}
           </fieldset>
