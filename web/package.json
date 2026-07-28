@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "generate:api": "../.venv/bin/python ../scripts/export_openapi.py --output openapi.json && openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "generate:api": "python ../scripts/export_openapi.py --output openapi.json && openapi-typescript openapi.json -o src/api/schema.d.ts",
     "build": "npm run generate:api && tsc --noEmit && vite build",
     "test": "vitest run",
     "test:e2e": "playwright test"

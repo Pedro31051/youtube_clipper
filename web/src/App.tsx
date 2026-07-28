@@ -350,7 +350,7 @@ export function App() {
   const [showOperations, setShowOperations] = useState(false);
   const [filter, setFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [playingId, setPlayingId] = useState<string>();
+  const [playingIds, setPlayingIds] = useState<string[]>([]);
   const [editingClip, setEditingClip] = useState<Clip>();
 
   const projects = useQuery({ queryKey: ["projects"], queryFn: getProjects });
@@ -492,7 +492,7 @@ export function App() {
     setShowNew(false);
     setShowOperations(false);
     setSelectedIds([]);
-    setPlayingId(undefined);
+    setPlayingIds([]);
     setEditingClip(undefined);
   }
 
@@ -559,7 +559,7 @@ export function App() {
           ))}
         </nav>
         <div className="sidebar-note">
-          <span>UI-7 · Operação</span>
+          <span>Operação confiável</span>
           <p>Jobs persistentes, exportação e falhas acionáveis.</p>
         </div>
       </aside>
@@ -689,10 +689,16 @@ export function App() {
                     key={clip.clip_id}
                     clip={clip}
                     selected={selectedIds.includes(clip.clip_id)}
-                    playing={playingId === clip.clip_id}
+                    playing={playingIds.includes(clip.clip_id)}
                     busy={review.isPending}
                     onSelect={() => toggleClip(clip.clip_id)}
-                    onPlay={() => setPlayingId(clip.clip_id)}
+                    onPlay={() =>
+                      setPlayingIds((current) =>
+                        current.includes(clip.clip_id)
+                          ? current
+                          : [...current, clip.clip_id]
+                      )
+                    }
                     onDecision={(decision) =>
                       review.mutate({ clipIds: [clip.clip_id], decision })
                     }
@@ -734,10 +740,6 @@ export function App() {
               <div>
                 <dt>Plano</dt>
                 <dd>versão {editingClip.plan_version}</dd>
-              </div>
-              <div>
-                <dt>Identidade</dt>
-                <dd>{editingClip.clip_id}</dd>
               </div>
             </dl>
             <div className="editor-boundary">

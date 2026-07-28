@@ -138,7 +138,6 @@ export function ClipEditor({
         </Button>
         <div>
           <strong id="editor-title">{clip.title}</strong>
-          <span>{clip.clip_id}</span>
         </div>
         <div className="editor-history">
           <button type="button" onClick={undo} disabled={!past.length} aria-label="Desfazer">
@@ -247,10 +246,10 @@ export function ClipEditor({
             ) : null}
             {tab === "Legendas" ? (
               <>
-                <label className="switch-row"><input type="checkbox" checked={plan.captions.enabled} onChange={(e) => change((draft) => { draft.captions.enabled = e.target.checked; })} /> Ativar legendas</label>
-                <label>Tema<select value={plan.captions.theme ?? "classic"} onChange={(e) => change((draft) => { draft.captions.theme = e.target.value as "classic" | "solid" | "highlight"; })}><option value="classic">Clássico</option><option value="solid">Branco sólido</option><option value="highlight">Palavra destacada</option></select></label>
-                <label>Posição<select value={plan.captions.position ?? "bottom"} onChange={(e) => change((draft) => { draft.captions.position = e.target.value as "bottom" | "center" | "top"; })}><option value="bottom">Inferior</option><option value="center">Centro</option><option value="top">Superior</option></select></label>
-                <p className="field-note">O estilo é salvo no plano. A queima exige um asset de legenda, ainda não produzido pela análise atual.</p>
+                <label className="switch-row"><input type="checkbox" checked={false} disabled /> Ativar legendas</label>
+                <label>Tema<select value="classic" disabled><option value="classic">Clássico</option></select></label>
+                <label>Posição<select value="bottom" disabled><option value="bottom">Inferior</option></select></label>
+                <p className="field-note">Indisponível: a análise atual ainda não produz um asset físico de legenda para queima no vídeo.</p>
               </>
             ) : null}
             {tab === "Áudio" ? (
@@ -265,7 +264,8 @@ export function ClipEditor({
               <>
                 <label className="switch-row"><input type="checkbox" checked={plan.editorial.overlay_enabled ?? false} onChange={(e) => change((draft) => { draft.editorial.overlay_enabled = e.target.checked; })} /> Overlay analítico</label>
                 <label>Texto<textarea maxLength={100} value={plan.editorial.overlay_text ?? ""} onChange={(e) => change((draft) => { draft.editorial.overlay_text = e.target.value; })} /></label>
-                <label>Template<select value={plan.editorial.template_variant ?? "variant_default"} onChange={(e) => change((draft) => { draft.editorial.template_variant = e.target.value as "variant_default" | "variant_news" | "variant_impact"; })}><option value="variant_default">Minimalista</option><option value="variant_news">Notícias</option><option value="variant_impact">Impacto</option></select></label>
+                <label>Template<select value="variant_default" disabled><option value="variant_default">Minimalista</option></select></label>
+                <p className="field-note">Outros templates ficam desativados até alterarem o render físico e seus metadados.</p>
               </>
             ) : null}
             {tab === "Saída" ? (

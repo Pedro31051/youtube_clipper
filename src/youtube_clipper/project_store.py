@@ -806,10 +806,16 @@ class ProjectStore:
             (plan.get("editorial") or {}).get("overlay_enabled", False), bool
         ):
             raise DomainValidationError("Editorial overlay_enabled must be boolean")
+        if (plan.get("captions") or {}).get("enabled", False):
+            raise DomainValidationError(
+                "Captions are unavailable until a physical subtitle asset exists"
+            )
         if (plan.get("editorial") or {}).get(
             "template_variant", "variant_default"
-        ) not in {"variant_default", "variant_news", "variant_impact"}:
-            raise DomainValidationError("Editorial template_variant is invalid")
+        ) != "variant_default":
+            raise DomainValidationError(
+                "Editorial templates other than variant_default are not implemented"
+            )
         output = plan.get("output") or {}
         if output.get("aspect_ratio", "9:16") not in {"9:16", "1:1", "16:9"}:
             raise DomainValidationError("Output aspect_ratio is invalid")
@@ -821,7 +827,14 @@ class ProjectStore:
         if plan_changed:
             plan_version += 1
             plan["plan_version"] = plan_version
-            if status in {"approved", "rejected", "rendered", "exported", "failed"}:
+            if status in {
+                "approved",
+                "rejected",
+                "previewing",
+                "rendered",
+                "exported",
+                "failed",
+            }:
                 status = "ready"
         if timeline_changed:
             plan["timeline"] = {

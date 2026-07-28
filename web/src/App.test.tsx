@@ -184,7 +184,7 @@ describe("UI-3 shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir editor" }));
     expect(screen.getByText("O player mostra o último preview físico.", { exact: false })).toBeInTheDocument();
-    expect(screen.getAllByText(clip.clip_id).length).toBeGreaterThan(0);
+    expect(screen.queryByText(clip.clip_id)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Aprovar" }));
     await waitFor(() =>

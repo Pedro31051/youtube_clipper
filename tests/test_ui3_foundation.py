@@ -25,7 +25,11 @@ def test_frontend_build_is_openapi_first_and_ci_enforced() -> None:
 
     assert "export_openapi.py" in package
     assert "openapi-typescript" in package
-    assert "npm test && npm run build" in workflow
+    assert "npm run generate:api" in workflow
+    assert "npx tsc --noEmit" in workflow
+    assert "npm test" in workflow
+    assert "npx vite build" in workflow
+    assert "npm run test:e2e" in workflow
     assert "YouTube Clipper API" not in generated
     assert "ProjectsResponse" in generated
 

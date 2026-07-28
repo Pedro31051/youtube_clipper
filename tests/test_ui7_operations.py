@@ -94,6 +94,40 @@ def test_job_events_survive_process_reload(tmp_path: Path) -> None:
     assert restored["events"][0]["message"] == "Transcrição física em andamento"
 
 
+def test_orphan_job_is_interrupted_on_startup_and_retry_gets_new_id(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "projects.sqlite3"
+    workspace = tmp_path / "workspace"
+    store = ProjectStore(database, workspace)
+    clip = _renderable_clip(store, tmp_path)
+    store.update_clip(clip["clip_id"], {"status": "ready"})
+    store.update_clip(clip["clip_id"], {"status": "previewing"})
+    orphan = store.create_job(
+        project_id=clip["project_id"],
+        clip_id=clip["clip_id"],
+        kind="preview",
+        state="running",
+    )
+
+    reloaded = ProjectStore(database, workspace)
+    app = create_app(store=reloaded)
+    with TestClient(app) as client:
+        interrupted = client.get(f"/api/v1/jobs/{orphan['job_id']}").json()["job"]
+        retried_response = client.post(
+            f"/api/v1/jobs/{orphan['job_id']}/retry"
+        )
+        retried = retried_response.json()["job"]
+        settled = _wait(client, retried["job_id"])
+
+    assert interrupted["state"] == "interrupted"
+    assert interrupted["events"][-1]["type"] == "job_interrupted"
+    assert retried_response.status_code == 202
+    assert retried["job_id"] != orphan["job_id"]
+    assert retried["parent_job_id"] == orphan["job_id"]
+    assert settled["state"] == "completed"
+
+
 def test_download_and_drive_export_require_and_use_physical_render(
     tmp_path: Path,
 ) -> None:

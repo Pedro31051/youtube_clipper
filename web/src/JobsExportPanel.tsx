@@ -204,14 +204,17 @@ export function JobsExportPanel({
             {jobs.map((job) => {
               const clip = job.clip_id ? clipById.get(job.clip_id) : undefined;
               const active = ["queued", "running"].includes(job.state);
-              const retryable = ["failed", "cancelled"].includes(job.state);
+              const retryable = ["failed", "cancelled", "interrupted"].includes(job.state);
               return (
                 <article className="job-card" key={job.job_id} data-state={job.state}>
                   <header>
                     <div>
                       <span className="job-kind">{KIND_LABELS[job.kind] ?? job.kind}</span>
-                      <h4>{clip?.title ?? `Projeto ${job.project_id.slice(-8)}`}</h4>
-                      <code>{job.job_id}</code>
+                      <h4>{clip?.title ?? "Projeto sem corte associado"}</h4>
+                      <details>
+                        <summary>Detalhes técnicos</summary>
+                        <code>{job.job_id}</code>
+                      </details>
                     </div>
                     <StatusBadge status={job.state}>{job.state}</StatusBadge>
                   </header>

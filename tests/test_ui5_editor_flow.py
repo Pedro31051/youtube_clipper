@@ -82,7 +82,7 @@ def test_saved_plan_invalidates_preview_and_drives_physical_final_render(
                 "editorial": {
                     "overlay_enabled": True,
                     "overlay_text": "CONTEXTO ORIGINAL",
-                    "template_variant": "variant_impact",
+                        "template_variant": "variant_default",
                 },
                 "output": {
                     "aspect_ratio": "9:16",

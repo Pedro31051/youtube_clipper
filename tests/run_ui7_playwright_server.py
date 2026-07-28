@@ -33,7 +33,7 @@ def seeded_app():
         source_kind="local",
     )
     analysis = store.create_analysis(project_id=project["project_id"])
-    clip = store.finish_analysis(
+    clips = store.finish_analysis(
         analysis_id=analysis["analysis_id"],
         result={
             "success": True,
@@ -42,22 +42,49 @@ def seeded_app():
                     "rank": 1,
                     "title": "Render concluído sobre mídia física",
                     "start_time": 0,
-                    "end_time": 9,
+                    "end_time": 3,
                     "score": 97,
-                    "summary": "Fixture real pronta para download Range.",
-                }
+                    "summary": "Trecho vermelho pronto para download Range.",
+                },
+                {
+                    "rank": 2,
+                    "title": "Segundo corte independente",
+                    "start_time": 3,
+                    "end_time": 6,
+                    "score": 92,
+                    "summary": "Trecho verde com identidade própria.",
+                },
+                {
+                    "rank": 3,
+                    "title": "Terceiro corte independente",
+                    "start_time": 6,
+                    "end_time": 9,
+                    "score": 88,
+                    "summary": "Trecho azul com identidade própria.",
+                },
             ],
         },
-    )[0]
-    store.add_asset(
-        clip_id=clip["clip_id"],
-        kind="preview",
-        source_path=FIXTURE,
-        mime_type="video/mp4",
-        duration_ms=9000,
-        width=640,
-        height=360,
     )
+    for clip in clips:
+        store.add_asset(
+            clip_id=clip["clip_id"],
+            kind="preview",
+            source_path=FIXTURE,
+            mime_type="video/mp4",
+            duration_ms=3000,
+            width=640,
+            height=360,
+        )
+        store.add_asset(
+            clip_id=clip["clip_id"],
+            kind="poster",
+            source_path=FIXTURE,
+            mime_type="image/jpeg",
+            width=640,
+            height=360,
+        )
+        store.update_clip(clip["clip_id"], {"status": "ready"})
+    clip = clips[0]
     store.add_asset(
         clip_id=clip["clip_id"],
         kind="render",
@@ -67,7 +94,6 @@ def seeded_app():
         width=640,
         height=360,
     )
-    store.update_clip(clip["clip_id"], {"status": "ready"})
     store.update_clip(clip["clip_id"], {"status": "approved"})
     store.update_clip(clip["clip_id"], {"status": "rendering"})
     store.update_clip(clip["clip_id"], {"status": "rendered"})
