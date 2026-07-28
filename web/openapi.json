@@ -1,6 +1,39 @@
 {
   "components": {
     "schemas": {
+      "AnalysisJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "aspect_ratio": {
+            "default": "9:16",
+            "pattern": "^(9:16|1:1|16:9)$",
+            "title": "Aspect Ratio",
+            "type": "string"
+          },
+          "language": {
+            "default": "auto",
+            "pattern": "^(auto|pt|en)$",
+            "title": "Language",
+            "type": "string"
+          },
+          "max_clips": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Clips",
+            "type": "integer"
+          },
+          "target_duration_seconds": {
+            "default": 45,
+            "maximum": 59.0,
+            "minimum": 15.0,
+            "title": "Target Duration Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "AnalysisJobCreate",
+        "type": "object"
+      },
       "ClipResponse": {
         "properties": {
           "clip": {
@@ -18,6 +51,56 @@
           "clip"
         ],
         "title": "ClipResponse",
+        "type": "object"
+      },
+      "ClipReviewCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "clip_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Clip Ids",
+            "type": "array"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clip_ids",
+          "decision"
+        ],
+        "title": "ClipReviewCreate",
+        "type": "object"
+      },
+      "ClipReviewResponse": {
+        "properties": {
+          "clips": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Clips",
+            "type": "array"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "clips"
+        ],
+        "title": "ClipReviewResponse",
         "type": "object"
       },
       "ClipsResponse": {
@@ -357,6 +440,44 @@
           }
         },
         "summary": "Get Asset"
+      }
+    },
+    "/api/v1/clips/review": {
+      "post": {
+        "operationId": "review_clips_api_v1_clips_review_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClipReviewCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Clips"
       }
     },
     "/api/v1/clips/{clip_id}": {
@@ -745,6 +866,55 @@
           }
         },
         "summary": "Get Project"
+      }
+    },
+    "/api/v1/projects/{project_id}/analysis-jobs": {
+      "post": {
+        "operationId": "create_analysis_job_api_v1_projects__project_id__analysis_jobs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisJobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Analysis Job"
       }
     },
     "/api/v1/projects/{project_id}/clips": {

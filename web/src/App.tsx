@@ -1,13 +1,58 @@
-import { useQuery } from "@tanstack/react-query";
+import { FormEvent, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getJobs, getProjects } from "./api/client";
+import {
+  type AnalysisInput,
+  type Clip,
+  createAnalysis,
+  getClips,
+  getJobs,
+  getProject,
+  getProjects,
+  retryPreview,
+  reviewClips
+} from "./api/client";
 import { useJobEvents } from "./hooks/useJobEvents";
+
+const STATUS_LABELS: Record<string, string> = {
+  proposed: "Aguardando preview",
+  previewing: "Gerando preview",
+  ready: "Pronto",
+  approved: "Aprovado",
+  rejected: "Rejeitado",
+  failed: "Falhou"
+};
+
+const FILTERS = [
+  ["all", "Todos"],
+  ["processing", "Processando"],
+  ["ready", "Prontos"],
+  ["approved", "Aprovados"],
+  ["rejected", "Rejeitados"],
+  ["failed", "Falhas"]
+] as const;
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function formatTime(milliseconds: number) {
+  const total = Math.max(0, Math.round(milliseconds / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function clipMatchesFilter(clip: Clip, filter: string) {
+  if (filter === "all") return true;
+  if (filter === "processing") {
+    return ["proposed", "previewing"].includes(clip.status);
+  }
+  if (filter === "ready") return clip.status === "ready";
+  return clip.status === filter;
 }
 
 function ErrorNotice({
@@ -30,21 +75,366 @@ function ErrorNotice({
   );
 }
 
+function NewAnalysis({
+  busy,
+  onSubmit
+}: {
+  busy: boolean;
+  onSubmit: (input: AnalysisInput) => void;
+}) {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [language, setLanguage] = useState<AnalysisInput["language"]>("auto");
+  const [maxClips, setMaxClips] = useState(5);
+  const [targetDuration, setTargetDuration] = useState(45);
+  const [aspectRatio, setAspectRatio] =
+    useState<AnalysisInput["aspect_ratio"]>("9:16");
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSubmit({
+      name,
+      url,
+      language,
+      max_clips: maxClips,
+      target_duration_seconds: targetDuration,
+      aspect_ratio: aspectRatio
+    });
+  }
+
+  return (
+    <section className="analysis-card" aria-labelledby="analysis-title">
+      <div>
+        <span className="eyebrow">Novo projeto</span>
+        <h2 id="analysis-title">Transforme um vídeo em candidatos revisáveis</h2>
+        <p>
+          Cole a fonte, escolha o objetivo e acompanhe análise e previews sem
+          sair desta tela.
+        </p>
+      </div>
+      <form onSubmit={submit}>
+        <label>
+          Nome do projeto
+          <input
+            required
+            maxLength={160}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Entrevista semanal"
+          />
+        </label>
+        <label className="source-field">
+          URL do YouTube
+          <input
+            required
+            type="url"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="https://www.youtube.com/watch?v=…"
+          />
+        </label>
+        <div className="form-grid">
+          <label>
+            Idioma
+            <select
+              value={language}
+              onChange={(event) =>
+                setLanguage(event.target.value as AnalysisInput["language"])
+              }
+            >
+              <option value="auto">Automático</option>
+              <option value="pt">Português</option>
+              <option value="en">Inglês</option>
+            </select>
+          </label>
+          <label>
+            Quantidade
+            <select
+              value={maxClips}
+              onChange={(event) => setMaxClips(Number(event.target.value))}
+            >
+              {[3, 5, 8, 10].map((value) => (
+                <option key={value} value={value}>
+                  {value} cortes
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Duração-alvo
+            <select
+              value={targetDuration}
+              onChange={(event) => setTargetDuration(Number(event.target.value))}
+            >
+              {[30, 45, 55].map((value) => (
+                <option key={value} value={value}>
+                  {value} segundos
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Formato
+            <select
+              value={aspectRatio}
+              onChange={(event) =>
+                setAspectRatio(event.target.value as AnalysisInput["aspect_ratio"])
+              }
+            >
+              <option value="9:16">Vertical · 9:16</option>
+              <option value="1:1">Quadrado · 1:1</option>
+              <option value="16:9">Horizontal · 16:9</option>
+            </select>
+          </label>
+        </div>
+        <button className="primary-button" type="submit" disabled={busy}>
+          {busy ? "Criando análise…" : "Analisar vídeo"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function ClipCard({
+  clip,
+  selected,
+  playing,
+  busy,
+  onSelect,
+  onPlay,
+  onDecision,
+  onEdit,
+  onRetryPreview
+}: {
+  clip: Clip;
+  selected: boolean;
+  playing: boolean;
+  busy: boolean;
+  onSelect: () => void;
+  onPlay: () => void;
+  onDecision: (decision: "approve" | "reject") => void;
+  onEdit: () => void;
+  onRetryPreview: () => void;
+}) {
+  const canApprove =
+    clip.preview_status === "ready" &&
+    ["ready", "rejected"].includes(clip.status);
+  const canReject = ["proposed", "ready", "approved"].includes(clip.status);
+  const summary =
+    clip.suggestion.summary ??
+    clip.suggestion.transcript ??
+    "A análise não forneceu uma justificativa textual.";
+
+  return (
+    <article className="clip-card" data-status={clip.status}>
+      <div className="clip-media">
+        {playing && clip.preview_url ? (
+          <video
+            key={clip.preview_url}
+            src={clip.preview_url}
+            poster={clip.poster_url ?? undefined}
+            controls
+            autoPlay
+            playsInline
+            preload="metadata"
+            aria-label={`Preview de ${clip.title}`}
+          />
+        ) : clip.poster_url ? (
+          <button
+            className="poster-button"
+            type="button"
+            onClick={onPlay}
+            aria-label={`Reproduzir ${clip.title}`}
+          >
+            <img src={clip.poster_url} alt="" loading="lazy" />
+            <span aria-hidden="true">▶</span>
+          </button>
+        ) : (
+          <div className="media-pending">
+            <span>{clip.status === "failed" ? "!" : "…"}</span>
+            <strong>{STATUS_LABELS[clip.status] ?? clip.status}</strong>
+            {clip.status === "failed" ? (
+              <button type="button" onClick={onRetryPreview}>
+                Tentar preview novamente
+              </button>
+            ) : null}
+          </div>
+        )}
+        <span className="score-badge">{Math.round(clip.score)} pts</span>
+      </div>
+      <div className="clip-content">
+        <div className="clip-title-row">
+          <label className="clip-check">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onSelect}
+              aria-label={`Selecionar ${clip.title}`}
+            />
+          </label>
+          <div>
+            <span className="clip-rank">Candidato {clip.rank}</span>
+            <h3>{clip.title}</h3>
+          </div>
+          <span className="status-badge" data-status={clip.status}>
+            {STATUS_LABELS[clip.status] ?? clip.status}
+          </span>
+        </div>
+        <p className="clip-summary">{summary}</p>
+        <div className="clip-meta">
+          <span>
+            {formatTime(clip.start_ms)} → {formatTime(clip.end_ms)}
+          </span>
+          <span>{formatTime(clip.duration_ms)} de duração</span>
+          <span>versão {clip.plan_version}</span>
+        </div>
+        <div className="clip-actions">
+          <button
+            className="primary-button"
+            type="button"
+            onClick={onEdit}
+            disabled={!clip.preview_url}
+          >
+            Abrir editor
+          </button>
+          <button
+            type="button"
+            onClick={() => onDecision("approve")}
+            disabled={!canApprove || busy}
+          >
+            Aprovar
+          </button>
+          <button
+            type="button"
+            onClick={() => onDecision("reject")}
+            disabled={!canReject || busy}
+          >
+            Rejeitar
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function App() {
-  const projects = useQuery({
-    queryKey: ["projects"],
-    queryFn: getProjects
+  const queryClient = useQueryClient();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>();
+  const [showNew, setShowNew] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [playingId, setPlayingId] = useState<string>();
+  const [editingClip, setEditingClip] = useState<Clip>();
+
+  const projects = useQuery({ queryKey: ["projects"], queryFn: getProjects });
+  useEffect(() => {
+    if (!selectedProjectId && projects.data?.length) {
+      setSelectedProjectId(projects.data[0].project_id);
+    }
+  }, [projects.data, selectedProjectId]);
+
+  const project = useQuery({
+    queryKey: ["project", selectedProjectId],
+    queryFn: () => getProject(selectedProjectId!),
+    enabled: Boolean(selectedProjectId)
+  });
+  const clips = useQuery({
+    queryKey: ["clips", selectedProjectId],
+    queryFn: () => getClips(selectedProjectId!),
+    enabled: Boolean(selectedProjectId),
+    refetchInterval: (query) => {
+      const values = query.state.data;
+      return values?.some((clip) =>
+        ["proposed", "previewing"].includes(clip.status)
+      )
+        ? 1_500
+        : false;
+    }
   });
   const jobs = useQuery({
-    queryKey: ["jobs"],
-    queryFn: getJobs,
-    refetchInterval: 5_000
+    queryKey: ["jobs", selectedProjectId],
+    queryFn: () => getJobs(selectedProjectId),
+    refetchInterval: 2_000
   });
   const activeJob = jobs.data?.find((job) =>
     ["queued", "running"].includes(job.state)
   );
   const live = useJobEvents(activeJob);
-  const error = projects.error ?? jobs.error;
+
+  useEffect(() => {
+    if (live.event?.state === "completed" || live.event?.state === "failed") {
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["project", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs", selectedProjectId] });
+    }
+  }, [live.event, queryClient, selectedProjectId]);
+
+  const create = useMutation({
+    mutationFn: createAnalysis,
+    onSuccess: ({ project: createdProject }) => {
+      setSelectedProjectId(createdProject.project_id);
+      setShowNew(false);
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    }
+  });
+  const review = useMutation({
+    mutationFn: ({
+      clipIds,
+      decision
+    }: {
+      clipIds: string[];
+      decision: "approve" | "reject";
+    }) => reviewClips(clipIds, decision),
+    onSuccess: () => {
+      setSelectedIds([]);
+      void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+    }
+  });
+  const preview = useMutation({
+    mutationFn: retryPreview,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["clips", selectedProjectId] });
+      void queryClient.invalidateQueries({ queryKey: ["jobs", selectedProjectId] });
+    }
+  });
+
+  const visibleClips = (clips.data ?? []).filter((clip) =>
+    clipMatchesFilter(clip, filter)
+  );
+  const failedJob = jobs.data?.find((job) => job.state === "failed");
+  const error =
+    projects.error ??
+    project.error ??
+    clips.error ??
+    jobs.error ??
+    create.error ??
+    review.error ??
+    preview.error ??
+    (failedJob?.error ? new Error(String(failedJob.error)) : null);
+
+  function chooseProject(projectId: string) {
+    setSelectedProjectId(projectId);
+    setShowNew(false);
+    setSelectedIds([]);
+    setPlayingId(undefined);
+    setEditingClip(undefined);
+  }
+
+  function toggleClip(clipId: string) {
+    setSelectedIds((current) => {
+      if (current.includes(clipId)) {
+        return current.filter((id) => id !== clipId);
+      }
+      return current.length < 20 ? [...current, clipId] : current;
+    });
+  }
+
+  const title = showNew
+    ? "Nova análise"
+    : project.data?.name ?? "Projetos de cortes";
 
   return (
     <div className="app-shell">
@@ -53,31 +443,41 @@ export function App() {
           <span aria-hidden="true">YC</span>
           <strong>YouTube Clipper</strong>
         </a>
-        <nav aria-label="Navegação principal">
-          <a className="nav-item active" href="#projects" aria-current="page">
-            Projetos
-          </a>
-          <a className="nav-item" href="#activity">
-            Atividade
-          </a>
-          <span className="nav-item disabled" aria-disabled="true">
-            Configurações
-          </span>
+        <button
+          className="new-project-button"
+          type="button"
+          onClick={() => setShowNew(true)}
+        >
+          + Novo projeto
+        </button>
+        <nav aria-label="Projetos">
+          <span className="nav-heading">Projetos recentes</span>
+          {projects.data?.map((item) => (
+            <button
+              className={`nav-item ${item.project_id === selectedProjectId && !showNew ? "active" : ""}`}
+              type="button"
+              key={item.project_id}
+              onClick={() => chooseProject(item.project_id)}
+            >
+              <span>{item.name}</span>
+              <small>{item.clip_count} corte(s)</small>
+            </button>
+          ))}
         </nav>
         <div className="sidebar-note">
-          <span>Fundação UI-3</span>
-          <p>Revisão e editor entram nas próximas etapas.</p>
+          <span>UI-4 · Revisão</span>
+          <p>Análise, previews e decisões persistem no workspace local.</p>
         </div>
       </aside>
 
       <header className="topbar">
         <div>
           <span className="eyebrow">Central de trabalho</span>
-          <h1>Projetos de cortes</h1>
+          <h1>{title}</h1>
         </div>
         <div className="connection-pill" data-state={live.connection}>
           <span aria-hidden="true" />
-          {live.connection === "live" ? "Eventos ao vivo" : "API conectada"}
+          {activeJob ? "Processando agora" : "API conectada"}
         </div>
       </header>
 
@@ -86,114 +486,195 @@ export function App() {
           <ErrorNotice
             message={error instanceof Error ? error.message : "Erro desconhecido"}
             onRetry={() => {
+              create.reset();
+              review.reset();
+              preview.reset();
               void projects.refetch();
+              void project.refetch();
+              void clips.refetch();
               void jobs.refetch();
             }}
           />
         ) : null}
 
-        <section className="overview" aria-labelledby="overview-title">
-          <div>
-            <span className="eyebrow">Visão geral</span>
-            <h2 id="overview-title">Continue de onde parou</h2>
-            <p>
-              Projetos e jobs vêm da API persistente. Nenhum estado desta tela
-              depende da string Python do painel legado.
-            </p>
-          </div>
-          <dl className="metrics">
+        {activeJob ? (
+          <section className="job-banner" aria-live="polite">
             <div>
-              <dt>Projetos</dt>
-              <dd>{projects.data?.length ?? "—"}</dd>
+              <span className="eyebrow">
+                {activeJob.kind === "analysis" ? "Análise" : "Preview"}
+              </span>
+              <strong>
+                {live.event?.message ?? `${activeJob.kind} em andamento`}
+              </strong>
             </div>
-            <div>
-              <dt>Jobs recentes</dt>
-              <dd>{jobs.data?.length ?? "—"}</dd>
-            </div>
-          </dl>
-        </section>
+            <progress max="100" value={live.event?.progress ?? 5}>
+              {live.event?.progress ?? 5}%
+            </progress>
+          </section>
+        ) : null}
 
-        <section className="panel project-panel" aria-labelledby="projects-title">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">Workspace</span>
-              <h2 id="projects-title">Projetos recentes</h2>
-            </div>
-            <span className="phase-label">Somente leitura na UI-3</span>
-          </div>
-
-          {projects.isPending ? (
-            <div className="skeleton-list" aria-label="Carregando projetos">
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : projects.data?.length ? (
-            <ul className="project-list">
-              {projects.data.map((project) => (
-                <li key={project.project_id}>
-                  <div className="project-mark" aria-hidden="true">
-                    {project.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="project-copy">
-                    <strong>{project.name}</strong>
-                    <span>
-                      Atualizado {formatDate(project.updated_at)} ·{" "}
-                      {project.clip_count} corte(s)
-                    </span>
-                  </div>
-                  <span className="status-badge">{project.status}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="empty-state">
-              <span className="empty-index">01</span>
-              <h3>Nenhum projeto persistido</h3>
-              <p>
-                A criação e análise guiadas chegam na UI-4. Por enquanto, esta
-                tela confirma a conexão React ↔ FastAPI ↔ SQLite.
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section className="panel activity-panel" id="activity">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">SSE</span>
-              <h2>Atividade operacional</h2>
-            </div>
-            <span className="phase-label">{live.connection}</span>
-          </div>
-          {activeJob ? (
-            <div className="job-progress" aria-live="polite">
-              <div className="job-progress-copy">
-                <strong>{live.event?.message ?? `${activeJob.kind} em andamento`}</strong>
-                <span>{activeJob.job_id}</span>
+        {showNew || (!projects.isPending && !projects.data?.length) ? (
+          <NewAnalysis
+            busy={create.isPending}
+            onSubmit={(input) => create.mutate(input)}
+          />
+        ) : (
+          <>
+            <section className="review-header">
+              <div>
+                <span className="eyebrow">Revisão de cortes</span>
+                <h2>{project.data?.name ?? "Carregando projeto…"}</h2>
+                <p>
+                  Assista aos candidatos, registre sua decisão e leve apenas os
+                  melhores para o editor.
+                </p>
               </div>
-              <progress max="100" value={live.event?.progress ?? 0}>
-                {live.event?.progress ?? 0}%
-              </progress>
-            </div>
-          ) : (
-            <p className="quiet-state">Nenhum job ativo neste momento.</p>
-          )}
-        </section>
+              <dl className="metrics">
+                <div>
+                  <dt>Candidatos</dt>
+                  <dd>{clips.data?.length ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>Aprovados</dt>
+                  <dd>
+                    {clips.data?.filter((clip) => clip.status === "approved")
+                      .length ?? "—"}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className="review-toolbar" aria-label="Filtros da revisão">
+              <div className="filters">
+                {FILTERS.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={filter === value ? "active" : ""}
+                    onClick={() => setFilter(value)}
+                  >
+                    {label}
+                    <span>
+                      {(clips.data ?? []).filter((clip) =>
+                        clipMatchesFilter(clip, value)
+                      ).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <span>{selectedIds.length}/20 selecionados</span>
+            </section>
+
+            {clips.isPending ? (
+              <div className="clip-grid skeleton-grid" aria-label="Carregando cortes">
+                <span />
+                <span />
+                <span />
+              </div>
+            ) : visibleClips.length ? (
+              <section className="clip-grid" aria-label="Candidatos de corte">
+                {visibleClips.map((clip) => (
+                  <ClipCard
+                    key={clip.clip_id}
+                    clip={clip}
+                    selected={selectedIds.includes(clip.clip_id)}
+                    playing={playingId === clip.clip_id}
+                    busy={review.isPending}
+                    onSelect={() => toggleClip(clip.clip_id)}
+                    onPlay={() => setPlayingId(clip.clip_id)}
+                    onDecision={(decision) =>
+                      review.mutate({ clipIds: [clip.clip_id], decision })
+                    }
+                    onEdit={() => setEditingClip(clip)}
+                    onRetryPreview={() => preview.mutate(clip.clip_id)}
+                  />
+                ))}
+              </section>
+            ) : (
+              <section className="empty-state panel">
+                <span className="empty-index">00</span>
+                <h3>Nenhum corte neste filtro</h3>
+                <p>
+                  {clips.data?.length
+                    ? "Escolha outro status para continuar a revisão."
+                    : "A análise ainda não produziu candidatos. Acompanhe a atividade acima."}
+                </p>
+              </section>
+            )}
+          </>
+        )}
       </main>
 
       <aside className="inspector" aria-labelledby="inspector-title">
         <span className="eyebrow">Inspetor</span>
-        <h2 id="inspector-title">Nada selecionado</h2>
-        <p>
-          Selecione um projeto ou corte quando a revisão for habilitada na UI-4.
-        </p>
-        <div className="inspector-placeholder" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
+        {editingClip ? (
+          <>
+            <h2 id="inspector-title">{editingClip.title}</h2>
+            <span className="status-badge" data-status={editingClip.status}>
+              {STATUS_LABELS[editingClip.status] ?? editingClip.status}
+            </span>
+            <dl className="inspector-details">
+              <div>
+                <dt>Intervalo</dt>
+                <dd>
+                  {formatTime(editingClip.start_ms)} →{" "}
+                  {formatTime(editingClip.end_ms)}
+                </dd>
+              </div>
+              <div>
+                <dt>Plano</dt>
+                <dd>versão {editingClip.plan_version}</dd>
+              </div>
+              <div>
+                <dt>Identidade</dt>
+                <dd>{editingClip.clip_id}</dd>
+              </div>
+            </dl>
+            <div className="editor-boundary">
+              <strong>Editor compacto na UI-5</strong>
+              <p>
+                Corte fino, waveform, layout, legendas e áudio serão ajustados
+                aqui sem misturar a curadoria com a edição profunda.
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 id="inspector-title">Selecione “Abrir editor”</h2>
+            <p>
+              O candidato escolhido aparece aqui com seu plano e identidade
+              persistentes.
+            </p>
+          </>
+        )}
       </aside>
+
+      {selectedIds.length ? (
+        <div className="batch-bar" role="region" aria-label="Ações em lote">
+          <strong>{selectedIds.length} corte(s) selecionado(s)</strong>
+          <button
+            type="button"
+            onClick={() =>
+              review.mutate({ clipIds: selectedIds, decision: "approve" })
+            }
+            disabled={review.isPending}
+          >
+            Aprovar selecionados
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              review.mutate({ clipIds: selectedIds, decision: "reject" })
+            }
+            disabled={review.isPending}
+          >
+            Rejeitar selecionados
+          </button>
+          <button type="button" onClick={() => setSelectedIds([])}>
+            Limpar
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

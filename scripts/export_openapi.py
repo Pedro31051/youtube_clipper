@@ -19,6 +19,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="youtube-clipper-openapi-") as workspace:
         application = create_app(workspace_dir=workspace)
         schema = application.openapi()
+        application.state.analysis_worker.shutdown()
         application.state.preview_worker.shutdown()
     output.write_text(
         json.dumps(schema, indent=2, ensure_ascii=False, sort_keys=True) + "\n",

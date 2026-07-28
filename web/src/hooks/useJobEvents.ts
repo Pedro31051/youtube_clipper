@@ -20,9 +20,11 @@ export function useJobEvents(job: Job | undefined) {
 
   useEffect(() => {
     if (!job || !["queued", "running"].includes(job.state)) {
+      setEvent(null);
       setConnection("idle");
       return;
     }
+    setEvent(null);
     setConnection("connecting");
     const stream = new EventSource(
       `/api/v1/jobs/${encodeURIComponent(job.job_id)}/events`

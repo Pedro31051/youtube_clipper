@@ -263,6 +263,8 @@ def extract_transcript_and_analyze(
     python_env_bin: Optional[str] = None,
     max_clips: int = 5,
     cookies_file: Optional[str] = None,
+    language: str = "auto",
+    target_duration_seconds: int = 45,
 ) -> Dict[str, Any]:
     """
     Downloads subtitles using yt-dlp, parses VTT transcript, and runs AI analysis
@@ -278,10 +280,18 @@ def extract_transcript_and_analyze(
         effective_cookies = cookies_file or os.environ.get("YOUTUBE_COOKIES_FILE")
 
         # 1. Download auto-subtitles
+        subtitle_language = {
+            "auto": "pt,en",
+            "pt": "pt",
+            "en": "en",
+        }.get(str(language).lower())
+        if subtitle_language is None:
+            raise ValueError("language must be auto, pt, or en")
+        target_duration = max(15, min(59, int(target_duration_seconds)))
         cmd = [
             yt_dlp_bin,
             "--write-auto-subs",
-            "--sub-lang", "pt,en",
+            "--sub-lang", subtitle_language,
             "--skip-download",
             "--convert-subs", "vtt",
             "-o", vtt_output_template,
@@ -338,7 +348,10 @@ def extract_transcript_and_analyze(
             component="youtube_clipper.analyzer",
         ) as span:
             clips = VideoContentAnalyzer.find_best_clips(
-                segments, max_clips=max_clips
+                segments,
+                max_clips=max_clips,
+                min_duration=max(15.0, target_duration - 20.0),
+                max_duration=min(59.0, target_duration + 10.0),
             )
             span.decision = {"clips_selected": len(clips)}
 

@@ -1,4 +1,4 @@
-"""FastAPI application and local worker for the UI-3 dashboard foundation."""
+"""FastAPI application and local workers for the intermediate dashboard."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Callable, Literal, Optional
 
 from fastapi import Body, FastAPI, Header, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +41,22 @@ class ProjectCreate(BaseModel):
 
     name: str
     source: SourceInput
+
+
+class AnalysisJobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language: str = Field(default="auto", pattern=r"^(auto|pt|en)$")
+    max_clips: int = Field(default=5, ge=1, le=10)
+    target_duration_seconds: int = Field(default=45, ge=15, le=59)
+    aspect_ratio: str = Field(default="9:16", pattern=r"^(9:16|1:1|16:9)$")
+
+
+class ClipReviewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    clip_ids: list[str] = Field(min_length=1, max_length=20)
+    decision: Literal["approve", "reject"]
 
 
 class ProjectSummary(BaseModel):
@@ -87,6 +103,11 @@ class JobResponse(BaseModel):
 class PreviewJobResponse(BaseModel):
     success: bool = True
     job: dict[str, Any]
+
+
+class ClipReviewResponse(BaseModel):
+    success: bool = True
+    clips: list[dict[str, Any]]
 
 
 class HealthResponse(BaseModel):
@@ -297,6 +318,153 @@ class PreviewWorker:
         self._executor.shutdown(wait=False, cancel_futures=True)
 
 
+class AnalysisWorker:
+    """Run transcript analysis outside request threads, then queue previews."""
+
+    def __init__(
+        self,
+        store: ProjectStore,
+        broker: JobEventBroker,
+        preview_worker: PreviewWorker,
+        *,
+        analyze: Optional[Callable[..., dict[str, Any]]] = None,
+    ) -> None:
+        self.store = store
+        self.broker = broker
+        self.preview_worker = preview_worker
+        if analyze is None:
+            from youtube_clipper.analyzer import extract_transcript_and_analyze
+
+            analyze = extract_transcript_and_analyze
+        self.analyze = analyze
+        self._executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="analysis-worker",
+        )
+
+    def submit(
+        self,
+        project_id: str,
+        settings: AnalysisJobCreate,
+    ) -> dict[str, Any]:
+        active = [
+            job
+            for job in self.store.list_jobs(project_id=project_id, limit=100)
+            if job["kind"] == "analysis" and job["state"] in {"queued", "running"}
+        ]
+        if active:
+            raise DomainConflictError("An analysis is already running for this project")
+        source = self.store.get_primary_source(project_id)
+        analysis = self.store.create_analysis(
+            project_id=project_id,
+            source_id=source["source_id"],
+            status="queued",
+        )
+        job = self.store.create_job(
+            project_id=project_id,
+            analysis_id=analysis["analysis_id"],
+            kind="analysis",
+            state="queued",
+        )
+        self.store.update_project_status(project_id, "analyzing")
+        self.broker.publish(
+            job["job_id"],
+            "job_queued",
+            state="queued",
+            progress=0,
+            message="Análise adicionada à fila",
+            data={"analysis_id": analysis["analysis_id"]},
+        )
+        self._executor.submit(
+            self._run_analysis,
+            job["job_id"],
+            analysis["analysis_id"],
+            source["uri"],
+            settings.model_dump(),
+        )
+        return self.store.get_job(job["job_id"])
+
+    def _run_analysis(
+        self,
+        job_id: str,
+        analysis_id: str,
+        source_uri: str,
+        settings: dict[str, Any],
+    ) -> None:
+        run_id = f"run_ui4_analysis_{job_id}_{uuid.uuid4().hex}"
+        project_id = self.store.get_job(job_id)["project_id"]
+        try:
+            self.store.update_job(job_id, state="running", run_id=run_id)
+            self.broker.publish(
+                job_id,
+                "stage_start",
+                state="running",
+                progress=10,
+                message="Obtendo transcrição e selecionando cortes",
+                data={"stage": "analysis"},
+            )
+            result = self.analyze(
+                source_uri,
+                max_clips=int(settings["max_clips"]),
+                language=str(settings["language"]),
+                target_duration_seconds=int(settings["target_duration_seconds"]),
+            )
+            if not isinstance(result, dict) or not result.get("success"):
+                error = (
+                    result.get("error", "A análise não retornou cortes")
+                    if isinstance(result, dict)
+                    else "A análise retornou uma resposta inválida"
+                )
+                raise DomainValidationError(str(error))
+            self.broker.publish(
+                job_id,
+                "progress",
+                state="running",
+                progress=70,
+                message="Persistindo candidatos por clip_id",
+                data={"stage": "persist"},
+            )
+            clips = self.store.finish_analysis(
+                analysis_id=analysis_id,
+                result={
+                    **result,
+                    "ui_settings": settings,
+                },
+            )
+            self.store.update_project_status(project_id, "review")
+            self.store.update_job(job_id, state="completed", run_id=run_id)
+            self.broker.publish(
+                job_id,
+                "stage_completed",
+                state="completed",
+                progress=100,
+                message=f"{len(clips)} corte(s) prontos para gerar previews",
+                data={"stage": "analysis", "clip_count": len(clips)},
+            )
+            for clip in clips:
+                self.preview_worker.submit(clip["clip_id"])
+        except Exception as exc:
+            self.store.fail_analysis(analysis_id, {"success": False, "error": str(exc)})
+            self.store.update_project_status(project_id, "failed")
+            self.store.update_job(
+                job_id,
+                state="failed",
+                run_id=run_id,
+                error=str(exc)[:500],
+            )
+            self.broker.publish(
+                job_id,
+                "job_failed",
+                state="failed",
+                progress=100,
+                message=str(exc)[:240],
+                data={"action": "Verifique a fonte e tente analisar novamente."},
+            )
+
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
+
 def _parse_range(raw_range: Optional[str], size: int) -> tuple[int, int, int]:
     if not raw_range:
         return 0, size - 1, 200
@@ -339,6 +507,7 @@ def create_app(
     store: Optional[ProjectStore] = None,
     workspace_dir: Optional[Path | str] = None,
     web_dist: Optional[Path | str] = None,
+    analyze: Optional[Callable[..., dict[str, Any]]] = None,
 ) -> FastAPI:
     workspace = Path(
         workspace_dir
@@ -351,12 +520,19 @@ def create_app(
         workspace,
     )
     broker = JobEventBroker()
-    worker = PreviewWorker(domain_store, broker)
+    preview_worker = PreviewWorker(domain_store, broker)
+    analysis_worker = AnalysisWorker(
+        domain_store,
+        broker,
+        preview_worker,
+        analyze=analyze,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         yield
-        worker.shutdown()
+        analysis_worker.shutdown()
+        preview_worker.shutdown()
 
     app = FastAPI(
         title="YouTube Clipper API",
@@ -366,7 +542,8 @@ def create_app(
     )
     app.state.store = domain_store
     app.state.job_events = broker
-    app.state.preview_worker = worker
+    app.state.preview_worker = preview_worker
+    app.state.analysis_worker = analysis_worker
     app.state.web_dist = Path(
         web_dist or Path.cwd() / "web" / "dist"
     ).expanduser().resolve()
@@ -427,6 +604,17 @@ def create_app(
     async def get_project(project_id: str) -> ProjectResponse:
         return ProjectResponse(project=domain_store.get_project(project_id))
 
+    @app.post(
+        "/api/v1/projects/{project_id}/analysis-jobs",
+        response_model=PreviewJobResponse,
+        status_code=202,
+    )
+    async def create_analysis_job(
+        project_id: str,
+        payload: AnalysisJobCreate,
+    ) -> PreviewJobResponse:
+        return PreviewJobResponse(job=analysis_worker.submit(project_id, payload))
+
     @app.get(
         "/api/v1/projects/{project_id}/clips",
         response_model=ClipsResponse,
@@ -448,6 +636,15 @@ def create_app(
     ) -> ClipResponse:
         return ClipResponse(clip=domain_store.update_clip(clip_id, changes))
 
+    @app.post(
+        "/api/v1/clips/review",
+        response_model=ClipReviewResponse,
+    )
+    async def review_clips(payload: ClipReviewCreate) -> ClipReviewResponse:
+        return ClipReviewResponse(
+            clips=domain_store.review_clips(payload.clip_ids, payload.decision)
+        )
+
     @app.get("/api/v1/jobs", response_model=JobsResponse)
     async def list_jobs(
         project_id: Optional[str] = Query(default=None),
@@ -467,7 +664,7 @@ def create_app(
         status_code=202,
     )
     async def create_preview_job(clip_id: str) -> PreviewJobResponse:
-        return PreviewJobResponse(job=worker.submit(clip_id))
+        return PreviewJobResponse(job=preview_worker.submit(clip_id))
 
     @app.get("/api/v1/jobs/{job_id}/events")
     async def job_events(

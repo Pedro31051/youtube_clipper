@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clips/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Clips */
+        post: operations["review_clips_api_v1_clips_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clips/{clip_id}": {
         parameters: {
             query?: never;
@@ -159,6 +176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/analysis-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Analysis Job */
+        post: operations["create_analysis_job_api_v1_projects__project_id__analysis_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/clips": {
         parameters: {
             query?: never;
@@ -180,12 +214,57 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnalysisJobCreate */
+        AnalysisJobCreate: {
+            /**
+             * Aspect Ratio
+             * @default 9:16
+             */
+            aspect_ratio: string;
+            /**
+             * Language
+             * @default auto
+             */
+            language: string;
+            /**
+             * Max Clips
+             * @default 5
+             */
+            max_clips: number;
+            /**
+             * Target Duration Seconds
+             * @default 45
+             */
+            target_duration_seconds: number;
+        };
         /** ClipResponse */
         ClipResponse: {
             /** Clip */
             clip: {
                 [key: string]: unknown;
             };
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        };
+        /** ClipReviewCreate */
+        ClipReviewCreate: {
+            /** Clip Ids */
+            clip_ids: string[];
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+        };
+        /** ClipReviewResponse */
+        ClipReviewResponse: {
+            /** Clips */
+            clips: {
+                [key: string]: unknown;
+            }[];
             /**
              * Success
              * @default true
@@ -359,6 +438,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_clips_api_v1_clips_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClipReviewCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipReviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -658,6 +770,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_analysis_job_api_v1_projects__project_id__analysis_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisJobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewJobResponse"];
                 };
             };
             /** @description Validation Error */

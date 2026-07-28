@@ -315,6 +315,25 @@ class ProjectStore:
         finally:
             connection.close()
 
+    def update_project_status(self, project_id: str, status: str) -> dict[str, Any]:
+        self.get_project(project_id)
+        clean_status = str(status or "").strip().lower()
+        if clean_status not in {"active", "analyzing", "review", "failed"}:
+            raise DomainValidationError("Project status is invalid")
+        with self._write_lock:
+            connection = self._connect()
+            try:
+                connection.execute(
+                    """
+                    UPDATE projects SET status = ?, updated_at = ?
+                    WHERE project_id = ?
+                    """,
+                    (clean_status, _now(), project_id),
+                )
+            finally:
+                connection.close()
+        return self.get_project(project_id)
+
     def get_primary_source(self, project_id: str) -> dict[str, Any]:
         self._require_id(project_id, "prj")
         connection = self._connect()
@@ -447,6 +466,10 @@ class ProjectStore:
                 timestamp = _now()
                 prepared: list[tuple[Any, ...]] = []
                 clip_ids: list[str] = []
+                ui_settings = result.get("ui_settings") or {}
+                aspect_ratio = str(ui_settings.get("aspect_ratio", "9:16"))
+                if aspect_ratio not in {"9:16", "1:1", "16:9"}:
+                    raise DomainValidationError("Analysis aspect ratio is invalid")
                 for index, raw_candidate in enumerate(candidates, start=1):
                     if not isinstance(raw_candidate, dict):
                         raise DomainValidationError("Analysis candidate must be an object")
@@ -469,6 +492,7 @@ class ProjectStore:
                         "captions": {"enabled": False},
                         "audio": {"include_source": True},
                         "editorial": {"overlay_text": None},
+                        "output": {"aspect_ratio": aspect_ratio},
                     }
                     prepared.append(
                         (
@@ -751,6 +775,72 @@ class ProjectStore:
         updated = self.get_clip(clip_id)
         self._write_clip_manifest(clip_id)
         return updated
+
+    def review_clips(
+        self,
+        clip_ids: list[str],
+        decision: str,
+    ) -> list[dict[str, Any]]:
+        """Apply one bounded review decision atomically by immutable clip ID."""
+        unique_ids = list(dict.fromkeys(clip_ids))
+        if not unique_ids or len(unique_ids) > 20:
+            raise DomainValidationError(
+                "Review actions require between 1 and 20 unique clips"
+            )
+        clean_decision = str(decision or "").strip().lower()
+        if clean_decision not in {"approve", "reject"}:
+            raise DomainValidationError("Review decision must be approve or reject")
+
+        clips = [self.get_clip(clip_id) for clip_id in unique_ids]
+        project_ids = {clip["project_id"] for clip in clips}
+        if len(project_ids) != 1:
+            raise DomainValidationError(
+                "A batch review may only contain clips from one project"
+            )
+        for clip in clips:
+            if clean_decision == "approve":
+                if clip["preview_status"] != "ready":
+                    raise DomainConflictError(
+                        f"Clip {clip['clip_id']} requires a ready preview before approval"
+                    )
+                if clip["status"] not in {"ready", "rejected"}:
+                    raise DomainConflictError(
+                        f"Cannot approve clip while it is {clip['status']}"
+                    )
+            elif clip["status"] not in {"proposed", "ready", "approved"}:
+                raise DomainConflictError(
+                    f"Cannot reject clip while it is {clip['status']}"
+                )
+
+        target_status = "approved" if clean_decision == "approve" else "rejected"
+        timestamp = _now()
+        placeholders = ",".join("?" for _ in unique_ids)
+        with self._write_lock:
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    f"""
+                    UPDATE clips SET status = ?, updated_at = ?
+                    WHERE clip_id IN ({placeholders})
+                    """,
+                    (target_status, timestamp, *unique_ids),
+                )
+                connection.execute(
+                    "UPDATE projects SET updated_at = ? WHERE project_id = ?",
+                    (timestamp, next(iter(project_ids))),
+                )
+                connection.commit()
+            except BaseException:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
+
+        reviewed = [self.get_clip(clip_id) for clip_id in unique_ids]
+        for clip_id in unique_ids:
+            self._write_clip_manifest(clip_id)
+        return reviewed
 
     def create_job(
         self,

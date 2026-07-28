@@ -83,11 +83,18 @@ def generate_clip_preview(
         layout = edit_plan.get("layout") or {}
         audio = edit_plan.get("audio") or {}
         editorial = edit_plan.get("editorial") or {}
+        output = edit_plan.get("output") or {}
+        dimensions = {
+            "9:16": (360, 640),
+            "1:1": (480, 480),
+            "16:9": (640, 360),
+        }
+        width, height = dimensions.get(output.get("aspect_ratio", "9:16"), (360, 640))
         overlay_text = editorial.get("overlay_text")
         filtergraph = build_render_filtergraph(
             mode=layout.get("mode", "blur_background"),
-            width=360,
-            height=640,
+            width=width,
+            height=height,
             sigma=float(layout.get("blur_sigma", 12.0)),
             crop_focus=layout.get("crop_focus", "center"),
             overlay_position=layout.get("overlay_position", "top"),
