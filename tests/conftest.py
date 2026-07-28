@@ -464,6 +464,12 @@ def mock_gdrive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
     Fixture mocking Google Drive Service Account auth, discovery build, files.list,
     files.create, permissions.create, and MediaFileUpload.
     """
+    # Tests must not silently consume a developer machine ADC credential.
+    monkeypatch.setattr(
+        "google.auth.default",
+        MagicMock(side_effect=Exception("ADC unavailable in isolated Drive tests")),
+    )
+
     mock_service = MagicMock()
     mock_files = MagicMock()
     mock_permissions = MagicMock()
@@ -515,6 +521,7 @@ def mock_gdrive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> MagicMock:
         monkeypatch.setattr(gdu, "MediaFileUpload", MagicMock())
         monkeypatch.setattr(gdu, "build", lambda service_name, version, credentials=None, **kwargs: mock_service)
         monkeypatch.setattr(gdu, "DEFAULT_SERVICE_ACCOUNT_PATH", str(dummy_sa_file))
+        monkeypatch.setattr(gdu, "DEFAULT_TOKEN_PATH", str(tmp_path / "missing-token.json"))
     except (ImportError, AttributeError):
         pass
 
