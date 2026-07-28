@@ -20,9 +20,10 @@ import hmac
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from youtube_clipper.analyzer import extract_transcript_and_analyze
-from youtube_clipper.pipeline import run_pipeline
+from cortes.dashboard_pipeline import run_dashboard_clip_pipeline as run_pipeline
 from youtube_clipper.gdrive_uploader import upload_clip_to_gdrive
 from youtube_clipper.exceptions import ClipperError, ValidationError, DownloadError
 from youtube_clipper.validator import is_youtube_url, validate_input_source, validate_time_range
@@ -32,9 +33,16 @@ from youtube_clipper.gemini_editor import (
     GeminiInputError,
     request_gemini_edit,
 )
+from youtube_clipper.project_store import (
+    DomainConflictError,
+    DomainNotFoundError,
+    DomainValidationError,
+    ProjectStore,
+)
 from cortes.log import action_span, audited, run_context
 from cortes.ingest import probe_video_metadata
 from cortes.pipeline import run_full_pipeline
+from cortes.preview import generate_clip_preview
 from cortes.verify import verify_run
 
 
@@ -1745,6 +1753,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
             clips.forEach((clip, index) => {
                 const rank = Number(clip.rank) || index + 1;
+                const clipId = String(clip.clip_id || 'legacy-rank-' + rank);
+                const projectId = String(clip.project_id || "");
+                const analysisId = String(clip.analysis_id || "");
                 const startSeconds = clipExactTime(clip, 'start_time', 'start_timestamp');
                 const endSeconds = clipExactTime(clip, 'end_time', 'end_timestamp');
                 const durationSeconds = endSeconds - startSeconds;
@@ -1752,6 +1763,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 card.className = 'clip-card';
                 card.id = `card-${rank}`;
                 card.dataset.videoUrl = videoUrl;
+                card.dataset.clipId = clipId;
+                card.dataset.projectId = projectId;
+                card.dataset.analysisId = analysisId;
                 card.dataset.dirtyAfterRender = 'false';
                 const hashtagsHtml = (clip.hashtags || ['#shorts', '#viral'])
                     .map(tag => `<span class="chip">${escapeHtml(tag)}</span>`)
@@ -1763,6 +1777,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 card.geminiHistory = [];
                 card.geminiContext = {
                     rank,
+                    clip_id: clipId,
+                    project_id: projectId,
+                    analysis_id: analysisId,
                     title: String(clip.title || `Corte ${rank}`).slice(0, 180),
                     score: Number(clip.score) || 0,
                     transcript: String(clip.transcript || '').slice(0, 6000),
@@ -2656,6 +2673,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
         async function generateClip(videoUrl, rank, button) {
             const config = editorConfig(rank);
+            const card = document.getElementById(`card-${rank}`);
             if (!config.confirmed_configuration) {
                 setCardStatus(rank, 'error', 'Revise e confirme a configuração antes de renderizar.');
                 return;
@@ -2667,6 +2685,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             state.textContent = 'Renderizando';
             const result = await trackedPost('/api/generate-clip', {
                 url: videoUrl,
+                clip_id: card?.dataset.clipId || null,
+                project_id: card?.dataset.projectId || null,
+                analysis_id: card?.dataset.analysisId || null,
                 start: config.start,
                 end: config.end,
                 format: config.format,
@@ -3524,6 +3545,64 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
     }
     REQUEST_REGISTRY_LOCK = threading.Lock()
     ASSET_STORAGE_LOCK = threading.Lock()
+    DOMAIN_STORE_LOCK = threading.Lock()
+    API_V1_PREFIX = "/api/v1/"
+    PROJECT_ID_ROUTE = re.compile(
+        r"\A/api/v1/projects/(prj_[0-9a-f]{32})\Z"
+    )
+    PROJECT_CLIPS_ROUTE = re.compile(
+        r"\A/api/v1/projects/(prj_[0-9a-f]{32})/clips\Z"
+    )
+    PROJECT_ANALYSIS_ROUTE = re.compile(
+        r"\A/api/v1/projects/(prj_[0-9a-f]{32})/analysis-jobs\Z"
+    )
+    CLIP_ID_ROUTE = re.compile(
+        r"\A/api/v1/clips/(clp_[0-9a-f]{32})\Z"
+    )
+    JOB_ID_ROUTE = re.compile(
+        r"\A/api/v1/jobs/(job_[0-9a-f]{32})\Z"
+    )
+    CLIP_PREVIEW_ROUTE = re.compile(
+        r"\A/api/v1/clips/(clp_[0-9a-f]{32})/preview-jobs\Z"
+    )
+    DOMAIN_ASSET_ROUTE = re.compile(
+        r"\A/api/v1/assets/(ast_[0-9a-f]{32})\Z"
+    )
+
+    def _domain_store(self) -> ProjectStore:
+        store = vars(self.server).get("project_store")
+        if isinstance(store, ProjectStore):
+            return store
+        with self.DOMAIN_STORE_LOCK:
+            store = vars(self.server).get("project_store")
+            if isinstance(store, ProjectStore):
+                return store
+            workspace = Path(
+                vars(self.server).get(
+                    "panel_workspace", Path.cwd() / "panel_workspace"
+                )
+            ).resolve()
+            workspace.mkdir(parents=True, exist_ok=True)
+            store = ProjectStore(
+                database_path=workspace / "projects.sqlite3",
+                workspace_dir=workspace,
+            )
+            self.server.project_store = store
+            return store
+
+    def _send_domain_error(self, error: Exception) -> None:
+        if isinstance(error, DomainNotFoundError):
+            status_code = 404
+        elif isinstance(error, DomainConflictError):
+            status_code = 409
+        else:
+            status_code = 400
+        self.send_json(
+            status_code,
+            {"success": False, "error": str(error)},
+            no_store=True,
+        )
+
 
     @classmethod
     def _normalize_request_id(cls, raw_request_id: str | None) -> str:
@@ -4126,6 +4205,355 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     retryable=status_code >= 500,
                 )
 
+    def _persist_legacy_analysis(
+        self,
+        *,
+        clean_url: str,
+        result: dict,
+        requested_project_id: object = None,
+    ) -> dict[str, Any]:
+        store = self._domain_store()
+        if requested_project_id is None:
+            video_id_match = re.search(r"([A-Za-z0-9_-]{11})(?:[?&/#]|$)", clean_url)
+            label = video_id_match.group(1) if video_id_match else "YouTube"
+            project = store.create_project(
+                name=f"Projeto {label}",
+                source_uri=clean_url,
+                source_kind="youtube",
+            )
+        else:
+            project = store.get_project(str(requested_project_id))
+            source = store.get_primary_source(project["project_id"])
+            if source["kind"] != "youtube" or source["uri"] != clean_url:
+                raise DomainConflictError(
+                    "The requested project belongs to a different source"
+                )
+        source = store.get_primary_source(project["project_id"])
+        analysis = store.create_analysis(project_id=project["project_id"])
+        if result.get("success") is False:
+            store.fail_analysis(analysis["analysis_id"], result)
+            clips = []
+        else:
+            clips = store.finish_analysis(
+                analysis_id=analysis["analysis_id"],
+                result=result,
+            )
+        return {
+            "project_id": project["project_id"],
+            "source_id": source["source_id"],
+            "analysis_id": analysis["analysis_id"],
+            "clips": clips,
+        }
+
+    def _send_domain_asset(self, asset_id: str) -> None:
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        raw_version = query.get("v", [None])[0]
+        if raw_version is None or not str(raw_version).isdigit():
+            raise DomainValidationError("A numeric asset version is required")
+        asset, path = self._domain_store().resolve_asset_file(
+            asset_id, version=int(raw_version)
+        )
+        size = path.stat().st_size
+        start = 0
+        end = size - 1
+        status = 200
+        raw_range = self.headers.get("Range")
+        if raw_range:
+            match = re.fullmatch(r"bytes=(\d*)-(\d*)", raw_range.strip())
+            if not match or (not match.group(1) and not match.group(2)):
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if match.group(1):
+                start = int(match.group(1))
+                end = int(match.group(2)) if match.group(2) else size - 1
+            else:
+                suffix_length = int(match.group(2))
+                start = max(0, size - suffix_length)
+                end = size - 1
+            if start >= size or end < start:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            end = min(end, size - 1)
+            status = 206
+
+        content_length = end - start + 1
+        self.send_response(status)
+        self.send_header("Content-Type", asset["mime_type"])
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(content_length))
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.send_header("ETag", chr(34) + asset["sha256"] + chr(34))
+        if status == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        with path.open("rb") as stream:
+            stream.seek(start)
+            remaining = content_length
+            while remaining:
+                chunk = stream.read(min(65536, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+
+    def _handle_api_v1_get(self, route_path: str) -> None:
+        store = self._domain_store()
+        try:
+            match = self.DOMAIN_ASSET_ROUTE.fullmatch(route_path)
+            if match:
+                self._send_domain_asset(match.group(1))
+                return
+            if route_path == "/api/v1/projects":
+                self.send_json(
+                    200,
+                    {"success": True, "projects": store.list_projects()},
+                    no_store=True,
+                )
+                return
+            match = self.PROJECT_ID_ROUTE.fullmatch(route_path)
+            if match:
+                self.send_json(
+                    200,
+                    {"success": True, "project": store.get_project(match.group(1))},
+                    no_store=True,
+                )
+                return
+            match = self.PROJECT_CLIPS_ROUTE.fullmatch(route_path)
+            if match:
+                self.send_json(
+                    200,
+                    {
+                        "success": True,
+                        "project_id": match.group(1),
+                        "clips": store.list_clips(match.group(1)),
+                    },
+                    no_store=True,
+                )
+                return
+            match = self.CLIP_ID_ROUTE.fullmatch(route_path)
+            if match:
+                self.send_json(
+                    200,
+                    {"success": True, "clip": store.get_clip(match.group(1))},
+                    no_store=True,
+                )
+                return
+            match = self.JOB_ID_ROUTE.fullmatch(route_path)
+            if match:
+                self.send_json(
+                    200,
+                    {"success": True, "job": store.get_job(match.group(1))},
+                    no_store=True,
+                )
+                return
+            self.send_json(
+                404,
+                {"success": False, "error": "API v1 route not found"},
+                no_store=True,
+            )
+        except (DomainNotFoundError, DomainConflictError, DomainValidationError) as exc:
+            self._send_domain_error(exc)
+        except Exception:
+            self.send_json(
+                500,
+                {"success": False, "error": "Persistent API operation failed"},
+                no_store=True,
+            )
+
+    def _create_preview_job(self, clip_id: str) -> dict[str, Any]:
+        store = self._domain_store()
+        clip = store.get_clip(clip_id)
+        source = store.get_source(clip["source_id"])
+        job = store.create_job(
+            project_id=clip["project_id"],
+            clip_id=clip_id,
+            kind="preview",
+            state="running",
+        )
+        run_id = self._new_child_run("preview-" + job["job_id"])
+        try:
+            clip = store.update_clip(clip_id, {"status": "previewing"})
+            generated = generate_clip_preview(
+                input_source=source["uri"],
+                start_ms=clip["start_ms"],
+                end_ms=clip["end_ms"],
+                edit_plan=clip["edit_plan"],
+                clip_id=clip_id,
+                run_id=run_id,
+                request_id=self._audit_request_id,
+            )
+            preview = store.add_asset(
+                clip_id=clip_id,
+                kind="preview",
+                source_path=generated["preview_path"],
+                mime_type="video/mp4",
+                duration_ms=generated["duration_ms"],
+                width=generated["width"],
+                height=generated["height"],
+            )
+            poster = store.add_asset(
+                clip_id=clip_id,
+                kind="poster",
+                source_path=generated["poster_path"],
+                mime_type="image/jpeg",
+                width=generated["width"],
+                height=generated["height"],
+            )
+            completed_job = store.update_job(
+                job["job_id"], state="completed", run_id=run_id
+            )
+            completed_clip = store.update_clip(clip_id, {"status": "ready"})
+            return {
+                "job": completed_job,
+                "clip": completed_clip,
+                "preview": preview,
+                "poster": poster,
+            }
+        except Exception as exc:
+            store.update_job(
+                job["job_id"],
+                state="failed",
+                run_id=run_id,
+                error=str(exc)[:500],
+            )
+            try:
+                store.update_clip(clip_id, {"status": "failed"})
+            except (DomainConflictError, DomainValidationError):
+                pass
+            raise
+
+    def _handle_api_v1_post(self, route_path: str, payload: dict) -> bool:
+        store = self._domain_store()
+        try:
+            match = self.CLIP_PREVIEW_ROUTE.fullmatch(route_path)
+            if match:
+                result = self._create_preview_job(match.group(1))
+                self.send_json(201, {"success": True, **result}, no_store=True)
+                return True
+            if route_path == "/api/v1/projects":
+                source = payload.get("source")
+                if not isinstance(source, dict):
+                    raise DomainValidationError("Project source must be an object")
+                project = store.create_project(
+                    name=payload.get("name", ""),
+                    source_uri=source.get("uri", ""),
+                    source_kind=source.get("kind", ""),
+                )
+                self.send_json(
+                    201,
+                    {"success": True, "project": project},
+                    no_store=True,
+                )
+                return True
+
+            match = self.PROJECT_ANALYSIS_ROUTE.fullmatch(route_path)
+            if match:
+                project_id = match.group(1)
+                project = store.get_project(project_id)
+                source = store.get_primary_source(project_id)
+                analysis = store.create_analysis(project_id=project_id)
+                job = store.create_job(
+                    project_id=project_id,
+                    analysis_id=analysis["analysis_id"],
+                    kind="analysis",
+                    state="running",
+                )
+                try:
+                    result = extract_transcript_and_analyze(
+                        source["uri"],
+                        cookies_file=payload.get("cookies"),
+                    )
+                    if result.get("success") is False:
+                        store.fail_analysis(analysis["analysis_id"], result)
+                        store.update_job(
+                            job["job_id"],
+                            state="failed",
+                            error=str(result.get("error") or "Analysis failed"),
+                        )
+                        self.send_json(
+                            422,
+                            {
+                                "success": False,
+                                "project_id": project["project_id"],
+                                "analysis_id": analysis["analysis_id"],
+                                "job_id": job["job_id"],
+                                "error": result.get("error") or "Analysis failed",
+                            },
+                            no_store=True,
+                        )
+                        return True
+                    clips = store.finish_analysis(
+                        analysis_id=analysis["analysis_id"],
+                        result=result,
+                    )
+                    completed_job = store.update_job(
+                        job["job_id"],
+                        state="completed",
+                    )
+                    self.send_json(
+                        201,
+                        {
+                            "success": True,
+                            "project_id": project["project_id"],
+                            "source_id": source["source_id"],
+                            "analysis_id": analysis["analysis_id"],
+                            "job": completed_job,
+                            "clips": clips,
+                        },
+                        no_store=True,
+                    )
+                    return True
+                except Exception as exc:
+                    store.fail_analysis(
+                        analysis["analysis_id"],
+                        {"success": False, "error": str(exc)},
+                    )
+                    store.update_job(
+                        job["job_id"],
+                        state="failed",
+                        error=str(exc)[:500],
+                    )
+                    raise
+
+            return False
+        except (DomainNotFoundError, DomainConflictError, DomainValidationError) as exc:
+            self._send_domain_error(exc)
+            return True
+        except Exception:
+            self.send_json(
+                500,
+                {"success": False, "error": "Persistent API operation failed"},
+                no_store=True,
+            )
+            return True
+
+    def _handle_api_v1_patch(self, route_path: str, payload: dict) -> bool:
+        match = self.CLIP_ID_ROUTE.fullmatch(route_path)
+        if not match:
+            return False
+        try:
+            clip = self._domain_store().update_clip(match.group(1), payload)
+            self.send_json(
+                200,
+                {"success": True, "clip": clip},
+                no_store=True,
+            )
+        except (DomainNotFoundError, DomainConflictError, DomainValidationError) as exc:
+            self._send_domain_error(exc)
+        except Exception:
+            self.send_json(
+                500,
+                {"success": False, "error": "Persistent API operation failed"},
+                no_store=True,
+            )
+        return True
+
     @observed_http_request
     def do_GET(self):
         route_path = urllib.parse.urlsplit(self.path).path
@@ -4154,6 +4582,9 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
             return
 
         if not self._require_authorization():
+            return
+        if route_path.startswith(self.API_V1_PREFIX):
+            self._handle_api_v1_get(route_path)
             return
         if route_path in self.GET_ROUTES:
             self.send_response(200)
@@ -4209,15 +4640,16 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
             return
         if not self._require_safe_post_context():
             return
+        route_path = urllib.parse.urlsplit(self.path).path
         if (
-            self.path in self.GET_ROUTES
-            or self.path in self.TECHNICAL_GET_ROUTES
-            or self.path.startswith("/api/download/")
-            or self.path.startswith(self.STATUS_ROUTE_PREFIX)
+            route_path in self.GET_ROUTES
+            or route_path in self.TECHNICAL_GET_ROUTES
+            or route_path.startswith("/api/download/")
+            or route_path.startswith(self.STATUS_ROUTE_PREFIX)
         ):
             self.send_error(405, "Method Not Allowed")
             return
-        elif self.path not in self.POST_ROUTES:
+        elif route_path not in self.POST_ROUTES and not route_path.startswith(self.API_V1_PREFIX):
             self.send_error(404, "Endpoint not found")
             return
 
@@ -4246,6 +4678,16 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
 
         if not isinstance(payload, dict):
             self.send_json(400, {"success": False, "error": "JSON payload must be an object"})
+            return
+
+        if route_path.startswith(self.API_V1_PREFIX):
+            if self._handle_api_v1_post(route_path, payload):
+                return
+            self.send_json(
+                404,
+                {"success": False, "error": "API v1 route not found"},
+                no_store=True,
+            )
             return
 
         if self.path == "/api/editor-chat":
@@ -4471,6 +4913,31 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 analysis_result = extract_transcript_and_analyze(
                     clean_url, cookies_file=cookies
                 )
+                domain_result = self._persist_legacy_analysis(
+                    clean_url=clean_url,
+                    result=analysis_result,
+                    requested_project_id=payload.get("project_id"),
+                )
+                stored_by_rank = {
+                    int(clip["rank"]): clip
+                    for clip in domain_result["clips"]
+                }
+                for candidate in analysis_result.get("clips", []):
+                    stored = stored_by_rank.get(int(candidate.get("rank", 0)))
+                    if stored:
+                        candidate["clip_id"] = stored["clip_id"]
+                        candidate["project_id"] = stored["project_id"]
+                        candidate["analysis_id"] = stored["analysis_id"]
+                        candidate["plan_version"] = stored["plan_version"]
+                        candidate["preview_status"] = "not_created"
+                        candidate["render_status"] = "not_started"
+                analysis_result.update(
+                    {
+                        "project_id": domain_result["project_id"],
+                        "source_id": domain_result["source_id"],
+                        "analysis_id": domain_result["analysis_id"],
+                    }
+                )
                 if isinstance(analysis_result, dict):
                     clips = analysis_result.get("clips", [])
                     all_transcripts = " ".join(c.get("transcript", "") for c in clips)
@@ -4481,6 +4948,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     self.send_json(422, analysis_result)
                 else:
                     self.send_json(200, analysis_result)
+            except (DomainNotFoundError, DomainConflictError, DomainValidationError) as e:
+                self._send_domain_error(e)
             except (ValidationError, ValueError) as e:
                 self.send_json(400, {"success": False, "error": str(e)})
             except FileNotFoundError as e:
@@ -4613,6 +5082,58 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 clean_url = validate_input_source(url)
                 if not is_youtube_url(clean_url):
                     raise ValidationError("Dashboard generation accepts only YouTube URLs")
+
+                store = None
+                persisted_clip = None
+                requested_clip_id = payload.get("clip_id")
+                if requested_clip_id:
+                    store = self._domain_store()
+                    persisted_clip = store.get_clip(str(requested_clip_id))
+                    requested_project_id = payload.get("project_id")
+                    if (
+                        requested_project_id
+                        and persisted_clip["project_id"] != requested_project_id
+                    ):
+                        raise DomainConflictError("Clip belongs to a different project")
+                    source = store.get_source(persisted_clip["source_id"])
+                    if source["uri"] != clean_url:
+                        raise DomainConflictError("Clip belongs to a different source")
+                    expected_start = int(round(start_seconds * 1000))
+                    expected_end = int(round(end_seconds * 1000))
+                    if (
+                        persisted_clip["start_ms"] != expected_start
+                        or persisted_clip["end_ms"] != expected_end
+                    ):
+                        raise DomainConflictError(
+                            "Render interval differs from the persisted edit plan"
+                        )
+                    persisted_clip = store.update_clip(
+                        persisted_clip["clip_id"],
+                        {
+                            "layout": {
+                                "mode": fmt_mode,
+                                "crop_focus": crop_focus,
+                                "blur_sigma": blur_sigma,
+                                "overlay_position": overlay_position,
+                            },
+                            "audio": {"include_source": include_audio},
+                            "editorial": {"overlay_text": overlay_text},
+                        },
+                    )
+                    render_plan = persisted_clip["edit_plan"]
+                    render_layout = render_plan["layout"]
+                    fmt_mode = render_layout.get("mode", "blur_background")
+                    crop_focus = render_layout.get("crop_focus", "center")
+                    blur_sigma = float(render_layout.get("blur_sigma", 12.0))
+                    overlay_position = render_layout.get("overlay_position", "top")
+                    include_audio = bool(
+                        (render_plan.get("audio") or {}).get("include_source", True)
+                    )
+                    overlay_text = (
+                        (render_plan.get("editorial") or {}).get("overlay_text")
+                        or overlay_text
+                    )
+
                 output_dir = self._output_dir()
                 output_dir.mkdir(parents=True, exist_ok=True)
                 request_token = re.sub(r"[^A-Za-z0-9_-]", "", self._audit_request_id or "")[-12:]
@@ -4641,6 +5162,11 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     cookies=cookies,
                     run_id=pipeline_run_id,
                     request_id=self._audit_request_id,
+                    clip_id=(
+                        persisted_clip["clip_id"]
+                        if persisted_clip is not None
+                        else None
+                    ),
                 )
 
                 try:
@@ -4677,6 +5203,50 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                         "sha256": None,
                         "error": str(probe_error)[:240],
                     }
+
+                domain_render = None
+                if persisted_clip is not None and store is not None:
+                    render_asset = store.add_asset(
+                        clip_id=persisted_clip["clip_id"],
+                        kind="render",
+                        source_path=output_path,
+                        mime_type="video/mp4",
+                        duration_ms=(
+                            int(round(float(media_probe["duration_seconds"]) * 1000))
+                            if media_probe.get("duration_seconds") is not None
+                            else None
+                        ),
+                        width=media_probe.get("width"),
+                        height=media_probe.get("height"),
+                    )
+                    current_status = persisted_clip["status"]
+                    if current_status in {"proposed", "previewing", "rejected"}:
+                        persisted_clip = store.update_clip(
+                            persisted_clip["clip_id"], {"status": "ready"}
+                        )
+                        current_status = persisted_clip["status"]
+                    if current_status == "ready":
+                        persisted_clip = store.update_clip(
+                            persisted_clip["clip_id"], {"status": "approved"}
+                        )
+                        current_status = persisted_clip["status"]
+                    if current_status in {
+                        "approved", "failed", "rendered", "exported"
+                    }:
+                        persisted_clip = store.update_clip(
+                            persisted_clip["clip_id"], {"status": "rendering"}
+                        )
+                        current_status = persisted_clip["status"]
+                    if current_status == "rendering":
+                        persisted_clip = store.update_clip(
+                            persisted_clip["clip_id"], {"status": "rendered"}
+                        )
+                    domain_render = store.create_render(
+                        clip_id=persisted_clip["clip_id"],
+                        asset_id=render_asset["asset_id"],
+                        status="rendered",
+                    )
+                    domain_render["asset"] = render_asset
 
                 gdrive_link = None
                 gdrive_result = {
@@ -4786,6 +5356,10 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 }
                 resp_data = {
                     "success": True,
+                    "project_id": domain_render.get("project_id") if domain_render else None,
+                    "clip_id": domain_render.get("clip_id") if domain_render else None,
+                    "render_id": domain_render.get("render_id") if domain_render else None,
+                    "asset": domain_render.get("asset") if domain_render else None,
                     "overall_status": overall_status,
                     "output_path": output_path,
                     "clip_path": output_path,
@@ -4796,6 +5370,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     "render_receipt": render_receipt,
                 }
                 self.send_json(200, resp_data)
+            except (DomainNotFoundError, DomainConflictError, DomainValidationError) as e:
+                self._send_domain_error(e)
             except (ValidationError, ValueError) as e:
                 self.send_json(400, {"success": False, "error": str(e)})
             except FileNotFoundError as e:
@@ -4866,7 +5442,39 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
 
     @observed_http_request
     def do_PATCH(self):
-        self._handle_unsupported_method()
+        if not self._require_authorization():
+            return
+        if not self._require_safe_post_context():
+            return
+        route_path = urllib.parse.urlsplit(self.path).path
+        if not route_path.startswith(self.API_V1_PREFIX):
+            self._handle_unsupported_method()
+            return
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self.send_json(400, {"success": False, "error": "Invalid Content-Length"})
+            return
+        if content_length <= 0 or content_length > self.MAX_REQUEST_BODY_BYTES:
+            status = 413 if content_length > self.MAX_REQUEST_BODY_BYTES else 400
+            self.send_json(status, {"success": False, "error": "Invalid request body size"})
+            return
+        try:
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+            self.send_json(400, {"success": False, "error": "Invalid JSON format"})
+            return
+        if not isinstance(payload, dict):
+            self.send_json(400, {"success": False, "error": "JSON payload must be an object"})
+            return
+        if self._handle_api_v1_patch(route_path, payload):
+            return
+        self.send_json(
+            404,
+            {"success": False, "error": "API v1 route not found"},
+            no_store=True,
+        )
+
 
     @observed_http_request
     def do_HEAD(self):
@@ -4905,6 +5513,8 @@ def start_dashboard_server(
     httpd.api_token = api_token
     httpd.output_dir = Path(output_dir or (Path.cwd() / "output")).resolve()
     httpd.output_dir.mkdir(parents=True, exist_ok=True)
+    httpd.panel_workspace = (httpd.output_dir.parent / "panel_workspace").resolve()
+    httpd.panel_workspace.mkdir(parents=True, exist_ok=True)
     print(
         "🚀 Dashboard Server do YouTube Clipper rodando em: "
         f"http://{normalized_host}:{port}"

@@ -29,10 +29,18 @@ def build_render_filtergraph(
     width: int = 1080,
     height: int = 1920,
     sigma: float = 12.0,
+    crop_focus: str = "center",
+    overlay_position: str = "top",
     analytical_overlay: bool = False,
     overlay_text: Optional[str] = None,
 ) -> str:
     """Build FFmpeg 9:16 vertical video filtergraph with optional burned ASS subtitles and analytical overlay."""
+    if crop_focus not in {"left", "center", "right"}:
+        raise ValueError("crop_focus must be left, center, or right")
+    if overlay_position not in {"top", "bottom"}:
+        raise ValueError("overlay_position must be top or bottom")
+    crop_x = {"left": "0", "center": "(iw-ow)/2", "right": "iw-ow"}[crop_focus]
+    overlay_y = 60 if overlay_position == "top" else height - 160
     if mode in ("blur_background", "split_blur"):
         low_w = width // 4
         low_h = height // 4
@@ -43,14 +51,14 @@ def build_render_filtergraph(
             f"[blurred][scaled_fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2"
         )
     elif mode == "crop_center":
-        v_filter = f"crop=ih*9/16:ih:(iw-ow)/2:0,scale={width}:{height}"
+        v_filter = f"crop=ih*9/16:ih:{crop_x}:0,scale={width}:{height}"
     else:
         raise ValueError(f"Unsupported vertical render mode: {mode}")
 
     if analytical_overlay:
         txt = overlay_text or "ANALYTICAL OVERLAY | VIRAL HOOK SCORE: 9.8"
         esc_txt = txt.replace(":", "\\:").replace("'", "")
-        v_filter = f"{v_filter},drawbox=x=40:y=60:w=1000:h=100:color=black@0.6:t=fill,drawtext=text='{esc_txt}':x=60:y=95:fontsize=36:fontcolor=yellow"
+        v_filter = f"{v_filter},drawbox=x=40:y={overlay_y}:w=1000:h=100:color=black@0.6:t=fill,drawtext=text='{esc_txt}':x=60:y={overlay_y + 35}:fontsize=36:fontcolor=yellow"
 
     if subtitles_path is not None:
         sub_p = pathlib.Path(subtitles_path).resolve()
@@ -81,6 +89,9 @@ def process_vertical_render(
     template_history: Optional[list[Dict[str, Any]]] = None,
     run_dir: Optional[Union[str, pathlib.Path]] = None,
     blur_sigma: float = 12.0,
+    crop_focus: str = "center",
+    overlay_position: str = "top",
+    include_audio: bool = True,
 ) -> Dict[str, Any]:
     """Render a vertical video and physically apply the requested T3 transformation."""
     in_p = pathlib.Path(input_media).resolve()
@@ -160,6 +171,8 @@ def process_vertical_render(
             "tts_narration=True requires a physical narration_path; metadata-only narration is forbidden"
         )
     narration_mixed = narration_p is not None
+    if narration_mixed and not include_audio:
+        raise ProcessingError("Narration cannot be mixed when include_audio is false")
     if require_editorial_transformation and not (
         narration_mixed or analytical_overlay
     ):
@@ -182,6 +195,8 @@ def process_vertical_render(
         width=width,
         height=height,
         sigma=normalized_blur_sigma,
+        crop_focus=crop_focus,
+        overlay_position=overlay_position,
         analytical_overlay=analytical_overlay,
         overlay_text=effective_overlay_text,
     )
@@ -272,18 +287,12 @@ def process_vertical_render(
                 filtergraph,
             ]
         )
-    cmd.extend(
-        [
-            *vcodec_args,
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-pix_fmt",
-            "yuv420p",
-            str(out_p),
-        ]
-    )
+    cmd.extend(vcodec_args)
+    if include_audio:
+        cmd.extend(["-c:a", "aac", "-b:a", "192k"])
+    else:
+        cmd.append("-an")
+    cmd.extend(["-pix_fmt", "yuv420p", str(out_p)])
 
     res = run_cmd(cmd, stage="render")
     if res.returncode != 0 and encoder == "h264_nvenc":
@@ -326,6 +335,9 @@ def process_vertical_render(
         "width": width,
         "height": height,
         "mode": mode,
+        "crop_focus": crop_focus,
+        "overlay_position": overlay_position,
+        "audio_included": include_audio,
         "blur_sigma": (
             normalized_blur_sigma
             if mode in {"blur_background", "split_blur"}
@@ -388,6 +400,9 @@ def run_render(
     clip_id = kwargs.pop("clip_id", None)
     mode = kwargs.pop("mode", "blur_background")
     blur_sigma = kwargs.pop("blur_sigma", 12.0)
+    crop_focus = kwargs.pop("crop_focus", "center")
+    overlay_position = kwargs.pop("overlay_position", "top")
+    include_audio = bool(kwargs.pop("include_audio", True))
     output_path = kwargs.pop("output_path", None)
     analytical_overlay = bool(kwargs.pop("analytical_overlay", False))
     overlay_text = kwargs.pop("overlay_text", None)
@@ -452,6 +467,9 @@ def run_render(
         template_history=template_history,
         run_dir=run_dir,
         blur_sigma=blur_sigma,
+        crop_focus=crop_focus,
+        overlay_position=overlay_position,
+        include_audio=include_audio,
     )
     if clip_id:
         # Preserve the historical discovery path without duplicating media.

@@ -565,8 +565,9 @@ class TestWebDashboardOperationStatus:
         ) as resp:
             status_data = json.loads(resp.read().decode("utf-8"))
         actions = {event["action"] for event in status_data["events"]}
-        assert "public.validate_input" in actions
-        assert "public.vertical_transform" in actions
+        assert "dashboard.ingest_interval" in actions
+        assert "dashboard.render" in actions
+        assert "public.validate_input" not in actions
         assert any(action == "command.ffmpeg" for action in actions)
         assert len(status_data["run_ids"]) >= 2
 

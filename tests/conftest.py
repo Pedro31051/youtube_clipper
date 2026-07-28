@@ -264,6 +264,18 @@ class MockFFmpegContainer:
                     vtt_path.write_text(vtt_content, encoding="utf-8")
                 return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
 
+            if "loudnorm" in cmd_str and "print_format=json" in cmd_str:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout="",
+                    stderr=(
+                        '{"input_i":"-24.0","input_lra":"7.0",'
+                        '"input_tp":"-2.0","input_thresh":"-34.0",'
+                        '"target_offset":"0.0"}'
+                    ),
+                )
+
             if isinstance(cmd, list):
                 # Look for output file argument (usually the last argument or after options)
                 if len(cmd) > 1 and not cmd[-1].startswith("-"):
@@ -589,7 +601,7 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 @pytest.fixture
-def dashboard_server() -> Generator[str, None, None]:
+def dashboard_server(tmp_path: Path) -> Generator[str, None, None]:
     """
     Launches ThreadingHTTPServer on an ephemeral port (127.0.0.1:0) in a background
     daemon thread, returning base URL `http://127.0.0.1:{port}`, and closing server cleanly on teardown.
@@ -598,6 +610,8 @@ def dashboard_server() -> Generator[str, None, None]:
     server.output_dir = (Path.cwd() / "media_workspace").resolve()
     server.output_dir.mkdir(parents=True, exist_ok=True)
     server.api_token = None
+    server.panel_workspace = (tmp_path / "panel_workspace").resolve()
+    server.panel_workspace.mkdir(parents=True, exist_ok=True)
     port = server.server_port
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
