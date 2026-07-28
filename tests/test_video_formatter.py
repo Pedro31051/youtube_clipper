@@ -46,6 +46,47 @@ class TestVideoFormatterFilterBuilder:
         filter_str = VideoFormatter.build_vertical_filter("crop_center")
         assert "crop=ih*9/16:ih:(iw-ow)/2:0,scale=1080:1920" in filter_str
 
+    @pytest.mark.parametrize(
+        ("focus", "expected_crop"),
+        [
+            ("left", "crop=ih*9/16:ih:0:0"),
+            ("center", "crop=ih*9/16:ih:(iw-ow)/2:0"),
+            ("right", "crop=ih*9/16:ih:iw-ow:0"),
+        ],
+    )
+    def test_build_vertical_filter_crop_focus(
+        self, focus: str, expected_crop: str
+    ) -> None:
+        filter_str = VideoFormatter.build_vertical_filter(
+            mode="crop_center", crop_focus=focus
+        )
+        assert expected_crop in filter_str
+
+    def test_build_vertical_filter_adds_editorial_overlay(self) -> None:
+        filter_str = VideoFormatter.build_vertical_filter(
+            mode="blur_background",
+            overlay_text="Análise: fato, contexto",
+            overlay_position="bottom",
+        )
+        assert "drawbox=" in filter_str
+        assert "drawtext=" in filter_str
+        assert r"Análise\: fato\, contexto" in filter_str
+        assert "y=h-text_h-150" in filter_str
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"crop_focus": "invalid"}, "Crop focus"),
+            ({"overlay_position": "middle"}, "Overlay position"),
+            ({"sigma": 100}, "Blur sigma"),
+        ],
+    )
+    def test_build_vertical_filter_rejects_invalid_controls(
+        self, kwargs: dict[str, object], message: str
+    ) -> None:
+        with pytest.raises(ValueError, match=message):
+            VideoFormatter.build_vertical_filter(**kwargs)
+
     def test_build_vertical_filter_invalid_mode_raises_value_error(self) -> None:
         """Verify ValueError is raised when an unsupported mode name is provided."""
         with pytest.raises(ValueError, match="Unsupported vertical format mode"):
@@ -84,6 +125,42 @@ class TestVideoFormatterConversion:
         out_file = Path(result_path)
         assert out_file.exists()
         assert out_file.stat().st_size > 1000
+
+    def test_convert_to_vertical_applies_mute_and_overlay(
+        self,
+        dummy_video_file: Path,
+        tmp_media_dir: Path,
+        mock_ffmpeg: pytest.FixtureRequest,
+    ) -> None:
+        output_path = str(tmp_media_dir / "vertical_muted_overlay.mp4")
+        VideoFormatter.convert_to_vertical(
+            input_path=str(dummy_video_file),
+            output_path=output_path,
+            mode="crop_center",
+            crop_focus="right",
+            include_audio=False,
+            overlay_text="Contexto original",
+            overlay_position="top",
+        )
+        command = mock_ffmpeg.last_command
+        assert command is not None
+        assert "-an" in command
+        assert "-c:a" not in command
+        filter_str = command[command.index("-vf") + 1]
+        assert "crop=ih*9/16:ih:iw-ow:0" in filter_str
+        assert "drawtext=" in filter_str
+        assert "textfile=" in filter_str
+        assert not list(tmp_media_dir.glob(".overlay_*.txt"))
+
+    def test_convert_to_vertical_rejects_non_boolean_audio_control(
+        self, dummy_video_file: Path, tmp_media_dir: Path
+    ) -> None:
+        with pytest.raises(ValueError, match="include_audio must be a boolean"):
+            VideoFormatter.convert_to_vertical(
+                input_path=str(dummy_video_file),
+                output_path=str(tmp_media_dir / "invalid_audio.mp4"),
+                include_audio="yes",  # type: ignore[arg-type]
+            )
 
     def test_convert_to_vertical_non_existent_input_raises_file_not_found(
         self, tmp_media_dir: Path
