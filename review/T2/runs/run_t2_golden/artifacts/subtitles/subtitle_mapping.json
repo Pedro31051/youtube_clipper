@@ -1,0 +1,714 @@
+{
+  "schema_version": "1.0.0",
+  "clip_id": "clip_bf969de3835e",
+  "selection": {
+    "start_ms": 0,
+    "end_ms": 26120
+  },
+  "source_words": [
+    {
+      "word": " This",
+      "start": 0.0,
+      "end": 0.38,
+      "start_ms": 0,
+      "end_ms": 380,
+      "probability": 0.9341
+    },
+    {
+      "word": " original",
+      "start": 0.38,
+      "end": 0.76,
+      "start_ms": 380,
+      "end_ms": 760,
+      "probability": 0.9585
+    },
+    {
+      "word": " technical",
+      "start": 0.76,
+      "end": 1.3,
+      "start_ms": 760,
+      "end_ms": 1300,
+      "probability": 0.9355
+    },
+    {
+      "word": " demonstration",
+      "start": 1.3,
+      "end": 2.2,
+      "start_ms": 1300,
+      "end_ms": 2200,
+      "probability": 0.998
+    },
+    {
+      "word": " explains",
+      "start": 2.2,
+      "end": 2.66,
+      "start_ms": 2200,
+      "end_ms": 2660,
+      "probability": 0.9966
+    },
+    {
+      "word": " reliable",
+      "start": 2.66,
+      "end": 3.28,
+      "start_ms": 2660,
+      "end_ms": 3280,
+      "probability": 0.9873
+    },
+    {
+      "word": " video",
+      "start": 3.28,
+      "end": 3.74,
+      "start_ms": 3280,
+      "end_ms": 3740,
+      "probability": 0.9878
+    },
+    {
+      "word": " processing",
+      "start": 3.74,
+      "end": 4.46,
+      "start_ms": 3740,
+      "end_ms": 4460,
+      "probability": 0.9722
+    },
+    {
+      "word": " with",
+      "start": 4.46,
+      "end": 4.76,
+      "start_ms": 4460,
+      "end_ms": 4760,
+      "probability": 0.9917
+    },
+    {
+      "word": " speech",
+      "start": 4.76,
+      "end": 5.06,
+      "start_ms": 4760,
+      "end_ms": 5060,
+      "probability": 0.978
+    },
+    {
+      "word": " transcription,",
+      "start": 5.06,
+      "end": 5.78,
+      "start_ms": 5060,
+      "end_ms": 5780,
+      "probability": 0.9458
+    },
+    {
+      "word": " scene",
+      "start": 6.1,
+      "end": 6.24,
+      "start_ms": 6100,
+      "end_ms": 6240,
+      "probability": 0.9561
+    },
+    {
+      "word": " detection,",
+      "start": 6.24,
+      "end": 6.64,
+      "start_ms": 6240,
+      "end_ms": 6640,
+      "probability": 0.9834
+    },
+    {
+      "word": " deterministic",
+      "start": 6.88,
+      "end": 7.48,
+      "start_ms": 6880,
+      "end_ms": 7480,
+      "probability": 0.9946
+    },
+    {
+      "word": " selection,",
+      "start": 7.48,
+      "end": 8.1,
+      "start_ms": 7480,
+      "end_ms": 8100,
+      "probability": 0.9858
+    },
+    {
+      "word": " accurate",
+      "start": 8.26,
+      "end": 8.48,
+      "start_ms": 8260,
+      "end_ms": 8480,
+      "probability": 0.9702
+    },
+    {
+      "word": " subtitles,",
+      "start": 8.48,
+      "end": 8.96,
+      "start_ms": 8480,
+      "end_ms": 8960,
+      "probability": 0.8975
+    },
+    {
+      "word": " audio",
+      "start": 9.38,
+      "end": 9.64,
+      "start_ms": 9380,
+      "end_ms": 9640,
+      "probability": 0.9785
+    },
+    {
+      "word": " normalization",
+      "start": 9.64,
+      "end": 10.48,
+      "start_ms": 9640,
+      "end_ms": 10480,
+      "probability": 0.9636
+    },
+    {
+      "word": " and",
+      "start": 10.48,
+      "end": 10.74,
+      "start_ms": 10480,
+      "end_ms": 10740,
+      "probability": 0.6572
+    },
+    {
+      "word": " vertical",
+      "start": 10.74,
+      "end": 11.22,
+      "start_ms": 10740,
+      "end_ms": 11220,
+      "probability": 0.998
+    },
+    {
+      "word": " rendering.",
+      "start": 11.22,
+      "end": 11.72,
+      "start_ms": 11220,
+      "end_ms": 11720,
+      "probability": 0.999
+    },
+    {
+      "word": " Every",
+      "start": 12.04,
+      "end": 12.26,
+      "start_ms": 12040,
+      "end_ms": 12260,
+      "probability": 0.9268
+    },
+    {
+      "word": " spoken",
+      "start": 12.26,
+      "end": 12.78,
+      "start_ms": 12260,
+      "end_ms": 12780,
+      "probability": 0.9893
+    },
+    {
+      "word": " word",
+      "start": 12.78,
+      "end": 13.06,
+      "start_ms": 12780,
+      "end_ms": 13060,
+      "probability": 0.7686
+    },
+    {
+      "word": " receives",
+      "start": 13.06,
+      "end": 13.44,
+      "start_ms": 13060,
+      "end_ms": 13440,
+      "probability": 0.9424
+    },
+    {
+      "word": " a",
+      "start": 13.44,
+      "end": 13.68,
+      "start_ms": 13440,
+      "end_ms": 13680,
+      "probability": 0.9961
+    },
+    {
+      "word": " timestamp",
+      "start": 13.68,
+      "end": 14.24,
+      "start_ms": 13680,
+      "end_ms": 14240,
+      "probability": 0.9045
+    },
+    {
+      "word": " so",
+      "start": 14.24,
+      "end": 14.5,
+      "start_ms": 14240,
+      "end_ms": 14500,
+      "probability": 0.7134
+    },
+    {
+      "word": " an",
+      "start": 14.5,
+      "end": 14.68,
+      "start_ms": 14500,
+      "end_ms": 14680,
+      "probability": 0.9922
+    },
+    {
+      "word": " independent",
+      "start": 14.68,
+      "end": 15.12,
+      "start_ms": 14680,
+      "end_ms": 15120,
+      "probability": 0.9917
+    },
+    {
+      "word": " verifier",
+      "start": 15.12,
+      "end": 15.8,
+      "start_ms": 15120,
+      "end_ms": 15800,
+      "probability": 0.9585
+    },
+    {
+      "word": " can",
+      "start": 15.8,
+      "end": 16.14,
+      "start_ms": 15800,
+      "end_ms": 16140,
+      "probability": 0.9985
+    },
+    {
+      "word": " prove",
+      "start": 16.14,
+      "end": 16.4,
+      "start_ms": 16140,
+      "end_ms": 16400,
+      "probability": 0.7471
+    },
+    {
+      "word": " synchronization,",
+      "start": 16.4,
+      "end": 17.34,
+      "start_ms": 16400,
+      "end_ms": 17340,
+      "probability": 0.9834
+    },
+    {
+      "word": " selection",
+      "start": 17.5,
+      "end": 17.9,
+      "start_ms": 17500,
+      "end_ms": 17900,
+      "probability": 0.9883
+    },
+    {
+      "word": " boundaries,",
+      "start": 17.9,
+      "end": 18.46,
+      "start_ms": 17900,
+      "end_ms": 18460,
+      "probability": 0.9878
+    },
+    {
+      "word": " framerate",
+      "start": 18.7,
+      "end": 19.08,
+      "start_ms": 18700,
+      "end_ms": 19080,
+      "probability": 0.8351
+    },
+    {
+      "word": " loudness",
+      "start": 19.08,
+      "end": 19.54,
+      "start_ms": 19080,
+      "end_ms": 19540,
+      "probability": 0.8831
+    },
+    {
+      "word": " and",
+      "start": 19.54,
+      "end": 19.74,
+      "start_ms": 19540,
+      "end_ms": 19740,
+      "probability": 0.8623
+    },
+    {
+      "word": " artifact",
+      "start": 19.74,
+      "end": 20.14,
+      "start_ms": 19740,
+      "end_ms": 20140,
+      "probability": 0.981
+    },
+    {
+      "word": " integrity.",
+      "start": 20.14,
+      "end": 20.92,
+      "start_ms": 20140,
+      "end_ms": 20920,
+      "probability": 0.9985
+    },
+    {
+      "word": " This",
+      "start": 21.34,
+      "end": 21.54,
+      "start_ms": 21340,
+      "end_ms": 21540,
+      "probability": 0.9941
+    },
+    {
+      "word": " final",
+      "start": 21.54,
+      "end": 21.92,
+      "start_ms": 21540,
+      "end_ms": 21920,
+      "probability": 0.999
+    },
+    {
+      "word": " sentence",
+      "start": 21.92,
+      "end": 22.34,
+      "start_ms": 21920,
+      "end_ms": 22340,
+      "probability": 0.9961
+    },
+    {
+      "word": " provides",
+      "start": 22.34,
+      "end": 22.88,
+      "start_ms": 22340,
+      "end_ms": 22880,
+      "probability": 0.9849
+    },
+    {
+      "word": " enough",
+      "start": 22.88,
+      "end": 23.2,
+      "start_ms": 22880,
+      "end_ms": 23200,
+      "probability": 0.9238
+    },
+    {
+      "word": " continuous",
+      "start": 23.2,
+      "end": 23.72,
+      "start_ms": 23200,
+      "end_ms": 23720,
+      "probability": 0.9932
+    },
+    {
+      "word": " speech",
+      "start": 23.72,
+      "end": 24.32,
+      "start_ms": 23720,
+      "end_ms": 24320,
+      "probability": 0.9951
+    },
+    {
+      "word": " for",
+      "start": 24.32,
+      "end": 24.62,
+      "start_ms": 24320,
+      "end_ms": 24620,
+      "probability": 0.9971
+    },
+    {
+      "word": " a",
+      "start": 24.62,
+      "end": 24.78,
+      "start_ms": 24620,
+      "end_ms": 24780,
+      "probability": 0.9951
+    },
+    {
+      "word": " complete",
+      "start": 24.78,
+      "end": 25.08,
+      "start_ms": 24780,
+      "end_ms": 25080,
+      "probability": 0.9932
+    },
+    {
+      "word": " technical",
+      "start": 25.08,
+      "end": 25.66,
+      "start_ms": 25080,
+      "end_ms": 25660,
+      "probability": 0.9966
+    },
+    {
+      "word": " short.",
+      "start": 25.66,
+      "end": 26.12,
+      "start_ms": 25660,
+      "end_ms": 26120,
+      "probability": 0.9473
+    }
+  ],
+  "events": [
+    {
+      "word": "This",
+      "start_ms": 0,
+      "end_ms": 380
+    },
+    {
+      "word": "original",
+      "start_ms": 380,
+      "end_ms": 760
+    },
+    {
+      "word": "technical",
+      "start_ms": 760,
+      "end_ms": 1300
+    },
+    {
+      "word": "demonstration",
+      "start_ms": 1300,
+      "end_ms": 2200
+    },
+    {
+      "word": "explains",
+      "start_ms": 2200,
+      "end_ms": 2660
+    },
+    {
+      "word": "reliable",
+      "start_ms": 2660,
+      "end_ms": 3280
+    },
+    {
+      "word": "video",
+      "start_ms": 3280,
+      "end_ms": 3740
+    },
+    {
+      "word": "processing",
+      "start_ms": 3740,
+      "end_ms": 4460
+    },
+    {
+      "word": "with",
+      "start_ms": 4460,
+      "end_ms": 4760
+    },
+    {
+      "word": "speech",
+      "start_ms": 4760,
+      "end_ms": 5060
+    },
+    {
+      "word": "transcription,",
+      "start_ms": 5060,
+      "end_ms": 5780
+    },
+    {
+      "word": "scene",
+      "start_ms": 6100,
+      "end_ms": 6240
+    },
+    {
+      "word": "detection,",
+      "start_ms": 6240,
+      "end_ms": 6640
+    },
+    {
+      "word": "deterministic",
+      "start_ms": 6880,
+      "end_ms": 7480
+    },
+    {
+      "word": "selection,",
+      "start_ms": 7480,
+      "end_ms": 8100
+    },
+    {
+      "word": "accurate",
+      "start_ms": 8260,
+      "end_ms": 8480
+    },
+    {
+      "word": "subtitles,",
+      "start_ms": 8480,
+      "end_ms": 8960
+    },
+    {
+      "word": "audio",
+      "start_ms": 9380,
+      "end_ms": 9640
+    },
+    {
+      "word": "normalization",
+      "start_ms": 9640,
+      "end_ms": 10480
+    },
+    {
+      "word": "and",
+      "start_ms": 10480,
+      "end_ms": 10740
+    },
+    {
+      "word": "vertical",
+      "start_ms": 10740,
+      "end_ms": 11220
+    },
+    {
+      "word": "rendering.",
+      "start_ms": 11220,
+      "end_ms": 11720
+    },
+    {
+      "word": "Every",
+      "start_ms": 12040,
+      "end_ms": 12260
+    },
+    {
+      "word": "spoken",
+      "start_ms": 12260,
+      "end_ms": 12780
+    },
+    {
+      "word": "word",
+      "start_ms": 12780,
+      "end_ms": 13060
+    },
+    {
+      "word": "receives",
+      "start_ms": 13060,
+      "end_ms": 13440
+    },
+    {
+      "word": "a",
+      "start_ms": 13440,
+      "end_ms": 13680
+    },
+    {
+      "word": "timestamp",
+      "start_ms": 13680,
+      "end_ms": 14240
+    },
+    {
+      "word": "so",
+      "start_ms": 14240,
+      "end_ms": 14500
+    },
+    {
+      "word": "an",
+      "start_ms": 14500,
+      "end_ms": 14680
+    },
+    {
+      "word": "independent",
+      "start_ms": 14680,
+      "end_ms": 15120
+    },
+    {
+      "word": "verifier",
+      "start_ms": 15120,
+      "end_ms": 15800
+    },
+    {
+      "word": "can",
+      "start_ms": 15800,
+      "end_ms": 16140
+    },
+    {
+      "word": "prove",
+      "start_ms": 16140,
+      "end_ms": 16400
+    },
+    {
+      "word": "synchronization,",
+      "start_ms": 16400,
+      "end_ms": 17340
+    },
+    {
+      "word": "selection",
+      "start_ms": 17500,
+      "end_ms": 17900
+    },
+    {
+      "word": "boundaries,",
+      "start_ms": 17900,
+      "end_ms": 18460
+    },
+    {
+      "word": "framerate",
+      "start_ms": 18700,
+      "end_ms": 19080
+    },
+    {
+      "word": "loudness",
+      "start_ms": 19080,
+      "end_ms": 19540
+    },
+    {
+      "word": "and",
+      "start_ms": 19540,
+      "end_ms": 19740
+    },
+    {
+      "word": "artifact",
+      "start_ms": 19740,
+      "end_ms": 20140
+    },
+    {
+      "word": "integrity.",
+      "start_ms": 20140,
+      "end_ms": 20920
+    },
+    {
+      "word": "This",
+      "start_ms": 21340,
+      "end_ms": 21540
+    },
+    {
+      "word": "final",
+      "start_ms": 21540,
+      "end_ms": 21920
+    },
+    {
+      "word": "sentence",
+      "start_ms": 21920,
+      "end_ms": 22340
+    },
+    {
+      "word": "provides",
+      "start_ms": 22340,
+      "end_ms": 22880
+    },
+    {
+      "word": "enough",
+      "start_ms": 22880,
+      "end_ms": 23200
+    },
+    {
+      "word": "continuous",
+      "start_ms": 23200,
+      "end_ms": 23720
+    },
+    {
+      "word": "speech",
+      "start_ms": 23720,
+      "end_ms": 24320
+    },
+    {
+      "word": "for",
+      "start_ms": 24320,
+      "end_ms": 24620
+    },
+    {
+      "word": "a",
+      "start_ms": 24620,
+      "end_ms": 24780
+    },
+    {
+      "word": "complete",
+      "start_ms": 24780,
+      "end_ms": 25080
+    },
+    {
+      "word": "technical",
+      "start_ms": 25080,
+      "end_ms": 25660
+    },
+    {
+      "word": "short.",
+      "start_ms": 25660,
+      "end_ms": 26120
+    }
+  ]
+}

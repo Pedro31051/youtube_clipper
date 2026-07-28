@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "clip_id": "clip_bf969de3835e",
+  "width": 1080,
+  "height": 1920,
+  "mode": "blur_background",
+  "subtitles_burned": true,
+  "subtitles_path": "runs/run_t2_golden/artifacts/subtitles/subtitles.ass",
+  "output_size_bytes": 2409274
+}
