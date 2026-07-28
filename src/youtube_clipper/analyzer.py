@@ -12,7 +12,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Any, Optional
 
-from cortes.log import run_cmd
+from cortes.log import action_span, audited, run_cmd
 from youtube_clipper.exceptions import ProcessingError
 
 @dataclass
@@ -253,6 +253,11 @@ class VideoContentAnalyzer:
         return selected
 
 
+@audited(
+    stage="transcribe",
+    action="youtube.extract_transcript_and_analyze",
+    component="youtube_clipper.analyzer",
+)
 def extract_transcript_and_analyze(
     url_or_file: str,
     python_env_bin: Optional[str] = None,
@@ -315,11 +320,27 @@ def extract_transcript_and_analyze(
                 "clips": []
             }
 
-        with open(vtt_file, "r", encoding="utf-8", errors="ignore") as f:
-            vtt_content = f.read()
+        with action_span(
+            "transcribe",
+            "youtube.parse_vtt",
+            component="youtube_clipper.analyzer",
+            next_action="youtube.rank_clips",
+            next_stage="select",
+        ) as span:
+            with open(vtt_file, "r", encoding="utf-8", errors="ignore") as f:
+                vtt_content = f.read()
+            segments = VTTParser.parse_vtt_content(vtt_content)
+            span.decision = {"segments_parsed": len(segments)}
 
-        segments = VTTParser.parse_vtt_content(vtt_content)
-        clips = VideoContentAnalyzer.find_best_clips(segments, max_clips=max_clips)
+        with action_span(
+            "select",
+            "youtube.rank_clips",
+            component="youtube_clipper.analyzer",
+        ) as span:
+            clips = VideoContentAnalyzer.find_best_clips(
+                segments, max_clips=max_clips
+            )
+            span.decision = {"clips_selected": len(clips)}
 
         return {
             "success": True,

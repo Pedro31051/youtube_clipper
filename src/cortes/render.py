@@ -1,10 +1,13 @@
 """Audited Stage 8 (render) processing module."""
 
 import json
+import math
 import os
 import pathlib
 import shutil
 from typing import Any, Callable, Dict, Optional, Union
+
+import pysubs2
 
 from cortes.editorial import (
     assert_variant_not_recent,
@@ -49,11 +52,12 @@ def build_render_filtergraph(
         esc_txt = txt.replace(":", "\\:").replace("'", "")
         v_filter = f"{v_filter},drawbox=x=40:y=60:w=1000:h=100:color=black@0.6:t=fill,drawtext=text='{esc_txt}':x=60:y=95:fontsize=36:fontcolor=yellow"
 
-    if subtitles_path:
+    if subtitles_path is not None:
         sub_p = pathlib.Path(subtitles_path).resolve()
-        if sub_p.exists():
-            esc_sub = str(sub_p).replace("\\", "/").replace(":", "\\:")
-            v_filter = f"{v_filter},subtitles={esc_sub}"
+        if not sub_p.exists() or not sub_p.is_file():
+            raise ProcessingError(f"Subtitle source does not exist: {sub_p}")
+        esc_sub = str(sub_p).replace("\\", "/").replace(":", "\\:")
+        v_filter = f"{v_filter},subtitles={esc_sub}"
 
     return v_filter
 
@@ -76,6 +80,7 @@ def process_vertical_render(
     template_variant: str = "variant_default",
     template_history: Optional[list[Dict[str, Any]]] = None,
     run_dir: Optional[Union[str, pathlib.Path]] = None,
+    blur_sigma: float = 12.0,
 ) -> Dict[str, Any]:
     """Render a vertical video and physically apply the requested T3 transformation."""
     in_p = pathlib.Path(input_media).resolve()
@@ -87,6 +92,37 @@ def process_vertical_render(
 
     out_p.parent.mkdir(parents=True, exist_ok=True)
     meta_p.parent.mkdir(parents=True, exist_ok=True)
+
+    if isinstance(blur_sigma, bool) or not isinstance(blur_sigma, (int, float)):
+        raise ProcessingError("blur_sigma must be a finite number between 0 and 50")
+    try:
+        normalized_blur_sigma = float(blur_sigma)
+    except (TypeError, ValueError) as exc:
+        raise ProcessingError(
+            "blur_sigma must be a finite number between 0 and 50"
+        ) from exc
+    if not math.isfinite(normalized_blur_sigma) or not 0.0 <= normalized_blur_sigma <= 50.0:
+        raise ProcessingError("blur_sigma must be a finite number between 0 and 50")
+
+    subtitles_p: Optional[pathlib.Path] = None
+    subtitle_event_count = 0
+    if subtitles_path is not None:
+        subtitles_p = pathlib.Path(subtitles_path).resolve()
+        if not subtitles_p.exists() or not subtitles_p.is_file():
+            raise ProcessingError(f"Subtitle source does not exist: {subtitles_p}")
+        try:
+            subtitle_file = pysubs2.load(str(subtitles_p), encoding="utf-8")
+        except Exception as exc:
+            raise ProcessingError(f"Unable to parse subtitle source: {subtitles_p}") from exc
+        subtitle_event_count = sum(
+            1
+            for event in subtitle_file.events
+            if event.text.strip() and int(event.end) > int(event.start)
+        )
+        if subtitle_event_count == 0:
+            raise ProcessingError(
+                "Subtitle source must contain at least one visible timed event"
+            )
 
     narration_p: Optional[pathlib.Path] = None
     narration_duration_s = 0.0
@@ -135,13 +171,19 @@ def process_vertical_render(
         allow_default=not require_editorial_transformation,
     )
 
+    effective_overlay_text = (
+        overlay_text or "ANALYTICAL OVERLAY | VIRAL HOOK SCORE: 9.8"
+        if analytical_overlay
+        else None
+    )
     filtergraph = build_render_filtergraph(
         mode=mode,
-        subtitles_path=subtitles_path,
+        subtitles_path=subtitles_p,
         width=width,
         height=height,
+        sigma=normalized_blur_sigma,
         analytical_overlay=analytical_overlay,
-        overlay_text=overlay_text,
+        overlay_text=effective_overlay_text,
     )
 
     encoder = detect_h264_encoder()
@@ -261,7 +303,9 @@ def process_vertical_render(
     if res.returncode != 0 or not out_p.exists() or out_p.stat().st_size <= 1024:
         raise ProcessingError(f"FFmpeg vertical render failed with returncode {res.returncode}: {res.stderr}")
 
-    sub_exists = bool(subtitles_path and pathlib.Path(subtitles_path).exists())
+    subtitles_filter_applied = bool(
+        subtitles_p is not None and ",subtitles=" in filtergraph
+    )
     run_root = pathlib.Path(run_dir).resolve() if run_dir else None
     narration_source_path: Optional[str] = None
     if narration_p is not None:
@@ -282,8 +326,14 @@ def process_vertical_render(
         "width": width,
         "height": height,
         "mode": mode,
-        "subtitles_burned": sub_exists,
-        "subtitles_path": str(subtitles_path) if subtitles_path else None,
+        "blur_sigma": (
+            normalized_blur_sigma
+            if mode in {"blur_background", "split_blur"}
+            else None
+        ),
+        "subtitles_burned": subtitles_filter_applied,
+        "subtitles_path": str(subtitles_p) if subtitles_p is not None else None,
+        "subtitle_event_count": subtitle_event_count,
         "editorial_transformation_required": require_editorial_transformation,
         "editorial_requirements": [
             requirement
@@ -304,7 +354,7 @@ def process_vertical_render(
         ),
         "narration_duration_s": round(narration_duration_s, 3),
         "analytical_overlay": analytical_overlay,
-        "overlay_text": overlay_text if analytical_overlay else None,
+        "overlay_text": effective_overlay_text,
         "template_variant": variant,
         "template_variant_history": list(template_history or [])[:5],
         "encoder": encoder,
@@ -337,6 +387,7 @@ def run_render(
     run_id = kwargs.pop("run_id", None)
     clip_id = kwargs.pop("clip_id", None)
     mode = kwargs.pop("mode", "blur_background")
+    blur_sigma = kwargs.pop("blur_sigma", 12.0)
     output_path = kwargs.pop("output_path", None)
     analytical_overlay = bool(kwargs.pop("analytical_overlay", False))
     overlay_text = kwargs.pop("overlay_text", None)
@@ -400,6 +451,7 @@ def run_render(
         template_variant=template_variant,
         template_history=template_history,
         run_dir=run_dir,
+        blur_sigma=blur_sigma,
     )
     if clip_id:
         # Preserve the historical discovery path without duplicating media.

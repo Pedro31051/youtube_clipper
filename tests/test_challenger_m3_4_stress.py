@@ -188,6 +188,7 @@ def test_m3_challenger_mutation_stress(synthetic_30s_video, tmp_path):
 
     # 2. Sequence gap mutation in events.jsonl
     events_file = run_dir / "events.jsonl"
+    original_events_text = events_file.read_text(encoding="utf-8")
     lines = [l for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
     ev0 = json.loads(lines[0])
     ev0["seq"] = 99
@@ -198,12 +199,8 @@ def test_m3_challenger_mutation_stress(synthetic_30s_video, tmp_path):
         assert seq_verify["overall_passed"] is False
         assert any(c["check_id"] == "seq_integrity" and not c["passed"] for c in seq_verify["checks"])
     finally:
-        # Restore events.jsonl
-        run_full_pipeline(
-            input_source=synthetic_30s_video,
-            run_id=run_id,
-            device=_e2e_device(),
-        )
+        # Restore the exact immutable fixture bytes; reruns must use a new ID.
+        events_file.write_text(original_events_text, encoding="utf-8")
 
     # 3. Path escape security test
     with pytest.raises(ValueError, match="Evidence path escapes"):

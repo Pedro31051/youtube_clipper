@@ -149,7 +149,7 @@ def test_run_full_pipeline_mock_backend(tmp_path, integration_fixtures, monkeypa
 
     monkeypatch.setattr(
         "cortes.pipeline.detect_scenes_stage",
-        lambda video_path, run_id=None: {
+        lambda video_path, run_id=None, **kw: {
             "status": "ok",
             "scenes_path": str(mock_s),
             "evidence_paths": [str(mock_s)],
