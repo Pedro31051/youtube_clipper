@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import yt_dlp
 import yt_dlp.utils
 
+from cortes.log import audited
 from youtube_clipper.exceptions import DownloadError, ValidationError
 from youtube_clipper.validator import validate_time_range
 
@@ -24,6 +25,11 @@ class YouTubeDownloader:
         """Initialize YouTubeDownloader with optional custom yt-dlp configuration options."""
         self.options = options or {}
 
+    @audited(
+        stage="ingest",
+        action="youtube.download_segment",
+        component="youtube_clipper.downloader",
+    )
     def download_segment(
         self,
         url: str,

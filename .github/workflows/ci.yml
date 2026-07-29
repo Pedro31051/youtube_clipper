@@ -24,13 +24,151 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install --yes ffmpeg
       - name: Install project
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
-      - name: Contract tests
-        run: python -m pytest tests/test_contracts.py -q
-      - name: T0 remediation regressions
-        run: python -m pytest tests/test_t0_remediations.py -q
-      - name: Full test suite
-        run: python -m pytest tests -q
+      - name: Install frontend
+        working-directory: web
+        run: npm ci
+      - name: Generate OpenAPI client
+        working-directory: web
+        run: npm run generate:api
+      - name: TypeScript
+        working-directory: web
+        run: npx tsc --noEmit
+      - name: Vitest
+        working-directory: web
+        run: npm test
+      - name: Build Vite
+        working-directory: web
+        run: npx vite build
+      - name: Prepare evidence directory
+        run: mkdir -p artifacts
+      - name: Python tests
+        run: >-
+          python -m pytest tests -q
+          --ignore=tests/test_dashboard_preview_api.py
+          --junitxml=artifacts/python-junit.xml
+      - name: Physical media tests
+        run: >-
+          python -m pytest tests/test_dashboard_preview_api.py -q
+          --junitxml=artifacts/python-physical-junit.xml
+      - name: Preserve Python results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-results
+          path: |
+            artifacts/python-junit.xml
+            artifacts/python-physical-junit.xml
+          if-no-files-found: error
+
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Install project
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Install frontend
+        working-directory: web
+        run: npm ci
+      - name: Install Playwright browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Prepare evidence directory
+        run: mkdir -p artifacts
+      - name: Playwright
+        working-directory: web
+        run: npm run test:e2e
+      - name: Preserve Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: review/UI-7/runs/playwright
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve Playwright JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: artifacts/playwright-junit.xml
+          if-no-files-found: error
+
+  report:
+    needs: [test, playwright]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Install project
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-test-results"
+          path: artifacts
+          merge-multiple: true
+      - name: Benchmark current runner
+        run: >-
+          python scripts/benchmark_panel_encoder.py
+          --label "ci-${GITHUB_SHA}"
+          --repetitions 3
+          > artifacts/current-benchmark.json
+      - name: Bind report inputs to this run
+        run: >-
+          python scripts/generate_ci_provenance.py
+          --source-sha "${GITHUB_SHA}"
+          --output artifacts/provenance.json
+          artifacts/python-junit.xml
+          artifacts/python-physical-junit.xml
+          artifacts/playwright-junit.xml
+          review/FINAL/report.json
+          artifacts/current-benchmark.json
+      - name: Regenerate evidence report
+        run: >-
+          python scripts/generate_final_panel_report.py
+          --code-sha "${GITHUB_SHA}"
+          --evidence-sha "${GITHUB_SHA}"
+          --python-junit
+          artifacts/python-junit.xml
+          artifacts/python-physical-junit.xml
+          --playwright-junit artifacts/playwright-junit.xml
+          --baseline-benchmark review/FINAL/report.json
+          --baseline-benchmark-key baseline
+          --current-benchmark artifacts/current-benchmark.json
+          --provenance artifacts/provenance.json
+          --output-dir artifacts/final-report
+      - name: Publish regenerated report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-panel-report-${{ github.sha }}
+          path: artifacts/final-report
+          if-no-files-found: error
+          retention-days: 14

@@ -17,10 +17,6 @@ def generate_report(
     """Generate report.md exclusively from events.jsonl and verify_result.json."""
     r_path = pathlib.Path(run_dir).resolve()
     run_id = r_path.name
-    report_file = r_path / (
-        "report_verified.md" if verify_result_path else "report.md"
-    )
-
     events_file = r_path / "events.jsonl"
 
     # Resolve verify_result.json location
@@ -34,6 +30,13 @@ def generate_report(
             verify_file = r_path / "verify_result.json"
         elif (r_path.parent / "verify_result.json").exists():
             verify_file = r_path.parent / "verify_result.json"
+
+    if verify_file and (r_path / "seal.json").exists():
+        report_file = verify_file.parent / f"{run_id}_report_verified.md"
+    else:
+        report_file = r_path / (
+            "report_verified.md" if verify_result_path else "report.md"
+        )
 
     if report_file.exists() and not force and not verify_file:
         return report_file
@@ -72,6 +75,24 @@ def generate_report(
     agent = events[0].get("agent", "worker") if events else "worker"
     total_events = len(events)
     total_duration_ms = sum(float(ev.get("duration_ms", 0.0)) for ev in events)
+    status_counts: Dict[str, int] = {}
+    for event in events:
+        status = event.get("status") or (
+            "succeeded" if event.get("outcome") == "ok" else "failed"
+        )
+        status_counts[status] = status_counts.get(status, 0) + 1
+    started_actions = {
+        event.get("action")
+        for event in events
+        if event.get("status") == "started" and event.get("action")
+    }
+    terminal_actions = {
+        event.get("action")
+        for event in events
+        if event.get("status") in {"succeeded", "failed", "skipped", "cancelled", "interrupted"}
+        and event.get("action")
+    }
+    interrupted_actions = sorted(started_actions - terminal_actions)
 
     verdict_str = "PASSED" if (is_verified and overall_passed) else ("FAILED" if is_verified else "UNVERIFIED")
 
@@ -95,22 +116,42 @@ def generate_report(
         f"| **End Time (UTC)** | `{ts_last}` |",
         f"| **Total Events** | `{total_events}` |",
         f"| **Total Duration (ms)** | `{total_duration_ms:.2f}` |",
+        f"| **Lifecycle Status Counts** | `{json.dumps(status_counts, sort_keys=True)}` |",
+        f"| **Started Without Terminal** | `{len(interrupted_actions)}` |",
         "",
         "---",
         "",
         "## 2. Stage Execution Log (`events.jsonl`)",
         "",
-        "| Seq | Stage | Attempt | Tool / Command | Exit Code | Outcome | Duration (ms) |",
-        "|---|---|---|---|---|---|---|",
+        "| Seq | Stage | Action | Status | Attempt | Next Action | Reason / Error | Duration (ms) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
 
     for ev in events:
-        cmd_disp = ev.get("cmd") or ev.get("tool") or "N/A"
-        if len(cmd_disp) > 60:
-            cmd_disp = cmd_disp[:57] + "..."
+        action = str(ev.get("action") or ev.get("tool") or "legacy.event")
+        status = ev.get("status") or ("succeeded" if ev.get("outcome") == "ok" else "failed")
+        next_value = ev.get("next") or {}
+        next_action = next_value.get("action") or "END"
+        error_value = ev.get("error")
+        if isinstance(error_value, dict):
+            reason = error_value.get("message") or next_value.get("reason") or ""
+        else:
+            reason = error_value or next_value.get("reason") or ""
+        reason = str(reason).replace("|", "\\|").replace("\n", " ")[:120]
         lines.append(
-            f"| {ev.get('seq')} | {ev.get('stage')} | {ev.get('attempt')} | `{cmd_disp}` | {ev.get('exit_code')} | {ev.get('outcome')} | {ev.get('duration_ms')} |"
+            f"| {ev.get('seq')} | {ev.get('stage')} | `{action}` | {status} | "
+            f"{ev.get('attempt')} | `{next_action}` | {reason} | {ev.get('duration_ms')} |"
         )
+
+    lines.extend([
+        "",
+        "### Interrupted or Incomplete Actions",
+        "",
+    ])
+    if interrupted_actions:
+        lines.extend(f"- `{action}`: started without a terminal event" for action in interrupted_actions)
+    else:
+        lines.append("- None detected.")
 
     lines.extend([
         "",

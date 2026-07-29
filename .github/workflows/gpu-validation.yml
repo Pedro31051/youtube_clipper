@@ -26,10 +26,35 @@ jobs:
           nvidia-smi
           ffmpeg -version
       - name: Install project
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev,gpu]"
       - name: Empirical CUDA pipeline
         run: >-
           python -m pytest
           tests/test_challenger_m3_4_stress.py
           tests/test_challenger_m3_e2e.py
           -q
+      - name: Benchmark NVENC
+        run: >-
+          python scripts/benchmark_panel_encoder.py
+          --label "gpu-${GITHUB_SHA}"
+          --repetitions 7
+          > gpu-benchmark.json
+      - name: Compare NVENC regression
+        run: >-
+          python scripts/compare_panel_benchmarks.py
+          --baseline review/FINAL/report.json
+          --baseline-key baseline
+          --current gpu-benchmark.json
+          --source-sha "${GITHUB_SHA}"
+          --max-regression-percent 10
+          --output gpu-benchmark-comparison.json
+      - name: Publish GPU evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-benchmark-${{ github.sha }}
+          path: |
+            gpu-benchmark.json
+            gpu-benchmark-comparison.json
+          if-no-files-found: error
+          retention-days: 30

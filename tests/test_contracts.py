@@ -381,8 +381,10 @@ def test_audited_decorator_functionality(tmp_path):
 
     events_file = get_run_dir(run_id) / "events.jsonl"
     lines = [l for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert len(lines) == 1
-    event = json.loads(lines[0])
+    assert len(lines) == 2
+    lifecycle = [json.loads(line) for line in lines]
+    assert [event["status"] for event in lifecycle] == ["started", "succeeded"]
+    event = lifecycle[-1]
 
     assert event["stage"] == "ingest"
     assert event["outcome"] == "ok"
@@ -408,8 +410,10 @@ def test_run_cmd_subprocesses_logged(tmp_path):
 
     events_file = run_dir / "events.jsonl"
     lines = [l for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert len(lines) == 1
-    event = json.loads(lines[0])
+    assert len(lines) == 2
+    lifecycle = [json.loads(line) for line in lines]
+    assert [event["status"] for event in lifecycle] == ["started", "succeeded"]
+    event = lifecycle[-1]
     assert event["tool"] == "echo"
     assert event["cmd"] == "echo hello_world"
     assert event["exit_code"] == 0

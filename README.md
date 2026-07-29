@@ -36,6 +36,20 @@ A Python 3.x tool and glassmorphism web dashboard for automated YouTube and loca
    ```bash
    pip install -e .
    ```
+
+   The default installation is CPU-only and does not download CUDA libraries.
+   For development and API contract tests:
+
+   ```bash
+   python -m pip install -e ".[dev]"
+   ```
+
+   On a machine with a supported NVIDIA runtime, install the explicit GPU extra:
+
+   ```bash
+   python -m pip install -e ".[dev,gpu]"
+   ```
+
    Or install requirements directly:
    ```bash
    pip install -r requirements.txt
@@ -67,7 +81,29 @@ Extract a clip and upload to Google Drive:
 python3 -m youtube_clipper local_video.mp4 --start 0 --end 15 --gdrive
 ```
 
-## Web Dashboard Usage
+## Web Dashboard Usage — React + FastAPI
+
+Build the typed React client and start the versioned FastAPI application:
+
+```bash
+cd web
+npm ci
+npm run build
+cd ..
+python -m youtube_clipper.api
+```
+
+Open `http://127.0.0.1:8080`. During frontend development, run the API on port
+8080 and `npm run dev` in `web/`; Vite proxies `/api` and `/openapi.json` to the
+FastAPI process.
+
+`npm run build` exports FastAPI's OpenAPI document and regenerates the
+TypeScript API contract before compiling. Job progress reaches the shell
+through `/api/v1/jobs/{job_id}/events` using Server-Sent Events.
+
+### Legacy dashboard adapter
+
+The previous dashboard remains available during the incremental migration:
 
 Start the web dashboard server from the CLI:
 ```bash
@@ -92,16 +128,79 @@ python3 -m youtube_clipper --dashboard --host 0.0.0.0 \
 Remote clients must send `Authorization: Bearer <token>`. The upload endpoint
 accepts only files inside the configured output directory.
 
+### Gemini editor in every clip card
+
+Configure Gemini on the server before starting the dashboard. The API key is
+never sent to browser JavaScript:
+
+```bash
+export GEMINI_API_KEY='your-server-side-key'
+# Optional; the default is gemini-3.6-flash
+export GEMINI_MODEL='gemini-3.6-flash'
+python3 -m youtube_clipper --dashboard
+```
+
+Open a suggested clip and select **Editar com Gemini**. The conversation can
+propose a new time range, vertical framing, blur, editorial overlay, audio,
+soundtrack volume, and opening-image duration. Model output is accepted only as
+a validated settings patch: it cannot execute commands or start a render. Review
+the resulting controls and explicitly confirm the configuration to generate a
+new MP4.
+
+Soundtracks (up to 25 MiB) and opening images (PNG, JPEG, or WebP, up to 8 MiB)
+are uploaded as local, opaque asset IDs under the configured output directory.
+The server requires a rights confirmation, verifies extension, media type,
+signature, size, and SHA-256, caps persistent assets at 200 files or 512 MiB,
+and never accepts an asset path from the browser.
+Use only media you own, license, or are authorized to edit.
+
 ## Pytest Test Suite
 
 Execute the test suite using `pytest`:
 ```bash
-.venv/bin/pytest -v
+python -m pytest -v
 ```
 To run specific unit or integration test modules:
 ```bash
-.venv/bin/pytest tests/test_e2e_pipeline.py -v
+python -m pytest tests/test_e2e_pipeline.py -v
 ```
+
+Validate the React client and generated API contract:
+
+```bash
+cd web
+npm ci
+npm test
+npm run build
+```
+
+Run the browser flows after installing the Playwright engines:
+
+```bash
+npx playwright install --with-deps chromium firefox webkit
+npm run test:e2e
+```
+
+The capability matrix in [docs/PAINEL_CAPABILITIES.md](docs/PAINEL_CAPABILITIES.md)
+is the source of truth for enabled controls, physical implementation, preview,
+final render, and evidence. Unsupported features remain disabled in the UI and
+are rejected by the API rather than being persisted as no-ops.
+
+## Audit Logs and Troubleshooting
+
+Every CLI invocation, dashboard request, pipeline execution, external command,
+and Google Drive upload writes an isolated audit run under `runs/<run_id>/`.
+The canonical `events.jsonl` uses lifecycle schema 2.0 and records whether each
+planned action started, succeeded, failed, retried, was cancelled, or was
+skipped, together with its next action and structured error details.
+
+Subprocess stdout/stderr are stored under `commands/` and referenced by hash
+from the event stream. Completed runs receive `seal.json`; an absent seal or an
+action that started without a terminal event indicates an interrupted run.
+
+See [docs/OBSERVABILIDADE.md](docs/OBSERVABILIDADE.md) for the event contract
+and investigation runbook. Runs are append-only and must never be edited or
+deleted; repeat a failed operation with a new run ID.
 
 ## License
 
