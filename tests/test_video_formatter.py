@@ -20,8 +20,8 @@ class TestVideoFormatterFilterBuilder:
         """Verify filter string for blur_background mode."""
         filter_str = VideoFormatter.build_vertical_filter(1080, 1920, "blur_background")
         assert "split[bg][fg];" in filter_str
-        assert "scale=270:480" in filter_str
-        assert "gblur=sigma=12.0" in filter_str
+        assert "scale=135:240" in filter_str
+        assert "boxblur=luma_radius=12" in filter_str
         assert "[fg]scale=1080:-2[scaled_fg];" in filter_str
         assert "overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2" in filter_str
 
@@ -29,7 +29,7 @@ class TestVideoFormatterFilterBuilder:
         """Verify filter string for split_blur mode alias."""
         filter_str = VideoFormatter.build_vertical_filter(1080, 1920, "split_blur")
         assert "split[bg][fg];" in filter_str
-        assert "gblur=sigma=12.0" in filter_str
+        assert "boxblur=luma_radius=12" in filter_str
 
     def test_build_vertical_filter_crop_center(self) -> None:
         """Verify filter string for crop_center mode."""
@@ -152,6 +152,15 @@ class TestVideoFormatterConversion:
 
         def fake_run_cmd(command, **kwargs):
             commands.append(command)
+            if command[0] == "ffprobe":
+                return SimpleNamespace(
+                    returncode=0,
+                    stdout=(
+                        '{"format":{"duration":"2.0"},"streams":'
+                        '[{"codec_type":"video","width":1080,"height":1920}]}'
+                    ),
+                    stderr="",
+                )
             if len(commands) == 1:
                 return SimpleNamespace(returncode=1, stdout="", stderr="NVENC busy")
             output_path.write_bytes(b"fallback" * 256)
@@ -173,7 +182,7 @@ class TestVideoFormatterConversion:
             )
 
         assert result == str(output_path)
-        assert len(commands) == 2
+        assert len(commands) == 3
         assert "h264_nvenc" in commands[0]
         assert "libx264" in commands[1]
 

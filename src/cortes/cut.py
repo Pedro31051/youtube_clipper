@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from cortes.log import audited, get_run_dir, run_cmd
 from youtube_clipper.exceptions import ProcessingError
+from youtube_clipper.media_validation import validate_media_output
 
 
 @audited(stage="cut")
@@ -113,30 +114,14 @@ def cut_clip_stage(
     if res.returncode != 0 or not out_p.exists():
         raise ProcessingError(f"FFmpeg cut command failed: {res.stderr}")
 
-    if out_p.stat().st_size <= 1024:
-        raise ProcessingError(f"FFmpeg cut output file size <= 1024 bytes: {out_p.stat().st_size}")
-
-    # Validate output duration via ffprobe
-    probe_cmd = [
-        "ffprobe",
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
-        str(out_p),
-    ]
-    probe_res = run_cmd(probe_cmd, stage="cut")
-    if probe_res.returncode != 0:
-        raise ProcessingError(f"ffprobe failed to probe cut clip duration: {probe_res.stderr}")
-
-    try:
-        probed_dur = float(probe_res.stdout.strip())
-        if probed_dur <= 0.0:
-            raise ProcessingError(f"Cut clip duration measured by ffprobe is <= 0: {probed_dur}")
-    except ValueError as e:
-        raise ProcessingError(f"Failed to parse probed duration '{probe_res.stdout.strip()}': {e}") from e
+    measured = validate_media_output(
+        out_p,
+        expected_duration=dur_sec,
+        duration_tolerance=1.5 if fast_copy else 0.5,
+        stage="cut",
+        command_runner=run_cmd,
+    )
+    probed_dur = float(measured["duration"])
 
     metadata_path = out_p.parent / "cut_metadata.json"
     metadata_path.write_text(
@@ -147,7 +132,8 @@ def cut_clip_stage(
                 "source_duration_ms": int(round(source_duration_sec * 1000)),
                 "start_ms": int(round(s_sec * 1000)),
                 "end_ms": int(round(e_sec * 1000)),
-                "duration_ms": int(round(dur_sec * 1000)),
+                "duration_ms": int(round(probed_dur * 1000)),
+                "requested_duration_ms": int(round(dur_sec * 1000)),
             },
             indent=2,
             ensure_ascii=False,
@@ -165,6 +151,7 @@ def cut_clip_stage(
         "start_sec": s_sec,
         "end_sec": e_sec,
         "duration_sec": dur_sec,
+        "measured_duration_sec": probed_dur,
     }
 
 

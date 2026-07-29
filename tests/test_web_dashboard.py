@@ -7,6 +7,8 @@ HTTP status error codes (400, 404, 405), and multi-threaded request concurrency.
 import json
 import urllib.request
 import urllib.error
+import threading
+from types import SimpleNamespace
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import pytest
@@ -26,6 +28,9 @@ class TestWebDashboardEndpoints:
             body = resp.read().decode("utf-8")
             assert "<!DOCTYPE html>" in body or "<html" in body
             assert "YouTube AI Clipper" in body or "glassmorphism" in body.lower() or "container" in body
+            assert "card.innerHTML" not in body
+            assert 'onclick="generateClip' not in body
+            assert "textContent" in body
 
     def test_get_index_html(self, dashboard_server: str) -> None:
         """Test GET /index.html returns HTTP 200 and HTML template."""
@@ -155,6 +160,45 @@ class TestWebDashboardEndpoints:
             assert resp.status == 200
             data = json.loads(resp.read().decode("utf-8"))
             assert data.get("success") is True
+
+    def test_generate_clip_propagates_requested_gdrive_failure(
+        self,
+        dashboard_server: str,
+        mock_ffmpeg: pytest.FixtureRequest,
+        mock_yt_dlp: pytest.FixtureRequest,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "youtube_clipper.web_dashboard.upload_clip_to_gdrive",
+            lambda *_args, **_kwargs: {
+                "success": False,
+                "error": "quota exceeded",
+            },
+        )
+        url = f"{dashboard_server}/api/generate-clip"
+        payload = json.dumps(
+            {
+                "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "start": 0.0,
+                "end": 1.0,
+                "format": "blur_background",
+                "gdrive": True,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        with pytest.raises(urllib.error.HTTPError) as exc_info:
+            urllib.request.urlopen(request)
+        assert exc_info.value.code == 502
+        body = json.loads(exc_info.value.read().decode("utf-8"))
+        assert body["success"] is False
+        assert "quota exceeded" in body["error"]
+        assert body["output_path"]
 
     def test_post_api_analyze_with_cookies(
         self, dashboard_server: str, mock_yt_dlp_subs: None
@@ -322,3 +366,52 @@ class TestWebDashboardConcurrency:
 
         assert all(status == 200 for status in results)
         assert len(results) == 10
+
+
+def test_post_rejects_oversized_json_body(dashboard_server: str) -> None:
+    from youtube_clipper.web_dashboard import MAX_JSON_BODY_BYTES
+
+    request = urllib.request.Request(
+        f"{dashboard_server}/api/analyze",
+        data=b"x" * (MAX_JSON_BODY_BYTES + 1),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(request)
+    assert exc_info.value.code == 413
+
+
+def test_bounded_job_rejects_when_capacity_is_exhausted() -> None:
+    from youtube_clipper.web_dashboard import (
+        ClipperDashboardHandler,
+        DashboardBusyError,
+    )
+
+    semaphore = threading.BoundedSemaphore(1)
+    assert semaphore.acquire(blocking=False)
+    handler = object.__new__(ClipperDashboardHandler)
+    handler.server = SimpleNamespace(job_semaphore=semaphore)
+
+    with pytest.raises(DashboardBusyError, match="concurrency limit"):
+        handler._run_bounded_job(lambda: "unreachable")
+
+    semaphore.release()
+
+
+def test_bounded_job_releases_capacity_after_failure() -> None:
+    from youtube_clipper.web_dashboard import ClipperDashboardHandler
+
+    semaphore = threading.BoundedSemaphore(1)
+    handler = object.__new__(ClipperDashboardHandler)
+    handler.server = SimpleNamespace(job_semaphore=semaphore)
+
+    def fail():
+        raise ValueError("render failed")
+
+    with pytest.raises(ValueError, match="render failed"):
+        handler._run_bounded_job(fail)
+
+    assert semaphore.acquire(blocking=False)
+    semaphore.release()

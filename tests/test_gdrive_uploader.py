@@ -7,7 +7,11 @@ and exception handling.
 from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
-from youtube_clipper.gdrive_uploader import GoogleDriveUploader, upload_clip_to_gdrive
+from youtube_clipper.gdrive_uploader import (
+    GoogleDriveUploader,
+    SCOPES,
+    upload_clip_to_gdrive,
+)
 
 
 class TestGoogleDriveUploaderInit:
@@ -238,3 +242,43 @@ class TestGoogleDriveUploaderConcurrency:
             assert "file_id" in res
 
 
+
+
+def test_drive_scope_is_least_privilege() -> None:
+    assert SCOPES == ["https://www.googleapis.com/auth/drive.file"]
+
+
+def test_upload_is_private_by_default(
+    mock_gdrive: MagicMock, tmp_path: Path, dummy_video_file: Path
+) -> None:
+    credential = tmp_path / "sa-private.json"
+    credential.write_text('{"type": "service_account"}')
+    uploader = GoogleDriveUploader(service_account_path=str(credential))
+    permission_create = mock_gdrive.permissions.return_value.create
+    permission_create.reset_mock()
+
+    result = uploader.upload_clip(str(dummy_video_file))
+
+    assert result["success"] is True
+    assert result["public_link_enabled"] is False
+    permission_create.assert_not_called()
+
+
+def test_public_link_requires_explicit_opt_in(
+    mock_gdrive: MagicMock, tmp_path: Path, dummy_video_file: Path
+) -> None:
+    credential = tmp_path / "sa-public.json"
+    credential.write_text('{"type": "service_account"}')
+    uploader = GoogleDriveUploader(service_account_path=str(credential))
+    permission_create = mock_gdrive.permissions.return_value.create
+    permission_create.reset_mock()
+
+    result = uploader.upload_clip(str(dummy_video_file), public_link=True)
+
+    assert result["success"] is True
+    assert result["public_link_enabled"] is True
+    permission_create.assert_called_once_with(
+        fileId="file_456",
+        body={"type": "anyone", "role": "reader"},
+        supportsAllDrives=True,
+    )

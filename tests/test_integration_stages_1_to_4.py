@@ -43,13 +43,20 @@ def synthetic_sample_video(tmp_path):
         "-f",
         "lavfi",
         "-i",
-        "sine=frequency=440:duration=30",
+        (
+            "flite=text=Reliable video processing requires accurate word "
+            "timestamps for scene aligned selection and subtitle verification"
+        ),
+        "-af",
+        "apad",
         "-c:v",
         "libx264",
         "-c:a",
         "aac",
         "-pix_fmt",
         "yuv420p",
+        "-t",
+        "30",
         str(video_path),
     ]
     res = run_cmd(cmd, stage="env", audit=False)

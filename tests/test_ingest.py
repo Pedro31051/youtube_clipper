@@ -94,3 +94,99 @@ def test_run_ingest_invalid_source_raises_validation_error():
 
     with pytest.raises(ValidationError):
         run_ingest("")
+
+
+def test_probe_video_metadata_rejects_audio_only_media(tmp_path):
+    from cortes.log import run_cmd
+
+    audio_path = tmp_path / "audio_only.wav"
+    result = run_cmd(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            str(audio_path),
+        ],
+        stage="ingest",
+        audit=False,
+    )
+    assert result.returncode == 0
+
+    with pytest.raises(ProcessingError, match="valid video stream"):
+        probe_video_metadata(audio_path)
+
+
+def test_run_ingest_remuxes_non_mp4_container(sample_video, tmp_path):
+    from cortes.log import run_cmd
+
+    mkv_path = tmp_path / "source.mkv"
+    remux = run_cmd(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(sample_video),
+            "-c",
+            "copy",
+            str(mkv_path),
+        ],
+        stage="ingest",
+        audit=False,
+    )
+    assert remux.returncode == 0
+
+    result = run_ingest(mkv_path, run_id="run_mkv_remux")
+    target = pathlib.Path(result["video_path"])
+    assert target.suffix == ".mp4"
+    assert "mp4" in result["metadata"]["container"]
+
+
+def test_run_ingest_youtube_uses_full_download_and_explicit_cookies(
+    tmp_path, monkeypatch
+):
+    captured = {}
+
+    class FakeDownloader:
+        def __init__(self, cookies=None):
+            captured["cookies"] = cookies
+
+        def download(self, url, output_dir):
+            captured["url"] = url
+            output = pathlib.Path(output_dir) / "full.mp4"
+            output.write_bytes(b"video" * 300)
+            return str(output)
+
+        def download_segment(self, *_args, **_kwargs):
+            raise AssertionError("run_ingest must not manufacture a 0–0 segment")
+
+    monkeypatch.setattr("cortes.ingest.YouTubeDownloader", FakeDownloader)
+    monkeypatch.setattr(
+        "cortes.ingest.probe_video_metadata",
+        lambda _path: {
+            "schema_version": "1.0.0",
+            "duration": 30.0,
+            "width": 1920,
+            "height": 1080,
+            "fps": 30.0,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "audio_channels": 2,
+            "sample_rate": 48000,
+            "file_size": 1500,
+            "sha256": "sha256:" + "0" * 64,
+        },
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = run_ingest(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        run_id="youtube_full_ingest",
+        cookies="chrome",
+    )
+
+    assert result["status"] == "ok"
+    assert captured["cookies"] == "chrome"
+    assert pathlib.Path(result["video_path"]).name == "source.mp4"

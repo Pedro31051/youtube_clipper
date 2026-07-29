@@ -223,6 +223,7 @@ class MockFFmpegContainer:
         self.default_completed = subprocess.CompletedProcess(
             args=["ffmpeg"], returncode=0, stdout="ffmpeg version 4.4", stderr=""
         )
+        self.last_media_duration = 2.0
         
         # Define smart subprocess.run side effect that auto-creates output file if requested in cmd
         def smart_run(cmd: List[str] | str, *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
@@ -235,12 +236,21 @@ class MockFFmpegContainer:
                     returncode=0,
                     stdout=json.dumps(
                         {
-                            "format": {"duration": "2.0"},
-                            "streams": [{"codec_type": "video"}],
+                            "format": {"duration": str(self.last_media_duration)},
+                            "streams": [{"codec_type": "video", "width": 1080, "height": 1920}],
                         }
                     ),
                     stderr="",
                 )
+
+            if isinstance(cmd, list) and cmd_list and Path(cmd_list[0]).name == "ffmpeg":
+                if "-t" in cmd_list:
+                    try:
+                        self.last_media_duration = float(
+                            cmd_list[cmd_list.index("-t") + 1]
+                        )
+                    except (ValueError, IndexError):
+                        pass
 
             # Handle yt-dlp --write-auto-subs subtitle generation
             if ("yt-dlp" in cmd_str or "yt_dlp" in cmd_str) and "--write-auto-subs" in cmd_str:

@@ -24,20 +24,26 @@ from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError
 from youtube_clipper.processor import FFmpegProcessor
 
 
+_MOCK_MEDIA_DURATION = 5.0
+
+
 def successful_media_command(cmd: List[str], **_: object) -> subprocess.CompletedProcess:
     """Simulate a valid FFmpeg output and its ffprobe metadata."""
+    global _MOCK_MEDIA_DURATION
     if Path(cmd[0]).name == "ffprobe":
         return subprocess.CompletedProcess(
             args=cmd,
             returncode=0,
             stdout=json.dumps(
                 {
-                    "format": {"duration": "5.0"},
+                    "format": {"duration": str(_MOCK_MEDIA_DURATION)},
                     "streams": [{"codec_type": "video"}],
                 }
             ),
             stderr="",
         )
+    if "-t" in cmd:
+        _MOCK_MEDIA_DURATION = float(cmd[cmd.index("-t") + 1])
     Path(cmd[-1]).write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"x" * 2048)
     return subprocess.CompletedProcess(
         args=cmd, returncode=0, stdout="", stderr=""

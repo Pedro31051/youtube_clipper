@@ -207,11 +207,12 @@ class TestPermissionsAndErrorHandlingAdversarial:
         mock_gdrive.permissions().create().execute.side_effect = perm_err
 
         uploader = GoogleDriveUploader(service_account_path=str(sa_path))
-        result = uploader.upload_clip(str(dummy_video_file))
+        result = uploader.upload_clip(str(dummy_video_file), public_link=True)
 
-        # Upload must still be reported as success
+        # Upload stays private but the successful file upload is preserved.
         assert result["success"] is True
         assert result["file_id"] == "file_456"
+        assert result["public_link_enabled"] is False
 
     def test_generic_http_error_handling(
         self, mock_gdrive: MagicMock, tmp_path: Path, dummy_video_file: Path

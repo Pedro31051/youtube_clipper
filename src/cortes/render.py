@@ -14,6 +14,7 @@ from cortes.editorial import (
 )
 from cortes.log import audited, compute_sha256, get_run_dir, run_cmd
 from youtube_clipper.exceptions import ProcessingError
+from youtube_clipper.media_validation import validate_media_output
 
 
 from youtube_clipper.video_formatter import detect_h264_encoder
@@ -81,6 +82,18 @@ def process_vertical_render(
     in_p = pathlib.Path(input_media).resolve()
     if not in_p.exists():
         raise ProcessingError(f"Input media for render stage does not exist: {in_p}")
+    input_metadata = validate_media_output(
+        in_p,
+        require_audio=True,
+        stage="render",
+        command_runner=run_cmd,
+    )
+    if subtitles_path is not None:
+        subtitle_file = pathlib.Path(subtitles_path).resolve()
+        if not subtitle_file.exists() or not subtitle_file.is_file():
+            raise ProcessingError(
+                f"Subtitle file requested for render does not exist: {subtitle_file}"
+            )
 
     out_p = pathlib.Path(output_media).resolve()
     meta_p = pathlib.Path(metadata_json).resolve()
@@ -106,7 +119,6 @@ def process_vertical_render(
                 str(narration_p),
             ],
             stage="render",
-            audit=False,
         )
         try:
             narration_duration_s = float(probe.stdout.strip())
@@ -258,8 +270,18 @@ def process_vertical_render(
         ]
         res = run_cmd(fallback_cmd, stage="render")
         encoder = "libx264"
-    if res.returncode != 0 or not out_p.exists() or out_p.stat().st_size <= 1024:
+    if res.returncode != 0:
         raise ProcessingError(f"FFmpeg vertical render failed with returncode {res.returncode}: {res.stderr}")
+    validate_media_output(
+        out_p,
+        expected_width=width,
+        expected_height=height,
+        expected_duration=float(input_metadata["duration"]),
+        duration_tolerance=1.0,
+        require_audio=True,
+        stage="render",
+        command_runner=run_cmd,
+    )
 
     sub_exists = bool(subtitles_path and pathlib.Path(subtitles_path).exists())
     run_root = pathlib.Path(run_dir).resolve() if run_dir else None
@@ -402,7 +424,7 @@ def run_render(
         run_dir=run_dir,
     )
     if clip_id:
-        # Preserve the historical discovery path without duplicating media.
+        # Preserve the historical discovery path using standard-hashable files.
         compat_dir = run_dir / "artifacts" / "render"
         compat_dir.mkdir(parents=True, exist_ok=True)
         compat_short = compat_dir / "short.mp4"
@@ -413,5 +435,8 @@ def run_render(
         ):
             if link_path.exists() or link_path.is_symlink():
                 link_path.unlink()
-            link_path.symlink_to(os.path.relpath(target_path, link_path.parent))
+            try:
+                os.link(target_path, link_path)
+            except OSError:
+                shutil.copy2(target_path, link_path)
     return result

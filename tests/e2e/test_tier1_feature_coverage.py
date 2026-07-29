@@ -427,6 +427,7 @@ def test_tier1_report_03_verification_checks_table(tmp_path: Path):
     run_dir = tmp_path / "run_test_report_3"
     run_dir.mkdir(parents=True, exist_ok=True)
     v_data = {
+        "run_id": run_dir.name,
         "overall_passed": True,
         "checks": [{"check_id": "resolution_1080x1920", "passed": True, "measured": "1080x1920", "expected": "1080x1920", "evidence_path": "short.mp4"}]
     }

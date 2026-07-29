@@ -8,6 +8,7 @@ import os
 import json
 import urllib.parse
 import hmac
+import threading
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from youtube_clipper.analyzer import extract_transcript_and_analyze
@@ -15,6 +16,14 @@ from youtube_clipper.pipeline import run_pipeline
 from youtube_clipper.gdrive_uploader import upload_clip_to_gdrive
 from youtube_clipper.exceptions import ClipperError, ValidationError, DownloadError
 from youtube_clipper.validator import is_youtube_url, validate_input_source
+
+
+MAX_JSON_BODY_BYTES = 64 * 1024
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+
+
+class DashboardBusyError(RuntimeError):
+    """Raised when all bounded media-processing slots are in use."""
 
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -418,7 +427,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                     <option value="blur_background">Fundo Desfocado (Split Blur 9:16)</option>
                     <option value="crop_center">Corte Centralizado (Crop Center 9:16)</option>
                 </select>
-                <button class="btn-primary" onclick="analyzeVideo()">
+                <button class="btn-primary" id="analyzeButton" type="button">
                     <span>🔍 Analisar Vídeo</span>
                 </button>
             </div>
@@ -457,6 +466,27 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
 
     <script>
+        function textElement(tagName, className, value) {
+            const element = document.createElement(tagName);
+            if (className) element.className = className;
+            element.textContent = String(value ?? '');
+            return element;
+        }
+
+        function safeLink(rawUrl, label, className, sameOrigin = false) {
+            const parsed = new URL(String(rawUrl || ''), window.location.origin);
+            if (!['http:', 'https:'].includes(parsed.protocol)) {
+                throw new Error('URL de destino inválida');
+            }
+            if (sameOrigin && parsed.origin !== window.location.origin) {
+                throw new Error('Download fora da origem local');
+            }
+            const link = textElement('a', className, label);
+            link.href = parsed.href;
+            link.rel = 'noopener noreferrer';
+            return link;
+        }
+
         function getYouTubeVideoId(url) {
             const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
             return match ? match[1] : null;
@@ -510,39 +540,93 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             grid.innerHTML = '';
 
             if (!clips || clips.length === 0) {
-                grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Nenhum corte encontrado.</p>';
+                const empty = textElement('p', '', 'Nenhum corte encontrado.');
+                empty.style.color = 'var(--text-muted)';
+                empty.style.textAlign = 'center';
+                empty.style.gridColumn = '1/-1';
+                grid.appendChild(empty);
                 return;
             }
 
             clips.forEach(clip => {
+                const rank = Number.isFinite(Number(clip.rank))
+                    ? Number(clip.rank)
+                    : 0;
                 const card = document.createElement('div');
                 card.className = 'clip-card';
-                card.id = `card-${clip.rank}`;
+                card.id = `card-${rank}`;
 
-                const hashtagsHtml = (clip.hashtags || ['#shorts', '#viral'])
-                    .map(tag => `<span class="chip">${tag}</span>`)
-                    .join('');
+                const content = document.createElement('div');
+                const header = document.createElement('div');
+                header.className = 'card-header';
+                header.appendChild(
+                    textElement('span', 'badge-rank', `Corte #${rank}`)
+                );
+                header.appendChild(
+                    textElement(
+                        'span',
+                        'badge-score',
+                        `🔥 Score: ${Number(clip.score) || 0}/100`
+                    )
+                );
+                content.appendChild(header);
+                content.appendChild(
+                    textElement('div', 'card-title', clip.title || 'Corte sugerido')
+                );
+                content.appendChild(
+                    textElement(
+                        'div',
+                        'card-time',
+                        `⏱ ${clip.start_timestamp || ''} ➔ ${clip.end_timestamp || ''} (${Number(clip.duration) || 0}s)`
+                    )
+                );
+                const transcript = String(clip.transcript || '').substring(0, 150);
+                content.appendChild(
+                    textElement('div', 'card-transcript', `"${transcript}..."`)
+                );
+                const hashtags = document.createElement('div');
+                hashtags.className = 'hashtags-container';
+                (clip.hashtags || ['#shorts', '#viral']).forEach(tag => {
+                    hashtags.appendChild(textElement('span', 'chip', tag));
+                });
+                content.appendChild(hashtags);
+                card.appendChild(content);
 
-                card.innerHTML = `
-                    <div>
-                        <div class="card-header">
-                            <span class="badge-rank">Corte #${clip.rank}</span>
-                            <span class="badge-score">🔥 Score: ${clip.score}/100</span>
-                        </div>
-                        <div class="card-title">${clip.title}</div>
-                        <div class="card-time">⏱ ${clip.start_timestamp} ➔ ${clip.end_timestamp} (${clip.duration}s)</div>
-                        <div class="card-transcript">"${clip.transcript ? clip.transcript.substring(0, 150) : ''}..."</div>
-                        <div class="hashtags-container">${hashtagsHtml}</div>
-                    </div>
-                    <div class="btn-group" id="btnGroup-${clip.rank}">
-                        <button class="btn-action btn-clip" onclick="generateClip('${videoUrl}', '${clip.start_timestamp}', '${clip.end_timestamp}', false, ${clip.rank})">
-                            🎬 Gerar Corte Vertical (9:16)
-                        </button>
-                        <button class="btn-action btn-gdrive" onclick="generateClip('${videoUrl}', '${clip.start_timestamp}', '${clip.end_timestamp}', true, ${clip.rank})">
-                            ☁️ 1-Click GDrive Upload
-                        </button>
-                    </div>
-                `;
+                const btnGroup = document.createElement('div');
+                btnGroup.className = 'btn-group';
+                btnGroup.id = `btnGroup-${rank}`;
+                const generateButton = textElement(
+                    'button',
+                    'btn-action btn-clip',
+                    '🎬 Gerar Corte Vertical (9:16)'
+                );
+                generateButton.type = 'button';
+                generateButton.addEventListener('click', () => {
+                    generateClip(
+                        videoUrl,
+                        clip.start_timestamp,
+                        clip.end_timestamp,
+                        false,
+                        rank
+                    );
+                });
+                const driveButton = textElement(
+                    'button',
+                    'btn-action btn-gdrive',
+                    '☁️ 1-Click GDrive Upload'
+                );
+                driveButton.type = 'button';
+                driveButton.addEventListener('click', () => {
+                    generateClip(
+                        videoUrl,
+                        clip.start_timestamp,
+                        clip.end_timestamp,
+                        true,
+                        rank
+                    );
+                });
+                btnGroup.append(generateButton, driveButton);
+                card.appendChild(btnGroup);
                 grid.appendChild(card);
             });
         }
@@ -588,13 +672,40 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                         verticalPlayer.play().catch(() => {});
                     }
 
-                    let actionHtml = `<a href="${data.download_url}" download class="btn-action btn-download">⬇️ Baixar Clipe MP4</a>`;
-                    if (data.gdrive_link) {
-                        actionHtml += `<a href="${data.gdrive_link}" target="_blank" class="drive-link-badge">🔗 Abrir no Google Drive</a>`;
-                    } else {
-                        actionHtml += `<button class="btn-action btn-gdrive" onclick="uploadExistingToDrive('${data.output_path || data.clip_path}', ${rank})">⬆️ Enviar ao GDrive MCP</button>`;
+                    if (btnGroup) {
+                        btnGroup.replaceChildren();
+                        const downloadLink = safeLink(
+                            data.download_url,
+                            '⬇️ Baixar Clipe MP4',
+                            'btn-action btn-download',
+                            true
+                        );
+                        downloadLink.download = '';
+                        btnGroup.appendChild(downloadLink);
+                        if (data.gdrive_link) {
+                            const driveLink = safeLink(
+                                data.gdrive_link,
+                                '🔗 Abrir no Google Drive',
+                                'drive-link-badge'
+                            );
+                            driveLink.target = '_blank';
+                            btnGroup.appendChild(driveLink);
+                        } else {
+                            const uploadButton = textElement(
+                                'button',
+                                'btn-action btn-gdrive',
+                                '⬆️ Enviar ao GDrive MCP'
+                            );
+                            uploadButton.type = 'button';
+                            const outputPath = String(
+                                data.output_path || data.clip_path || ''
+                            );
+                            uploadButton.addEventListener('click', () => {
+                                uploadExistingToDrive(outputPath, rank);
+                            });
+                            btnGroup.appendChild(uploadButton);
+                        }
                     }
-                    if (btnGroup) btnGroup.innerHTML = actionHtml;
 
                 } else {
                     alert('Erro ao gerar corte: ' + (data.error || 'Erro desconhecido'));
@@ -632,7 +743,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                     const link = data.web_view_link || data.link;
                     alert('✅ Upload concluído no Google Drive!\nLink: ' + link);
                     if (btnGroup) {
-                        btnGroup.innerHTML += `<a href="${link}" target="_blank" class="drive-link-badge">🔗 Abrir no Google Drive</a>`;
+                        const driveLink = safeLink(
+                            link,
+                            '🔗 Abrir no Google Drive',
+                            'drive-link-badge'
+                        );
+                        driveLink.target = '_blank';
+                        btnGroup.appendChild(driveLink);
                     }
                 } else {
                     alert('Erro no upload: ' + (data.error || 'Falha ao enviar'));
@@ -642,6 +759,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 alert('Erro: ' + err.message);
             }
         }
+
+        document
+            .getElementById('analyzeButton')
+            .addEventListener('click', analyzeVideo);
     </script>
 </body>
 </html>
@@ -660,7 +781,12 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
 
     def _is_authorized(self) -> bool:
         expected = vars(self.server).get("api_token", None)
-        bound_host = str(self.server.server_address[0])
+        server_address = self.server.server_address
+        bound_host = (
+            str(server_address[0])
+            if isinstance(server_address, tuple)
+            else str(server_address)
+        )
         loopback = bound_host in {"127.0.0.1", "::1", "localhost"}
         if not expected:
             return loopback
@@ -681,14 +807,29 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
         candidate.relative_to(self._output_dir())
         return candidate
 
+    def _run_bounded_job(self, operation, *args, **kwargs):
+        semaphore = vars(self.server).get("job_semaphore", None)
+        if semaphore is None:
+            return operation(*args, **kwargs)
+        if not semaphore.acquire(blocking=False):
+            raise DashboardBusyError(
+                "Dashboard is at its media-processing concurrency limit"
+            )
+        try:
+            return operation(*args, **kwargs)
+        finally:
+            semaphore.release()
+
     def log_message(self, format, *args):
         pass
 
     def send_json(self, status_code: int, data: dict):
+        body = json.dumps(data).encode("utf-8")
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode("utf-8"))
+        self.wfile.write(body)
 
     def do_GET(self):
         if not self._require_authorization():
@@ -728,7 +869,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(file_size))
                 self.end_headers()
                 with open(target_path, "rb") as f:
-                    self.wfile.write(f.read())
+                    while chunk := f.read(DOWNLOAD_CHUNK_BYTES):
+                        self.wfile.write(chunk)
             else:
                 self.send_json(404, {"success": False, "error": "File not found"})
         elif self.path in self.POST_ROUTES:
@@ -746,7 +888,22 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Endpoint not found")
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
+        raw_content_length = self.headers.get("Content-Length")
+        if raw_content_length is None:
+            self.send_json(411, {"success": False, "error": "Content-Length required"})
+            return
+        try:
+            content_length = int(raw_content_length)
+        except (TypeError, ValueError):
+            self.send_json(400, {"success": False, "error": "Invalid Content-Length"})
+            return
+        max_body = int(vars(self.server).get("max_json_body_bytes", MAX_JSON_BODY_BYTES))
+        if content_length <= 0:
+            self.send_json(400, {"success": False, "error": "Missing request body"})
+            return
+        if content_length > max_body:
+            self.send_json(413, {"success": False, "error": "JSON request body too large"})
+            return
         post_data = self.rfile.read(content_length)
 
         if not post_data:
@@ -773,8 +930,10 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                 clean_url = validate_input_source(url)
                 if not is_youtube_url(clean_url):
                     raise ValidationError("Dashboard analysis accepts only YouTube URLs")
-                analysis_result = extract_transcript_and_analyze(
-                    clean_url, cookies_file=cookies
+                analysis_result = self._run_bounded_job(
+                    extract_transcript_and_analyze,
+                    clean_url,
+                    cookies_file=cookies,
                 )
                 if isinstance(analysis_result, dict):
                     clips = analysis_result.get("clips", [])
@@ -783,6 +942,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     analysis_result.setdefault("transcript", all_transcripts)
                     analysis_result.setdefault("hashtags", all_tags)
                 self.send_json(200, analysis_result)
+            except DashboardBusyError as e:
+                self.send_json(503, {"success": False, "error": str(e)})
             except (ValidationError, ValueError) as e:
                 self.send_json(400, {"success": False, "error": str(e)})
             except FileNotFoundError as e:
@@ -818,7 +979,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     raise ValidationError("Dashboard generation accepts only YouTube URLs")
                 output_dir = self._output_dir()
                 output_dir.mkdir(parents=True, exist_ok=True)
-                output_path = run_pipeline(
+                output_path = self._run_bounded_job(
+                    run_pipeline,
                     input_source=clean_url,
                     start=start,
                     end=end,
@@ -833,6 +995,20 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     res = upload_clip_to_gdrive(output_path, folder_id=folder_id)
                     if res.get("success"):
                         gdrive_link = res.get("web_view_link")
+                    else:
+                        self.send_json(
+                            502,
+                            {
+                                "success": False,
+                                "error": (
+                                    "Clip generated, but Google Drive upload failed: "
+                                    f"{res.get('error') or 'unknown upload error'}"
+                                ),
+                                "output_path": output_path,
+                                "clip_path": output_path,
+                            },
+                        )
+                        return
 
                 filename = os.path.basename(output_path)
                 resp_data = {
@@ -843,6 +1019,8 @@ class ClipperDashboardHandler(BaseHTTPRequestHandler):
                     "gdrive_link": gdrive_link,
                 }
                 self.send_json(200, resp_data)
+            except DashboardBusyError as e:
+                self.send_json(503, {"success": False, "error": str(e)})
             except (ValidationError, ValueError) as e:
                 self.send_json(400, {"success": False, "error": str(e)})
             except FileNotFoundError as e:
@@ -927,16 +1105,28 @@ def start_dashboard_server(
     host: str = "127.0.0.1",
     api_token: str | None = None,
     output_dir: str | Path | None = None,
+    max_concurrent_jobs: int = 1,
+    max_json_body_bytes: int = MAX_JSON_BODY_BYTES,
 ):
     """Start the dashboard with explicit exposure and a dedicated output root."""
     normalized_host = host.strip() or "127.0.0.1"
     if normalized_host not in {"127.0.0.1", "::1", "localhost"} and not api_token:
         raise ValueError("A bearer API token is required when binding beyond loopback")
+    if max_concurrent_jobs < 1:
+        raise ValueError("max_concurrent_jobs must be at least 1")
+    if max_json_body_bytes < 1:
+        raise ValueError("max_json_body_bytes must be at least 1")
     server_address = (normalized_host, port)
     httpd = ThreadingHTTPServer(server_address, ClipperDashboardHandler)
-    httpd.api_token = api_token
-    httpd.output_dir = Path(output_dir or (Path.cwd() / "output")).resolve()
-    httpd.output_dir.mkdir(parents=True, exist_ok=True)
+    server_state = vars(httpd)
+    server_state["api_token"] = api_token
+    server_state["job_semaphore"] = threading.BoundedSemaphore(
+        max_concurrent_jobs
+    )
+    server_state["max_json_body_bytes"] = max_json_body_bytes
+    output_root = Path(output_dir or (Path.cwd() / "output")).resolve()
+    server_state["output_dir"] = output_root
+    output_root.mkdir(parents=True, exist_ok=True)
     print(
         "🚀 Dashboard Server do YouTube Clipper rodando em: "
         f"http://{normalized_host}:{port}"

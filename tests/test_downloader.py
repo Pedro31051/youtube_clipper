@@ -173,3 +173,55 @@ def test_download_segment_directory_creation(mock_ytdl, tmp_path: Path) -> None:
 
     assert new_dir.exists()
     assert Path(res).parent == new_dir.resolve()
+
+
+def test_download_full_omits_range_and_uses_full_suffix(mock_ytdl, tmp_path: Path) -> None:
+    mock_class, mock_instance = mock_ytdl
+    downloader = YouTubeDownloader()
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+    result = downloader.download(url, output_dir=tmp_path)
+
+    opts = mock_class.call_args[0][0]
+    assert "download_ranges" not in opts
+    assert "_full." in opts["outtmpl"]
+    assert Path(result).name.endswith("_full.mp4")
+    mock_instance.extract_info.assert_called_once_with(url, download=True)
+
+
+def test_explicit_cookie_file_is_request_scoped(mock_ytdl, tmp_path: Path) -> None:
+    mock_class, _ = mock_ytdl
+    cookie_file = tmp_path / "cookies.txt"
+    cookie_file.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+
+    YouTubeDownloader(cookies=str(cookie_file)).download_segment(
+        "https://youtu.be/dQw4w9WgXcQ", 0, 5, tmp_path
+    )
+
+    opts = mock_class.call_args[0][0]
+    assert opts["cookiefile"] == str(cookie_file.resolve())
+    assert "cookiesfrombrowser" not in opts
+
+
+def test_browser_cookies_and_tls_invariant(mock_ytdl, tmp_path: Path) -> None:
+    mock_class, _ = mock_ytdl
+
+    YouTubeDownloader(
+        options={"nocheckcertificate": True}, cookies="firefox"
+    ).download_segment("https://youtu.be/dQw4w9WgXcQ", 0, 5, tmp_path)
+
+    opts = mock_class.call_args[0][0]
+    assert opts["cookiesfrombrowser"] == ("firefox",)
+    assert "nocheckcertificate" not in opts
+
+
+def test_download_does_not_return_unchanged_stale_file(mock_ytdl, tmp_path: Path) -> None:
+    stale = tmp_path / "old.mp4"
+    stale.write_bytes(b"stale")
+
+    result = YouTubeDownloader().download_segment(
+        "https://youtu.be/dQw4w9WgXcQ", 0, 5, tmp_path
+    )
+
+    assert Path(result).resolve() != stale.resolve()
+    assert Path(result).name == "dQw4w9WgXcQ_segment.mp4"

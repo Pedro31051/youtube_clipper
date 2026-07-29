@@ -6,6 +6,7 @@ or Service Account credentials configured in google_drive_mcp.
 
 import logging
 import os
+from pathlib import Path
 from typing import Dict, Any, Optional
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
@@ -15,9 +16,10 @@ from googleapiclient.http import MediaFileUpload
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SERVICE_ACCOUNT_PATH = "/home/pedrofelipealvesrocha/teamwork_projects/google_drive_mcp/service-account.json"
-DEFAULT_TOKEN_PATH = "/home/pedrofelipealvesrocha/teamwork_projects/google_drive_mcp/token.json"
-SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+DEFAULT_CONFIG_DIR = Path.home() / ".config" / "youtube_clipper"
+DEFAULT_SERVICE_ACCOUNT_PATH = str(DEFAULT_CONFIG_DIR / "service-account.json")
+DEFAULT_TOKEN_PATH = str(DEFAULT_CONFIG_DIR / "token.json")
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 DEFAULT_TARGET_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "1mYLUnTMhdflzmYhee804Nj52jBQuOI8H")
 
 
@@ -95,6 +97,7 @@ class GoogleDriveUploader:
         file_path: str,
         folder_id: Optional[str] = None,
         folder_name: Optional[str] = "YouTube_Clips",
+        public_link: bool = False,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -146,14 +149,21 @@ class GoogleDriveUploader:
                 supportsAllDrives=True
             ).execute()
 
-            # Create reader permission (public link view)
-            try:
-                permission = {"type": "anyone", "role": "reader"}
-                self.service.permissions().create(
-                    fileId=uploaded_file["id"], body=permission, supportsAllDrives=True
-                ).execute()
-            except Exception as perm_err:
-                logger.warning(f"Failed to set public permission on file {uploaded_file.get('id')}: {perm_err}")
+            public_link_created = False
+            if public_link:
+                try:
+                    permission = {"type": "anyone", "role": "reader"}
+                    self.service.permissions().create(
+                        fileId=uploaded_file["id"],
+                        body=permission,
+                        supportsAllDrives=True,
+                    ).execute()
+                    public_link_created = True
+                except Exception as perm_err:
+                    logger.warning(
+                        f"Failed to set public permission on file "
+                        f"{uploaded_file.get('id')}: {perm_err}"
+                    )
 
             return {
                 "status": "success",
@@ -162,7 +172,8 @@ class GoogleDriveUploader:
                 "file_name": uploaded_file.get("name"),
                 "web_view_link": uploaded_file.get("webViewLink"),
                 "web_content_link": uploaded_file.get("webContentLink"),
-                "size_bytes": uploaded_file.get("size")
+                "size_bytes": uploaded_file.get("size"),
+                "public_link_enabled": public_link_created,
             }
         except FileNotFoundError:
             raise
@@ -190,12 +201,19 @@ def upload_clip_to_gdrive(
     file_path: str,
     folder_id: Optional[str] = None,
     folder_name: Optional[str] = "YouTube_Clips",
+    public_link: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Helper function to upload clip to Google Drive."""
     try:
         uploader = GoogleDriveUploader()
-        return uploader.upload_clip(file_path, folder_id=folder_id, folder_name=folder_name, **kwargs)
+        return uploader.upload_clip(
+            file_path,
+            folder_id=folder_id,
+            folder_name=folder_name,
+            public_link=public_link,
+            **kwargs,
+        )
     except Exception as e:
         return {
             "status": "error",

@@ -21,6 +21,8 @@ def run_select(
     """Audited entrypoint for Stage 4 (select). Supports action callback or stage execution."""
     if callable(action_or_transcript_path):
         return action_or_transcript_path(*args, **kwargs)
+    if scenes_path is None:
+        raise ProcessingError("scenes_path is required for clip selection")
 
     return select_clip_stage(
         transcript_path=action_or_transcript_path,

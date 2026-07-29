@@ -11,23 +11,25 @@ from typing import Optional, Union
 
 from cortes.log import run_cmd
 from youtube_clipper.exceptions import ProcessingError
+from youtube_clipper.media_validation import validate_media_output
 
 
 @functools.lru_cache(maxsize=1)
 def detect_h264_encoder(ffmpeg_bin: str = "ffmpeg") -> str:
-    """Detects if h264_nvenc is available and operational on the host system.
+    """Detect whether this FFmpeg build advertises the NVENC encoder.
 
-    Returns 'h264_nvenc' if hardware acceleration is supported, else 'libx264'.
+    Runtime/device failures are handled by the conversion's CPU retry. Avoiding
+    a separate one-frame GPU initialization keeps the first render fast.
     """
     if not shutil.which(ffmpeg_bin):
         return "libx264"
     try:
         res = run_cmd(
-            [ffmpeg_bin, "-y", "-f", "lavfi", "-i", "nullsrc", "-frames:v", "1", "-c:v", "h264_nvenc", "-f", "null", "-"],
+            [ffmpeg_bin, "-hide_banner", "-encoders"],
             stage="transform",
             audit=False,
         )
-        if res.returncode == 0:
+        if res.returncode == 0 and "h264_nvenc" in (res.stdout or ""):
             return "h264_nvenc"
     except Exception:
         pass
@@ -47,7 +49,7 @@ class VideoFormatter:
         """
         Builds FFmpeg video filter for 9:16 vertical layout.
         Modes:
-        - 'blur_background' / 'split_blur': Low-res gblur background with scaled video foreground.
+        - 'blur_background' / 'split_blur': Low-res box blur background with scaled video foreground.
         - 'crop_center': Crops center of 16:9 video to 9:16 aspect ratio (1080x1920).
         """
         if isinstance(width, str):
@@ -56,11 +58,12 @@ class VideoFormatter:
             height = 1920
 
         if mode in ("blur_background", "split_blur"):
-            low_w = int(width) // 4
-            low_h = int(height) // 4
+            low_w = int(width) // 8
+            low_h = int(height) // 8
+            blur_radius = max(1, min(32, int(round(sigma))))
             return (
                 f"split[bg][fg];"
-                f"[bg]scale={low_w}:{low_h}:force_original_aspect_ratio=increase,crop={low_w}:{low_h},gblur=sigma={sigma},scale={width}:{height}[blurred];"
+                f"[bg]scale={low_w}:{low_h}:force_original_aspect_ratio=increase,crop={low_w}:{low_h},boxblur=luma_radius={blur_radius}:luma_power=1,scale={width}:{height}[blurred];"
                 f"[fg]scale={width}:-2[scaled_fg];"
                 f"[blurred][scaled_fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2"
             )
@@ -115,14 +118,17 @@ class VideoFormatter:
                 duration = float(end) - float(start)
                 cmd.extend(["-t", str(duration)])
             else:
+                duration = float(end)
                 cmd.extend(["-to", str(float(end))])
+        else:
+            duration = None
 
         cmd.extend(["-vf", filter_str])
 
         selected_encoder = encoder or detect_h264_encoder(ffmpeg_bin)
         codec_arg_index = len(cmd)
         if selected_encoder == "h264_nvenc":
-            cmd.extend(["-c:v", "h264_nvenc", "-preset", "p4"])
+            cmd.extend(["-c:v", "h264_nvenc", "-preset", "p1"])
         else:
             cmd.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"])
 
@@ -152,12 +158,20 @@ class VideoFormatter:
             ]
             res = run_cmd(fallback_cmd, stage="transform")
 
-        if res.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
-            return str(output_path)
-        else:
+        if res.returncode != 0:
             stderr_msg = res.stderr if res.stderr is not None else ""
             raise ProcessingError(
                 f"FFmpeg vertical conversion failed: {stderr_msg}",
                 returncode=res.returncode,
                 stderr=stderr_msg
             )
+        validate_media_output(
+            output_path,
+            expected_width=1080,
+            expected_height=1920,
+            expected_duration=duration,
+            duration_tolerance=1.0,
+            stage="transform",
+            command_runner=run_cmd,
+        )
+        return str(output_path)

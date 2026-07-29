@@ -126,6 +126,10 @@ def t3_probe_stubs(monkeypatch):
 
     monkeypatch.setattr("cortes.verify.run_ffprobe_json", fake_probe)
     monkeypatch.setattr("cortes.verify.measure_audio_loudness_lufs", lambda path: -14.0)
+    monkeypatch.setattr(
+        "cortes.verify.measure_audio_similarity",
+        lambda rendered, narration: 0.75,
+    )
 
 
 def _refresh_metadata_evidence(run_dir: pathlib.Path, metadata_path: pathlib.Path) -> None:
@@ -158,6 +162,29 @@ def test_removing_narration_makes_verify_fail(tmp_path, t3_probe_stubs):
     failed = {check["check_id"] for check in result["checks"] if not check["passed"]}
     assert "editorial_narration::artifacts/clip_t3/short.mp4" in failed
     assert "editorial_transformation::artifacts/clip_t3/short.mp4" in failed
+
+
+def test_final_audio_without_narration_signal_fails(
+    tmp_path,
+    t3_probe_stubs,
+    monkeypatch,
+):
+    run_dir = tmp_path / "run_t3_no_narration_signal"
+    _write_t3_run(run_dir)
+    monkeypatch.setattr(
+        "cortes.verify.measure_audio_similarity",
+        lambda rendered, narration: 0.0,
+    )
+
+    result = verify_run(run_dir)
+    failed = {check["check_id"] for check in result["checks"] if not check["passed"]}
+    assert "editorial_narration::artifacts/clip_t3/short.mp4" in failed
+    narration_check = next(
+        check
+        for check in result["checks"]
+        if check["check_id"].startswith("editorial_narration::")
+    )
+    assert "audio_similarity=0.000000" in narration_check["measured"]
 
 
 def test_repeated_variant_in_previous_five_fails(tmp_path, t3_probe_stubs):

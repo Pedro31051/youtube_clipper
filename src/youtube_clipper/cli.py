@@ -8,10 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-import os
-import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NoReturn, Optional
 
 from youtube_clipper.exceptions import ClipperError, ValidationError
 from youtube_clipper.validator import is_youtube_url, validate_input_source, validate_time_range
@@ -20,7 +17,7 @@ from youtube_clipper.validator import is_youtube_url, validate_input_source, val
 class ClipperArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser providing clean error formatting and exit code 2."""
 
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> NoReturn:
         self.print_usage(sys.stderr)
         sys.stderr.write(f"{self.prog}: error: {message}\n")
         sys.exit(2)
@@ -233,7 +230,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return exc.exit_code
 
     try:
-        validated = validate_cli_args(parsed)
+        validate_cli_args(parsed)
         parsed_dict = vars(parsed)
 
         if parsed_dict.get("dashboard", False):
@@ -248,14 +245,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             return 0
 
-        # Set cookies env if provided
-        if parsed_dict.get("cookies", None):
-            os.environ["YOUTUBE_COOKIES_FILE"] = str(parsed.cookies)
-        
         if parsed.analyze:
+            if not is_youtube_url(parsed.input):
+                raise ValidationError(
+                    "Content analysis currently accepts only YouTube URLs",
+                    field="input",
+                )
             sys.stdout.write(f"\n🔍 Executando Análise de Conteúdo Inteligente para: {parsed.input}...\n\n")
             from youtube_clipper.analyzer import extract_transcript_and_analyze
-            analysis = extract_transcript_and_analyze(parsed.input)
+            analysis = extract_transcript_and_analyze(
+                parsed.input, cookies_file=parsed_dict.get("cookies", None)
+            )
             if not analysis["success"]:
                 sys.stderr.write(f"Erro na análise: {analysis.get('error')}\n")
                 return 1
@@ -285,7 +285,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 output=parsed.output,
                 fast=parsed.fast,
                 verbose=parsed.verbose,
-                vertical=parsed_dict.get("vertical", False)
+                vertical=parsed_dict.get("vertical", False),
+                cookies=parsed_dict.get("cookies", None),
             )
 
             # Upload to Google Drive if requested
@@ -296,7 +297,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if upload_res.get("success"):
                     sys.stdout.write(f"✅ Upload concluído no Google Drive!\n🔗 Link: {upload_res.get('web_view_link')}\n")
                 else:
-                    sys.stderr.write(f"⚠️ Aviso no upload: {upload_res.get('error')}\n")
+                    sys.stderr.write(
+                        f"Erro no upload ao Google Drive: "
+                        f"{upload_res.get('error') or 'falha desconhecida'}\n"
+                    )
+                    return 1
 
             return 0
 
