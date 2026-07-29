@@ -50,3 +50,26 @@ Alternativa descartada: atualizar números e resultados manualmente.
 
 Motivo: resultados de teste, hashes e benchmark devem permanecer
 reproduzíveis e vinculados às entradas observadas.
+
+## Proveniência obrigatória das entradas
+
+Decisão: a CI gera um manifesto com SHA do código, execução do workflow,
+tamanho e SHA-256 de cada XML e benchmark; o gerador rejeita qualquer entrada
+ausente, alterada ou vinculada a outro commit.
+
+Alternativa descartada: aceitar caminhos de XML/JSON informados na linha de
+comando como prova suficiente de origem.
+
+Motivo: o conteúdo correto sem vínculo com a execução e o commit não comprova
+qual versão foi testada.
+
+## Screenshots de homologação usam o viewport
+
+Decisão: screenshots visuais registram o viewport real de cada projeto; a
+ausência de overflow horizontal continua sendo medida separadamente no
+documento inteiro.
+
+Alternativa descartada: usar `fullPage` para componentes sticky ou fixos.
+
+Motivo: a composição full-page reposiciona cabeçalhos e repete conteúdo sob
+diálogos fixos, criando defeitos que não existem no viewport do operador.
