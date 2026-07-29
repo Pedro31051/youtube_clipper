@@ -16,12 +16,12 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium-1440x900",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } }
-    },
-    {
       name: "chromium-1280x800",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } }
+    },
+    {
+      name: "chromium-1440x900",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } }
     },
     {
       name: "chromium-768x1024",

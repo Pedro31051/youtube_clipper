@@ -30,3 +30,4 @@ service-account*.json
 # Traces completos ficam no artifact da CI; screenshots de homologação seguem
 # pequenos e versionados em review/UI-7.
 /review/UI-7/runs/playwright/**/trace.zip
+/review/UI-7/runs/playwright/.last-run.json

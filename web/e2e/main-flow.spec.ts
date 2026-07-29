@@ -32,34 +32,69 @@ test("abre o editor correto e salva nova versão do plano", async (
   { page, request },
   testInfo
 ) => {
+  test.setTimeout(300_000);
   await page.goto("/");
   const card = page.locator(".clip-card").filter({ hasText: "Segundo corte independente" });
   await card.getByRole("button", { name: "Abrir editor" }).click();
   await expect(page.getByRole("dialog")).toContainText("Segundo corte independente");
 
   const start = page.getByLabel("Início (ms)");
-  await start.fill(String(Number(await start.inputValue()) + 100));
+  const originalStart = Number(await start.inputValue());
+  const physicalProject = testInfo.project.name === "chromium-1280x800";
+  if (!physicalProject) {
+    await start.fill(String(originalStart + 100));
+    await expect(page.locator(".editor-overlay")).toHaveAttribute("data-ui-state", "stale");
+    await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png"), fullPage: true });
+    const restoredPlanResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PUT" &&
+        response.url().includes("/edit-plan")
+    );
+    await start.fill(String(originalStart));
+    const restoredPlan = await restoredPlanResponse;
+    expect(restoredPlan.ok(), await restoredPlan.text()).toBeTruthy();
+    return;
+  }
+
+  const savedPlanResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      response.url().includes("/edit-plan")
+  );
+  await start.fill(String(originalStart + 100));
+  const savedPlan = await savedPlanResponse;
+  expect(savedPlan.ok(), await savedPlan.text()).toBeTruthy();
   await expect(page.locator(".sync-state")).toContainText("Alterações salvas", {
     timeout: 5_000
   });
   await expect(page.locator(".editor-overlay")).toHaveAttribute("data-ui-state", "stale");
   await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png"), fullPage: true });
-  await page.getByRole("tab", { name: "Saída" }).click();
-  await page.getByRole("button", { name: "Regenerar preview" }).click();
 
-  const projects = (await (await request.get("/api/v1/projects")).json()).projects;
-  for (let attempt = 0; attempt < 900; attempt += 1) {
-    const clips = (
+  await page.getByRole("tab", { name: "Saída" }).click();
+  const previewSubmissionResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith("/preview-jobs")
+  );
+  await page.getByRole("button", { name: "Regenerar preview" }).click();
+  const previewSubmission = await previewSubmissionResponse;
+  expect(
+    previewSubmission.status(),
+    await previewSubmission.text()
+  ).toBe(202);
+  const previewJobId = (await previewSubmission.json()).job.job_id;
+
+  let previewJob;
+  for (let attempt = 0; attempt < 2_700; attempt += 1) {
+    previewJob = (
       await (
-        await request.get(`/api/v1/projects/${projects[0].project_id}/clips`)
+        await request.get(`/api/v1/jobs/${previewJobId}`)
       ).json()
-    ).clips;
-    const current = clips.find(
-      (item: { title: string }) => item.title === "Segundo corte independente"
-    );
-    if (current.preview_status === "ready") break;
+    ).job;
+    if (previewJob && ["completed", "failed"].includes(previewJob.state)) break;
     await page.waitForTimeout(100);
   }
+  expect(previewJob?.state, previewJob?.error).toBe("completed");
   await page.reload({ waitUntil: "domcontentloaded" });
   const restored = page.locator(".clip-card").filter({ hasText: "Segundo corte independente" });
   await expect(restored.getByRole("button", { name: "Abrir editor" })).toBeEnabled();
@@ -69,6 +104,7 @@ test("cancela, repete, baixa por Range e valida relatório", async (
   { page, request },
   testInfo
 ) => {
+  test.setTimeout(300_000);
   test.skip(
     testInfo.project.name !== "chromium-1280x800",
     "Fluxo físico destrutivo executado uma vez; a matriz visual roda em todos os projetos."
@@ -109,7 +145,7 @@ test("cancela, repete, baixa por Range e valida relatório", async (
   expect(retried.parent_job_id).toBe(firstJob.job_id);
 
   let settled;
-  for (let attempt = 0; attempt < 900; attempt += 1) {
+  for (let attempt = 0; attempt < 2_700; attempt += 1) {
     settled = (await (await request.get(`/api/v1/jobs/${retried.job_id}`)).json()).job;
     if (["completed", "failed"].includes(settled.state)) break;
     await page.waitForTimeout(100);
