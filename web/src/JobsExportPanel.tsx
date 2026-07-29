@@ -53,6 +53,14 @@ function duration(seconds: number | null) {
   return `${minutes} min ${remainder.toString().padStart(2, "0")} s`;
 }
 
+function jobStageLabel(job: Job) {
+  if (job.state === "cancelled") return "Cancelado";
+  if (job.state === "interrupted") return "Interrompido";
+  if (job.state === "failed") return "Falhou";
+  if (job.state === "completed") return job.stage ?? "Concluído";
+  return job.stage ?? (job.state === "queued" ? "Fila" : "Processando");
+}
+
 function JobTiming({ job, now }: { job: Job; now: number }) {
   const created = Date.parse(job.created_at);
   const terminal = TERMINAL_STATES.includes(job.state);
@@ -285,7 +293,7 @@ export function JobsExportPanel({
                   </header>
                   <progress max="100" value={Number(job.progress ?? 0)}>{job.progress}%</progress>
                   <div className="job-stage">
-                    <span>{job.stage ?? (job.state === "queued" ? "fila" : "concluído")}</span>
+                    <span>{jobStageLabel(job)}</span>
                     <strong>{Number(job.progress ?? 0)}%</strong>
                   </div>
                   <JobTiming job={job} now={now} />

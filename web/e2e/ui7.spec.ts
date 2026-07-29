@@ -29,15 +29,13 @@ test("observa jobs e baixa mídia e relatório físicos", async ({ page }, testI
     physicalDeliverable.getByText("Render pronto")
   ).toBeVisible();
   await page.screenshot({
-    path: testInfo.outputPath("jobs-exportacoes.png"),
-    fullPage: true
+    path: testInfo.outputPath("jobs-exportacoes.png")
   });
 
   await physicalDeliverable.getByRole("button", { name: "Exportar" }).click();
   await expect(page.getByRole("dialog", { name: /Exportar/ })).toBeVisible();
   await page.screenshot({
-    path: testInfo.outputPath("dialog-exportacao.png"),
-    fullPage: true
+    path: testInfo.outputPath("dialog-exportacao.png")
   });
 
   const mediaPromise = page.waitForEvent("download");

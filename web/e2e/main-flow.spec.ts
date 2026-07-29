@@ -10,6 +10,22 @@ test.afterEach(async ({ page }) => {
 
 test("mantém identidade independente entre três cards", async ({ page }, testInfo) => {
   await page.goto("/");
+  const skipLink = page.locator(".skip-link");
+  await expect(skipLink).toHaveCSS("opacity", "0");
+  const initialBox = await skipLink.boundingBox();
+  expect(initialBox?.y).toBeLessThan(0);
+  await page.keyboard.press("Tab");
+  await expect(skipLink).toBeFocused();
+  await expect(skipLink).toBeVisible();
+
+  await expect(
+    page.getByRole("heading", { name: "Operação Playwright" })
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "Candidatos de corte", level: 2 })
+  ).toBeVisible();
+  await expect(page.locator(".inspector")).toHaveCount(0);
+
   const cards = page.locator(".clip-card");
   await expect(cards).toHaveCount(3);
 
@@ -25,7 +41,7 @@ test("mantém identidade independente entre três cards", async ({ page }, testI
 
   expect(firstSource).not.toBe(thirdSource);
   await expect(first).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("cards-independentes.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("cards-independentes.png") });
 });
 
 test("abre o editor correto e salva nova versão do plano", async (
@@ -37,6 +53,13 @@ test("abre o editor correto e salva nova versão do plano", async (
   const card = page.locator(".clip-card").filter({ hasText: "Segundo corte independente" });
   await card.getByRole("button", { name: "Abrir editor" }).click();
   await expect(page.getByRole("dialog")).toContainText("Segundo corte independente");
+  for (const backgroundCard of await page.locator(".clip-card").all()) {
+    await expect(backgroundCard).toBeHidden();
+  }
+  const exposedMedia = await page.locator("video").evaluateAll((videos) =>
+    videos.some((video) => !video.closest(".editor-player"))
+  );
+  expect(exposedMedia).toBe(false);
 
   const start = page.getByLabel("Início (ms)");
   const originalStart = Number(await start.inputValue());
@@ -44,7 +67,7 @@ test("abre o editor correto e salva nova versão do plano", async (
   if (!physicalProject) {
     await start.fill(String(originalStart + 100));
     await expect(page.locator(".editor-overlay")).toHaveAttribute("data-ui-state", "stale");
-    await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png"), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png") });
     const restoredPlanResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "PUT" &&
@@ -68,7 +91,7 @@ test("abre o editor correto e salva nova versão do plano", async (
     timeout: 5_000
   });
   await expect(page.locator(".editor-overlay")).toHaveAttribute("data-ui-state", "stale");
-  await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png") });
 
   await page.getByRole("tab", { name: "Saída" }).click();
   const previewSubmissionResponse = page.waitForResponse(

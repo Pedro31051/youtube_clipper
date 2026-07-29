@@ -72,6 +72,7 @@ export function WaveformEditor({
     const wavesurfer = WaveSurfer.create({
       container: container.current,
       url,
+      mediaControls: false,
       height: 74,
       waveColor: "#536176",
       progressColor: "#6d95ff",
@@ -141,7 +142,11 @@ export function WaveformEditor({
       aria-label="Intervalo na forma de onda do preview"
       aria-disabled={disabled || undefined}
     >
-      <div ref={container} aria-label="Forma de onda do preview" />
+      <div
+        ref={container}
+        className="waveform-canvas"
+        aria-label="Forma de onda do preview"
+      />
       <div className="waveform-scale" aria-hidden="true">
         <span>{(mediaStartMs / 1000).toFixed(1)} s</span>
         <span>

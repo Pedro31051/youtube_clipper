@@ -6,7 +6,12 @@ export default defineConfig({
   expect: { timeout: 5_000 },
   fullyParallel: false,
   workers: 1,
-  reporter: "list",
+  reporter: process.env.CI
+    ? [
+        ["list"],
+        ["junit", { outputFile: "../artifacts/playwright-junit.xml" }]
+      ]
+    : "list",
   outputDir: "../review/UI-7/runs/playwright",
   use: {
     baseURL: "http://127.0.0.1:8765",

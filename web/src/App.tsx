@@ -514,7 +514,13 @@ export function App() {
       : project.data?.name ?? "Projetos de cortes";
 
   return (
-    <div className={`app-shell ${showOperations ? "operations-mode" : ""}`}>
+    <div
+      className={[
+        "app-shell",
+        showOperations ? "operations-mode" : "",
+        editingClip ? "editor-open" : "without-inspector"
+      ].filter(Boolean).join(" ")}
+    >
       <a className="skip-link" href="#projects">Pular para o conteúdo</a>
       <aside className="sidebar">
         <a className="brand" href="/" aria-label="YouTube Clipper — início">
@@ -640,7 +646,7 @@ export function App() {
             <section className="review-header">
               <div>
                 <span className="eyebrow">Revisão de cortes</span>
-                <h2>{project.data?.name ?? "Carregando projeto…"}</h2>
+                <h2>Candidatos de corte</h2>
                 <p>
                   Assista aos candidatos, registre sua decisão e leve apenas os
                   melhores para o editor.
@@ -723,9 +729,9 @@ export function App() {
         )}
       </main>
 
-      <aside className="inspector" aria-labelledby="inspector-title">
-        <span className="eyebrow">Inspetor</span>
-        {editingClip ? (
+      {editingClip ? (
+        <aside className="inspector" aria-labelledby="inspector-title">
+          <span className="eyebrow">Inspetor</span>
           <>
             <h2 id="inspector-title">{editingClip.title}</h2>
             <StatusBadge status={editingClip.status}>
@@ -752,16 +758,8 @@ export function App() {
               </p>
             </div>
           </>
-        ) : (
-          <>
-            <h2 id="inspector-title">Selecione “Abrir editor”</h2>
-            <p>
-              O candidato escolhido aparece aqui com seu plano e identidade
-              persistentes.
-            </p>
-          </>
-        )}
-      </aside>
+        </aside>
+      ) : null}
 
       {selectedIds.length ? (
         <div className="batch-bar" role="region" aria-label="Ações em lote">

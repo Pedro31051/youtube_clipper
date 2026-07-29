@@ -14,13 +14,17 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   z-index: 100;
   top: 8px;
   left: 8px;
-  transform: translateY(-160%);
+  opacity: 0;
+  transform: translateY(calc(-100% - 16px));
   padding: 8px 12px;
   border-radius: var(--radius-control);
   color: var(--on-primary);
   background: var(--primary);
 }
-.skip-link:focus { transform: translateY(0); }
+.skip-link:focus, .skip-link:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 .ui-button {
   display: inline-flex;
@@ -57,7 +61,14 @@ button:disabled { cursor: not-allowed; opacity: .45; }
     "sidebar main" minmax(calc(100vh - 76px), auto)
     / 236px minmax(0, 1fr);
 }
+.app-shell.without-inspector {
+  grid-template:
+    "sidebar topbar" 76px
+    "sidebar main" minmax(calc(100vh - 76px), auto)
+    / 236px minmax(0, 1fr);
+}
 .operations-mode .inspector { display: none; }
+.app-shell.editor-open > :not(.editor-overlay) { display: none; }
 .sidebar {
   grid-area: sidebar;
   position: sticky;
@@ -297,6 +308,8 @@ progress::-webkit-progress-value { background: var(--primary); }
 .field-note { margin: 0; padding: 11px; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); background: var(--surface-2); font-size: 11px; line-height: 1.5; }
 .editor-timeline { padding: 16px 24px; border-top: 1px solid var(--border); background: var(--surface-1); }
 .waveform-shell { height: 100%; padding: 14px 16px 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+.waveform-canvas { height: 74px; overflow: hidden; }
+.waveform-canvas > audio, .waveform-canvas > video { display: none !important; }
 .waveform-scale { display: flex; justify-content: space-between; margin-top: 7px; color: var(--muted); font-size: 10px; }
 
 .operations { display: grid; gap: 24px; }
@@ -385,11 +398,11 @@ progress::-webkit-progress-value { background: var(--primary); }
 .job-guidance code { display: block; margin-top: 5px; white-space: normal; }
 .job-card > footer { grid-area: actions; display: grid; gap: 7px; }
 .dialog-backdrop { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(9 11 16 / 86%); }
-.export-dialog { width: min(760px, 100%); max-height: calc(100vh - 48px); overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-1); box-shadow: 0 24px 80px rgb(0 0 0 / 55%); }
-.export-dialog > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 20px; border-bottom: 1px solid var(--border); }
+.export-dialog { width: min(680px, 100%); max-height: calc(100vh - 32px); overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-1); box-shadow: 0 24px 80px rgb(0 0 0 / 55%); }
+.export-dialog > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
 .export-dialog h2 { margin: 6px 0 0; font-size: 20px; }
-.export-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 20px; }
-.export-options article { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-2); }
+.export-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+.export-options article { display: flex; flex-direction: column; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-2); }
 .export-options article > svg { color: var(--primary); }
 .export-options p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .export-options label { display: grid; gap: 6px; width: 100%; color: var(--text); font-size: 12px; font-weight: 650; }

@@ -133,9 +133,33 @@ describe("UI-7 jobs and exports", () => {
       />
     );
 
-    expect(screen.getByText("Interrompido")).toBeVisible();
+    expect(screen.getAllByText("Interrompido")[0]).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(retry).toHaveBeenCalledWith(failedJob.job_id);
     expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+  });
+
+  it("never describes a cancelled job as completed", () => {
+    render(
+      <JobsExportPanel
+        jobs={[{
+          ...failedJob,
+          state: "cancelled",
+          progress: 0,
+          stage: "concluído",
+          message: "Cancelado pelo operador"
+        }]}
+        clips={[clip]}
+        driveBusy={false}
+        onCancel={vi.fn()}
+        onRetry={vi.fn()}
+        onDrive={vi.fn()}
+      />
+    );
+
+    const card = document.querySelector(".job-card");
+    expect(card).not.toBeNull();
+    expect(card).toHaveTextContent("Cancelado");
+    expect(card).not.toHaveTextContent(/concluído/i);
   });
 });
