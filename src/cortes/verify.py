@@ -236,28 +236,34 @@ def verify_run(
             check_id="events_schema_valid",
             passed=events_valid_schema,
             measured=schema_error_msg if not events_valid_schema else f"Validated {len(events)} events",
-            expected="Schema Version 1.0.0 valid",
+            expected="Schema Version 1.0.0 or 2.0.0 valid",
             evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
         # 2. Check seq_integrity
         seq_passed = True
-        seq_msg = "seq 1..N continuous without gaps and stage DAG sequence valid"
+        seq_msg = "seq 1..N continuous without gaps"
         if events_valid_schema and events:
-            prev_stage_rank = -1
+            enforce_legacy_dag = all(
+                ev.get("schema_version") == "1.0.0" for ev in events
+            )
+            previous_stage_rank = -1
             for i, ev in enumerate(events):
                 expected_seq = i + 1
                 if ev.get("seq") != expected_seq:
                     seq_passed = False
                     seq_msg = f"Mismatch at index {i}: expected seq {expected_seq}, found {ev.get('seq')}"
                     break
-                stage_name = ev.get("stage")
-                stage_rank = STAGE_ORDER.get(stage_name, 999)
-                if stage_rank < prev_stage_rank:
-                    seq_passed = False
-                    seq_msg = f"Invalid stage DAG sequence at seq {ev.get('seq')}: stage '{stage_name}' occurred after higher rank stage"
-                    break
-                prev_stage_rank = stage_rank
+                if enforce_legacy_dag:
+                    stage_rank = STAGE_ORDER.get(ev.get("stage"), 999)
+                    if stage_rank < previous_stage_rank:
+                        seq_passed = False
+                        seq_msg = (
+                            f"Invalid legacy stage DAG sequence at seq {ev.get('seq')}: "
+                            f"stage '{ev.get('stage')}' occurred after a higher-rank stage"
+                        )
+                        break
+                    previous_stage_rank = stage_rank
         else:
             seq_passed = False
             seq_msg = "Events schema invalid or empty"
@@ -266,7 +272,7 @@ def verify_run(
             check_id="seq_integrity",
             passed=seq_passed,
             measured=seq_msg,
-            expected="seq == index + 1 without gaps or duplicates and stage DAG sequence valid",
+            expected="seq == index + 1 without gaps or duplicates",
             evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
@@ -306,9 +312,10 @@ def verify_run(
         if commands_file.exists():
             cmd_content = commands_file.read_text(encoding="utf-8")
             for ev in events:
-                if ev.get("cmd"):
-                    cmd_line = f"COMMAND: {ev['cmd']}"
-                    if cmd_line not in cmd_content:
+                if ev.get("cmd") and ev.get("status") in {None, "succeeded", "failed"}:
+                    legacy_line = f"COMMAND: {ev['cmd']}"
+                    v2_line = f"command={ev['cmd']}"
+                    if legacy_line not in cmd_content and v2_line not in cmd_content:
                         commands_passed = False
                         cmd_msg = f"Command '{ev['cmd']}' missing from commands.log"
                         break
@@ -343,6 +350,65 @@ def verify_run(
             measured=exit_msg,
             expected="exit_code == 0 for all outcome ok events",
             evidence_path=_relative_evidence_path(events_file, r_path),
+        )
+
+        # 5b. Every planned/started action must be terminal unless the process
+        # was interrupted, in which case the missing terminal is a hard finding.
+        planned_actions = {
+            ev.get("action") for ev in events
+            if ev.get("status") == "planned" and ev.get("action")
+        }
+        started_actions = {
+            ev.get("action") for ev in events
+            if ev.get("status") == "started" and ev.get("action")
+        }
+        terminal_actions = {
+            ev.get("action") for ev in events
+            if ev.get("status") in {
+                "succeeded", "failed", "skipped", "cancelled", "interrupted"
+            } and ev.get("action")
+        }
+        incomplete_actions = sorted((planned_actions | started_actions) - terminal_actions)
+        lifecycle_passed = not incomplete_actions
+        add_check(
+            check_id="lifecycle_complete",
+            passed=lifecycle_passed,
+            measured=(
+                "All planned and started actions have terminal events"
+                if lifecycle_passed else f"Incomplete actions: {incomplete_actions}"
+            ),
+            expected="Every planned/started action is terminal or explicitly interrupted",
+            evidence_path=_relative_evidence_path(events_file, r_path),
+        )
+
+        seal_file = r_path / "seal.json"
+        managed_v2_run = any(ev.get("status") == "planned" for ev in events)
+        seal_passed = seal_file.exists() or not managed_v2_run
+        seal_msg = (
+            "Run is sealed"
+            if seal_file.exists()
+            else "Seal not required for legacy/unmanaged run"
+        )
+        if seal_file.exists():
+            try:
+                seal_data = json.loads(seal_file.read_text(encoding="utf-8"))
+                measured_hash = measure_sha256(events_file)
+                seal_passed = seal_data.get("events_sha256") == measured_hash
+                if not seal_passed:
+                    seal_msg = "seal digest does not match events.jsonl"
+            except (OSError, json.JSONDecodeError) as exc:
+                seal_passed = False
+                seal_msg = f"invalid seal: {exc}"
+        elif managed_v2_run:
+            seal_msg = "seal.json missing; run may have been interrupted"
+        add_check(
+            check_id="run_sealed",
+            passed=seal_passed,
+            measured=seal_msg,
+            expected="seal.json exists and matches events.jsonl SHA-256",
+            evidence_path=_relative_evidence_path(
+                seal_file if seal_file.exists() else events_file, r_path
+            ),
         )
 
         # All current evidence must be portable and relative to the run root.
@@ -381,12 +447,15 @@ def verify_run(
         executed_producers = {
             ev.get("stage")
             for ev in events
-            if ev.get("stage") in producer_stages and ev.get("outcome") == "ok"
+            if ev.get("stage") in producer_stages
+            and ev.get("outcome") == "ok"
+            and ev.get("status") in {None, "succeeded"}
         }
         for producer_stage in sorted(executed_producers):
             if not any(
                 ev.get("stage") == producer_stage
                 and ev.get("outcome") == "ok"
+                and ev.get("status") in {None, "succeeded"}
                 and ev.get("evidence", {}).get("paths")
                 for ev in events
             ):
@@ -417,7 +486,7 @@ def verify_run(
         intermediate_media_files: List[pathlib.Path] = []
 
         for ev in events:
-            if ev.get("outcome") == "ok":
+            if ev.get("outcome") == "ok" and ev.get("status") in {None, "succeeded"}:
                 stg = ev.get("stage")
                 evidence = ev.get("evidence", {})
                 paths = evidence.get("paths", [])
@@ -1006,7 +1075,7 @@ def verify_run(
     overall_passed = failed_count == 0
 
     result = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "run_id": run_id,
         "verified_at": verified_at,
         "overall_passed": overall_passed,

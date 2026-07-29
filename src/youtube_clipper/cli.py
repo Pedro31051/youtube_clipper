@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from cortes.log import action_span, run_context
 from youtube_clipper.exceptions import ClipperError, ValidationError
 from youtube_clipper.validator import is_youtube_url, validate_input_source, validate_time_range
 
@@ -216,6 +217,30 @@ def validate_cli_args(args: argparse.Namespace) -> Dict[str, Any]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """Run one isolated and sealed audit session for a CLI invocation."""
+    effective_argv = list(sys.argv[1:] if argv is None else argv)
+    with run_context(
+        actions=[{"action": "cli.execute", "stage": "env"}],
+        component="youtube_clipper.cli",
+    ):
+        with action_span(
+            "env",
+            "cli.execute",
+            component="youtube_clipper.cli",
+            input_data={"argv": effective_argv},
+        ) as span:
+            result = _main_impl(effective_argv)
+            span.decision = {"exit_code": result}
+            if result != 0:
+                span.mark_failed(
+                    f"CLI completed with exit code {result}",
+                    category="cli",
+                    remediation="inspect the failed child action and stderr artifacts",
+                )
+            return result
+
+
+def _main_impl(argv: Optional[List[str]] = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 

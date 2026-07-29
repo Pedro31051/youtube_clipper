@@ -129,10 +129,14 @@ def test_tier3_06_ingest_cut_render_report_audit_chain(tmp_path: Path, dummy_vid
     run_dir = get_run_dir(run_id)
     events_file = run_dir / "events.jsonl"
     lines = [l for l in events_file.read_text(encoding="utf-8").splitlines() if l.strip()]
-    assert len(lines) == 3
+    assert len(lines) == 6
+    lifecycle = [json.loads(line) for line in lines]
+    assert [event["status"] for event in lifecycle] == [
+        "started", "succeeded", "started", "succeeded", "started", "succeeded"
+    ]
 
     seqs = [json.loads(l)["seq"] for l in lines]
-    assert seqs == [1, 2, 3]
+    assert seqs == [1, 2, 3, 4, 5, 6]
 
     rpt = generate_report(run_dir)
     assert rpt.exists()

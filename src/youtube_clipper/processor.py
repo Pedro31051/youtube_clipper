@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from cortes.log import run_cmd
+from cortes.log import audited, run_cmd
 from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError
 
 
@@ -42,6 +42,11 @@ class FFmpegProcessor:
                 "FFmpeg executable not found. Please install ffmpeg and ensure it is in system PATH."
             )
 
+    @audited(
+        stage="cut",
+        action="media.cut",
+        component="youtube_clipper.processor",
+    )
     def cut_media(
         self,
         input_path: Union[str, Path],
@@ -169,6 +174,11 @@ class FFmpegProcessor:
             ) from e
 
 
+@audited(
+    stage="scenes",
+    action="media.detect_scenes",
+    component="youtube_clipper.processor",
+)
 def detect_scenes_scenedetect(
     video_path: Union[str, Path],
     output_dir: Union[str, Path],

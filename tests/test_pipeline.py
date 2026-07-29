@@ -80,6 +80,34 @@ class TestPipelineLocalFileInput:
         assert mock_ffmpeg.has_arg("-c")
         assert mock_ffmpeg.has_arg("copy")
 
+    def test_pipeline_vertical_propagates_editor_controls(
+        self, dummy_video_file: Path, tmp_path: Path, mock_ffmpeg: Any
+    ) -> None:
+        out_file = tmp_path / "vertical_configured.mp4"
+        result = run_pipeline(
+            input_source=str(dummy_video_file),
+            start=0,
+            end=1,
+            output=out_file,
+            vertical=True,
+            mode="crop_center",
+            crop_focus="right",
+            blur_sigma=8,
+            include_audio=False,
+            overlay_text="Contexto aplicado",
+            overlay_position="bottom",
+        )
+
+        assert result == str(out_file)
+        command = mock_ffmpeg.last_command
+        assert command is not None
+        assert "-an" in command
+        filter_str = command[command.index("-vf") + 1]
+        assert "crop=ih*9/16:ih:iw-ow:0" in filter_str
+        assert "textfile=" in filter_str
+        assert not list(tmp_path.glob(".overlay_*.txt"))
+        assert "y=h-text_h-150" in filter_str
+
 
 class TestPipelineYouTubeURLInput:
     """Integration tests for YouTube URL inputs with YouTubeDownloader mock."""

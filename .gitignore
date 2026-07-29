@@ -3,7 +3,26 @@
 .coverage
 __pycache__/
 *.pyc
-runs/
+/runs/
 .agents/
 *.egg-info/
 
+# Mídia gerada em tempo de execução. Os MP4s de evidência vivem em review/<fase>/
+# e continuam versionados; sample_local.mp4 é fixture de teste.
+/output/
+/clip_*.mp4
+/test_vertical.mp4
+!/clip_sample_local_0_5.mp4
+
+# Credenciais do Google. Nunca versionar.
+token.json
+client_secret*.json
+service-account*.json
+.env
+
+# Build e dependências do frontend UI-3.
+/web/node_modules/
+/web/dist/
+/web/test-results/
+/web/playwright-report/
+/panel_workspace/

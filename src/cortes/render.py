@@ -1,10 +1,13 @@
 """Audited Stage 8 (render) processing module."""
 
 import json
+import math
 import os
 import pathlib
 import shutil
 from typing import Any, Callable, Dict, Optional, Union
+
+import pysubs2
 
 from cortes.editorial import (
     assert_variant_not_recent,
@@ -26,10 +29,18 @@ def build_render_filtergraph(
     width: int = 1080,
     height: int = 1920,
     sigma: float = 12.0,
+    crop_focus: str = "center",
+    overlay_position: str = "top",
     analytical_overlay: bool = False,
     overlay_text: Optional[str] = None,
 ) -> str:
     """Build FFmpeg 9:16 vertical video filtergraph with optional burned ASS subtitles and analytical overlay."""
+    if crop_focus not in {"left", "center", "right"}:
+        raise ValueError("crop_focus must be left, center, or right")
+    if overlay_position not in {"top", "bottom"}:
+        raise ValueError("overlay_position must be top or bottom")
+    crop_x = {"left": "0", "center": "(iw-ow)/2", "right": "iw-ow"}[crop_focus]
+    overlay_y = 60 if overlay_position == "top" else height - 160
     if mode in ("blur_background", "split_blur"):
         low_w = width // 4
         low_h = height // 4
@@ -40,20 +51,41 @@ def build_render_filtergraph(
             f"[blurred][scaled_fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2"
         )
     elif mode == "crop_center":
-        v_filter = f"crop=ih*9/16:ih:(iw-ow)/2:0,scale={width}:{height}"
+        v_filter = (
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height}:{crop_x}:(ih-oh)/2"
+        )
     else:
         raise ValueError(f"Unsupported vertical render mode: {mode}")
 
     if analytical_overlay:
         txt = overlay_text or "ANALYTICAL OVERLAY | VIRAL HOOK SCORE: 9.8"
-        esc_txt = txt.replace(":", "\\:").replace("'", "")
-        v_filter = f"{v_filter},drawbox=x=40:y=60:w=1000:h=100:color=black@0.6:t=fill,drawtext=text='{esc_txt}':x=60:y=95:fontsize=36:fontcolor=yellow"
+        esc_txt = (
+            txt.replace("\\", "\\\\")
+            .replace(":", "\\:")
+            .replace("'", "\\'")
+            .replace("%", "\\%")
+        )
+        box_x = max(12, width // 27)
+        box_width = max(1, width - (box_x * 2))
+        box_height = max(48, height // 19)
+        text_x = box_x + max(8, width // 54)
+        text_y = overlay_y + max(18, box_height // 3)
+        font_size = max(18, height // 53)
+        v_filter = (
+            f"{v_filter},"
+            f"drawbox=x={box_x}:y={overlay_y}:w={box_width}:h={box_height}:"
+            "color=black@0.6:t=fill,"
+            f"drawtext=text='{esc_txt}':x={text_x}:y={text_y}:"
+            f"fontsize={font_size}:fontcolor=yellow"
+        )
 
-    if subtitles_path:
+    if subtitles_path is not None:
         sub_p = pathlib.Path(subtitles_path).resolve()
-        if sub_p.exists():
-            esc_sub = str(sub_p).replace("\\", "/").replace(":", "\\:")
-            v_filter = f"{v_filter},subtitles={esc_sub}"
+        if not sub_p.exists() or not sub_p.is_file():
+            raise ProcessingError(f"Subtitle source does not exist: {sub_p}")
+        esc_sub = str(sub_p).replace("\\", "/").replace(":", "\\:")
+        v_filter = f"{v_filter},subtitles={esc_sub}"
 
     return v_filter
 
@@ -76,6 +108,10 @@ def process_vertical_render(
     template_variant: str = "variant_default",
     template_history: Optional[list[Dict[str, Any]]] = None,
     run_dir: Optional[Union[str, pathlib.Path]] = None,
+    blur_sigma: float = 12.0,
+    crop_focus: str = "center",
+    overlay_position: str = "top",
+    include_audio: bool = True,
 ) -> Dict[str, Any]:
     """Render a vertical video and physically apply the requested T3 transformation."""
     in_p = pathlib.Path(input_media).resolve()
@@ -87,6 +123,37 @@ def process_vertical_render(
 
     out_p.parent.mkdir(parents=True, exist_ok=True)
     meta_p.parent.mkdir(parents=True, exist_ok=True)
+
+    if isinstance(blur_sigma, bool) or not isinstance(blur_sigma, (int, float)):
+        raise ProcessingError("blur_sigma must be a finite number between 0 and 50")
+    try:
+        normalized_blur_sigma = float(blur_sigma)
+    except (TypeError, ValueError) as exc:
+        raise ProcessingError(
+            "blur_sigma must be a finite number between 0 and 50"
+        ) from exc
+    if not math.isfinite(normalized_blur_sigma) or not 0.0 <= normalized_blur_sigma <= 50.0:
+        raise ProcessingError("blur_sigma must be a finite number between 0 and 50")
+
+    subtitles_p: Optional[pathlib.Path] = None
+    subtitle_event_count = 0
+    if subtitles_path is not None:
+        subtitles_p = pathlib.Path(subtitles_path).resolve()
+        if not subtitles_p.exists() or not subtitles_p.is_file():
+            raise ProcessingError(f"Subtitle source does not exist: {subtitles_p}")
+        try:
+            subtitle_file = pysubs2.load(str(subtitles_p), encoding="utf-8")
+        except Exception as exc:
+            raise ProcessingError(f"Unable to parse subtitle source: {subtitles_p}") from exc
+        subtitle_event_count = sum(
+            1
+            for event in subtitle_file.events
+            if event.text.strip() and int(event.end) > int(event.start)
+        )
+        if subtitle_event_count == 0:
+            raise ProcessingError(
+                "Subtitle source must contain at least one visible timed event"
+            )
 
     narration_p: Optional[pathlib.Path] = None
     narration_duration_s = 0.0
@@ -124,6 +191,8 @@ def process_vertical_render(
             "tts_narration=True requires a physical narration_path; metadata-only narration is forbidden"
         )
     narration_mixed = narration_p is not None
+    if narration_mixed and not include_audio:
+        raise ProcessingError("Narration cannot be mixed when include_audio is false")
     if require_editorial_transformation and not (
         narration_mixed or analytical_overlay
     ):
@@ -135,13 +204,21 @@ def process_vertical_render(
         allow_default=not require_editorial_transformation,
     )
 
+    effective_overlay_text = (
+        overlay_text or "ANALYTICAL OVERLAY | VIRAL HOOK SCORE: 9.8"
+        if analytical_overlay
+        else None
+    )
     filtergraph = build_render_filtergraph(
         mode=mode,
-        subtitles_path=subtitles_path,
+        subtitles_path=subtitles_p,
         width=width,
         height=height,
+        sigma=normalized_blur_sigma,
+        crop_focus=crop_focus,
+        overlay_position=overlay_position,
         analytical_overlay=analytical_overlay,
-        overlay_text=overlay_text,
+        overlay_text=effective_overlay_text,
     )
 
     encoder = detect_h264_encoder()
@@ -230,18 +307,12 @@ def process_vertical_render(
                 filtergraph,
             ]
         )
-    cmd.extend(
-        [
-            *vcodec_args,
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-pix_fmt",
-            "yuv420p",
-            str(out_p),
-        ]
-    )
+    cmd.extend(vcodec_args)
+    if include_audio:
+        cmd.extend(["-c:a", "aac", "-b:a", "192k"])
+    else:
+        cmd.append("-an")
+    cmd.extend(["-pix_fmt", "yuv420p", str(out_p)])
 
     res = run_cmd(cmd, stage="render")
     if res.returncode != 0 and encoder == "h264_nvenc":
@@ -261,7 +332,9 @@ def process_vertical_render(
     if res.returncode != 0 or not out_p.exists() or out_p.stat().st_size <= 1024:
         raise ProcessingError(f"FFmpeg vertical render failed with returncode {res.returncode}: {res.stderr}")
 
-    sub_exists = bool(subtitles_path and pathlib.Path(subtitles_path).exists())
+    subtitles_filter_applied = bool(
+        subtitles_p is not None and ",subtitles=" in filtergraph
+    )
     run_root = pathlib.Path(run_dir).resolve() if run_dir else None
     narration_source_path: Optional[str] = None
     if narration_p is not None:
@@ -282,8 +355,17 @@ def process_vertical_render(
         "width": width,
         "height": height,
         "mode": mode,
-        "subtitles_burned": sub_exists,
-        "subtitles_path": str(subtitles_path) if subtitles_path else None,
+        "crop_focus": crop_focus,
+        "overlay_position": overlay_position,
+        "audio_included": include_audio,
+        "blur_sigma": (
+            normalized_blur_sigma
+            if mode in {"blur_background", "split_blur"}
+            else None
+        ),
+        "subtitles_burned": subtitles_filter_applied,
+        "subtitles_path": str(subtitles_p) if subtitles_p is not None else None,
+        "subtitle_event_count": subtitle_event_count,
         "editorial_transformation_required": require_editorial_transformation,
         "editorial_requirements": [
             requirement
@@ -304,7 +386,7 @@ def process_vertical_render(
         ),
         "narration_duration_s": round(narration_duration_s, 3),
         "analytical_overlay": analytical_overlay,
-        "overlay_text": overlay_text if analytical_overlay else None,
+        "overlay_text": effective_overlay_text,
         "template_variant": variant,
         "template_variant_history": list(template_history or [])[:5],
         "encoder": encoder,
@@ -337,6 +419,10 @@ def run_render(
     run_id = kwargs.pop("run_id", None)
     clip_id = kwargs.pop("clip_id", None)
     mode = kwargs.pop("mode", "blur_background")
+    blur_sigma = kwargs.pop("blur_sigma", 12.0)
+    crop_focus = kwargs.pop("crop_focus", "center")
+    overlay_position = kwargs.pop("overlay_position", "top")
+    include_audio = bool(kwargs.pop("include_audio", True))
     output_path = kwargs.pop("output_path", None)
     analytical_overlay = bool(kwargs.pop("analytical_overlay", False))
     overlay_text = kwargs.pop("overlay_text", None)
@@ -400,6 +486,10 @@ def run_render(
         template_variant=template_variant,
         template_history=template_history,
         run_dir=run_dir,
+        blur_sigma=blur_sigma,
+        crop_focus=crop_focus,
+        overlay_position=overlay_position,
+        include_audio=include_audio,
     )
     if clip_id:
         # Preserve the historical discovery path without duplicating media.

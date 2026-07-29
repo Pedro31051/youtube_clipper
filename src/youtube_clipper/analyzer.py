@@ -12,7 +12,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Any, Optional
 
-from cortes.log import run_cmd
+from cortes.log import action_span, audited, run_cmd
 from youtube_clipper.exceptions import ProcessingError
 
 @dataclass
@@ -253,11 +253,18 @@ class VideoContentAnalyzer:
         return selected
 
 
+@audited(
+    stage="transcribe",
+    action="youtube.extract_transcript_and_analyze",
+    component="youtube_clipper.analyzer",
+)
 def extract_transcript_and_analyze(
     url_or_file: str,
     python_env_bin: Optional[str] = None,
     max_clips: int = 5,
     cookies_file: Optional[str] = None,
+    language: str = "auto",
+    target_duration_seconds: int = 45,
 ) -> Dict[str, Any]:
     """
     Downloads subtitles using yt-dlp, parses VTT transcript, and runs AI analysis
@@ -273,10 +280,18 @@ def extract_transcript_and_analyze(
         effective_cookies = cookies_file or os.environ.get("YOUTUBE_COOKIES_FILE")
 
         # 1. Download auto-subtitles
+        subtitle_language = {
+            "auto": "pt,en",
+            "pt": "pt",
+            "en": "en",
+        }.get(str(language).lower())
+        if subtitle_language is None:
+            raise ValueError("language must be auto, pt, or en")
+        target_duration = max(15, min(59, int(target_duration_seconds)))
         cmd = [
             yt_dlp_bin,
             "--write-auto-subs",
-            "--sub-lang", "pt,en",
+            "--sub-lang", subtitle_language,
             "--skip-download",
             "--convert-subs", "vtt",
             "-o", vtt_output_template,
@@ -315,11 +330,30 @@ def extract_transcript_and_analyze(
                 "clips": []
             }
 
-        with open(vtt_file, "r", encoding="utf-8", errors="ignore") as f:
-            vtt_content = f.read()
+        with action_span(
+            "transcribe",
+            "youtube.parse_vtt",
+            component="youtube_clipper.analyzer",
+            next_action="youtube.rank_clips",
+            next_stage="select",
+        ) as span:
+            with open(vtt_file, "r", encoding="utf-8", errors="ignore") as f:
+                vtt_content = f.read()
+            segments = VTTParser.parse_vtt_content(vtt_content)
+            span.decision = {"segments_parsed": len(segments)}
 
-        segments = VTTParser.parse_vtt_content(vtt_content)
-        clips = VideoContentAnalyzer.find_best_clips(segments, max_clips=max_clips)
+        with action_span(
+            "select",
+            "youtube.rank_clips",
+            component="youtube_clipper.analyzer",
+        ) as span:
+            clips = VideoContentAnalyzer.find_best_clips(
+                segments,
+                max_clips=max_clips,
+                min_duration=max(15.0, target_duration - 20.0),
+                max_duration=min(59.0, target_duration + 10.0),
+            )
+            span.decision = {"clips_selected": len(clips)}
 
         return {
             "success": True,

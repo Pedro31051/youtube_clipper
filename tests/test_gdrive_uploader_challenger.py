@@ -209,9 +209,10 @@ class TestPermissionsAndErrorHandlingAdversarial:
         uploader = GoogleDriveUploader(service_account_path=str(sa_path))
         result = uploader.upload_clip(str(dummy_video_file))
 
-        # Upload must still be reported as success
+        # The bytes remain uploaded, but public sharing must be reported honestly.
         assert result["success"] is True
         assert result["file_id"] == "file_456"
+        assert result["permission_configured"] is False
 
     def test_generic_http_error_handling(
         self, mock_gdrive: MagicMock, tmp_path: Path, dummy_video_file: Path

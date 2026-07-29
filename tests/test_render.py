@@ -54,12 +54,15 @@ def test_build_render_filtergraph():
     assert "scale=1080:1920" in fg_blur
 
     fg_crop = build_render_filtergraph(mode="crop_center", width=1080, height=1920)
-    assert "crop=ih*9/16:ih" in fg_crop
-    assert "scale=1080:1920" in fg_crop
+    assert "scale=1080:1920:force_original_aspect_ratio=increase" in fg_crop
+    assert "crop=1080:1920" in fg_crop
 
 
-def test_process_vertical_render_success(tmp_path, synthetic_media_and_subtitles):
+def test_process_vertical_render_success(
+    tmp_path, monkeypatch, synthetic_media_and_subtitles
+):
     """Test vertical 9:16 render with burned subtitles."""
+    monkeypatch.chdir(tmp_path)
     run_id = f"test_render_success_{tmp_path.name}"
     set_run_id(run_id)
 
@@ -75,6 +78,8 @@ def test_process_vertical_render_success(tmp_path, synthetic_media_and_subtitles
         metadata_json=meta_json,
         subtitles_path=sub_p,
         mode="blur_background",
+        blur_sigma=6.5,
+        analytical_overlay=True,
     )
 
     assert res["status"] == "ok"
@@ -99,7 +104,10 @@ def test_process_vertical_render_success(tmp_path, synthetic_media_and_subtitles
     meta = json.loads(meta_json.read_text(encoding="utf-8"))
     assert meta["width"] == 1080
     assert meta["height"] == 1920
+    assert meta["blur_sigma"] == 6.5
     assert meta["subtitles_burned"] is True
+    assert meta["subtitle_event_count"] == 1
+    assert meta["overlay_text"] == "ANALYTICAL OVERLAY | VIRAL HOOK SCORE: 9.8"
 
 
 def test_process_vertical_render_missing_input(tmp_path):
@@ -113,6 +121,54 @@ def test_process_vertical_render_missing_input(tmp_path):
             input_media=missing,
             output_media=out_media,
             metadata_json=meta_json,
+        )
+
+
+@pytest.mark.parametrize("invalid_sigma", [True, "12", float("nan"), float("inf"), -0.1, 50.1])
+def test_process_vertical_render_rejects_invalid_blur_sigma(
+    tmp_path, synthetic_media_and_subtitles, invalid_sigma
+):
+    vid_p, _ = synthetic_media_and_subtitles
+
+    with pytest.raises(ProcessingError, match="blur_sigma"):
+        process_vertical_render.__wrapped__(
+            input_media=vid_p,
+            output_media=tmp_path / "invalid-blur.mp4",
+            metadata_json=tmp_path / "invalid-blur.json",
+            blur_sigma=invalid_sigma,
+        )
+
+
+def test_process_vertical_render_rejects_missing_or_empty_subtitles(
+    tmp_path, synthetic_media_and_subtitles
+):
+    vid_p, valid_subtitles = synthetic_media_and_subtitles
+    missing_subtitles = tmp_path / "missing.ass"
+
+    with pytest.raises(ProcessingError, match="Subtitle source does not exist"):
+        process_vertical_render.__wrapped__(
+            input_media=vid_p,
+            output_media=tmp_path / "missing-subtitles.mp4",
+            metadata_json=tmp_path / "missing-subtitles.json",
+            subtitles_path=missing_subtitles,
+        )
+
+    empty_subtitles = tmp_path / "empty.ass"
+    empty_subtitles.write_text(
+        "\n".join(
+            line
+            for line in valid_subtitles.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("Dialogue:")
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ProcessingError, match="visible timed event"):
+        process_vertical_render.__wrapped__(
+            input_media=vid_p,
+            output_media=tmp_path / "empty-subtitles.mp4",
+            metadata_json=tmp_path / "empty-subtitles.json",
+            subtitles_path=empty_subtitles,
         )
 
 

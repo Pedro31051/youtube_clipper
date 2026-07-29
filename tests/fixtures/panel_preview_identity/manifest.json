@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "fixture": "source_three_candidates.mp4",
+  "sha256": "ac770b6ad325647f554047c0ab3d27f6bf39897373fb5bc5336568ab6368e6b6",
+  "candidates": [
+    {
+      "clip_id": "fixture-red-440",
+      "start_seconds": 0,
+      "end_seconds": 3,
+      "visual_identity": "red background, one white bar",
+      "audio_frequency_hz": 440
+    },
+    {
+      "clip_id": "fixture-green-660",
+      "start_seconds": 3,
+      "end_seconds": 6,
+      "visual_identity": "green background, two white bars",
+      "audio_frequency_hz": 660
+    },
+    {
+      "clip_id": "fixture-blue-880",
+      "start_seconds": 6,
+      "end_seconds": 9,
+      "visual_identity": "blue background, three white bars",
+      "audio_frequency_hz": 880
+    }
+  ],
+  "ffprobe": {
+    "programs": [],
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 640,
+        "height": 360
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_type": "audio"
+      }
+    ],
+    "format": {
+      "duration": "9.000000"
+    }
+  }
+}

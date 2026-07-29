@@ -36,6 +36,162 @@ class TestGoogleDriveUploaderInit:
 class TestGoogleDriveUploadClip:
     """Test suite for upload_clip functionality."""
 
+    def test_resumable_upload_uses_explicit_chunk_size_and_reports_real_bytes(
+        self,
+        mock_gdrive: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Resumable progress starts at zero, advances by acknowledged bytes, and ends at 100%."""
+        import youtube_clipper.gdrive_uploader as gdu
+
+        clip_path = tmp_path / "progress_clip.mp4"
+        clip_path.write_bytes(b"x" * 4000)
+        total_bytes = clip_path.stat().st_size
+        emitted_events: list[dict] = []
+        media_calls: list[tuple[str, dict]] = []
+
+        class FakeProgress:
+            def __init__(self, uploaded_bytes: int) -> None:
+                self.resumable_progress = uploaded_bytes
+                self.total_size = total_bytes
+
+            def progress(self) -> float:
+                return self.resumable_progress / self.total_size
+
+        class FakeHttpRequest:
+            def __init__(self) -> None:
+                self.responses = [
+                    (FakeProgress(1000), None),
+                    (FakeProgress(2500), None),
+                    (
+                        None,
+                        {
+                            "id": "file_progress",
+                            "name": clip_path.name,
+                            "webViewLink": "https://drive.google.com/file/d/file_progress/view",
+                            "webContentLink": "https://drive.google.com/uc?id=file_progress",
+                            "size": str(total_bytes),
+                        },
+                    ),
+                ]
+
+            def next_chunk(self) -> tuple[FakeProgress | None, dict | None]:
+                return self.responses.pop(0)
+
+        request = FakeHttpRequest()
+        mock_gdrive.files().create.return_value = request
+        monkeypatch.setattr(gdu, "HttpRequest", FakeHttpRequest)
+        monkeypatch.setattr(
+            gdu,
+            "emit_event",
+            lambda *args, **kwargs: emitted_events.append(dict(kwargs)),
+        )
+
+        def capture_media(file_path: str, **kwargs: object) -> object:
+            media_calls.append((file_path, dict(kwargs)))
+            return object()
+
+        monkeypatch.setattr(gdu, "MediaFileUpload", capture_media)
+        sa_path = tmp_path / "sa-progress.json"
+        sa_path.write_text('{"type": "service_account"}')
+
+        uploader = GoogleDriveUploader(service_account_path=str(sa_path))
+        result = uploader.upload_clip(str(clip_path), folder_id="folder_progress")
+
+        assert result["success"] is True
+        assert result["permission_configured"] is True
+        assert len(media_calls) == 1
+        assert media_calls[0][0] == str(clip_path)
+        assert media_calls[0][1]["resumable"] is True
+        assert media_calls[0][1]["chunksize"] == gdu.DRIVE_UPLOAD_CHUNK_SIZE
+        assert gdu.DRIVE_UPLOAD_CHUNK_SIZE % (256 * 1024) == 0
+
+        progress_events = [
+            event
+            for event in emitted_events
+            if str(event.get("action", "")).startswith("gdrive.upload.progress.")
+        ]
+        decisions = [event["decision"] for event in progress_events]
+        assert [decision["progress_percent"] for decision in decisions] == [
+            0.0,
+            25.0,
+            62.5,
+            100.0,
+        ]
+        uploaded_values = [decision["uploaded_bytes"] for decision in decisions]
+        assert uploaded_values == [0, 1000, 2500, total_bytes]
+        assert uploaded_values == sorted(uploaded_values)
+        assert all(decision["total_bytes"] == total_bytes for decision in decisions)
+        assert all(decision["indeterminate"] is False for decision in decisions)
+
+    def test_non_resumable_fallback_is_indeterminate_until_execute_completes(
+        self,
+        mock_gdrive: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A transport without next_chunk must not invent intermediate upload percentages."""
+        import youtube_clipper.gdrive_uploader as gdu
+
+        clip_path = tmp_path / "fallback_clip.mp4"
+        clip_path.write_bytes(b"fallback upload")
+        total_bytes = clip_path.stat().st_size
+        emitted_events: list[dict] = []
+
+        class ResumableHttpRequest:
+            pass
+
+        class ExecuteOnlyRequest:
+            def execute(self) -> dict:
+                return {
+                    "id": "file_fallback",
+                    "name": clip_path.name,
+                    "webViewLink": "https://drive.google.com/file/d/file_fallback/view",
+                    "webContentLink": "https://drive.google.com/uc?id=file_fallback",
+                    "size": str(total_bytes),
+                }
+
+        mock_gdrive.files().create.return_value = ExecuteOnlyRequest()
+        monkeypatch.setattr(gdu, "HttpRequest", ResumableHttpRequest)
+        monkeypatch.setattr(gdu, "MediaFileUpload", lambda *args, **kwargs: object())
+        monkeypatch.setattr(
+            gdu,
+            "emit_event",
+            lambda *args, **kwargs: emitted_events.append(dict(kwargs)),
+        )
+        sa_path = tmp_path / "sa-fallback.json"
+        sa_path.write_text('{"type": "service_account"}')
+
+        uploader = GoogleDriveUploader(service_account_path=str(sa_path))
+        result = uploader.upload_clip(str(clip_path), folder_id="folder_fallback")
+
+        assert result["success"] is True
+        progress_events = [
+            event
+            for event in emitted_events
+            if str(event.get("action", "")).startswith("gdrive.upload.progress.")
+        ]
+        assert [event["action"] for event in progress_events] == [
+            "gdrive.upload.progress.indeterminate",
+            "gdrive.upload.progress.complete",
+        ]
+        indeterminate, completed = [event["decision"] for event in progress_events]
+        assert indeterminate == {
+            "progress_percent": None,
+            "uploaded_bytes": None,
+            "total_bytes": total_bytes,
+            "chunk_number": 0,
+            "indeterminate": True,
+        }
+        assert completed == {
+            "progress_percent": 100.0,
+            "uploaded_bytes": total_bytes,
+            "total_bytes": total_bytes,
+            "chunk_number": 0,
+            "indeterminate": False,
+        }
+
     def test_upload_clip_existing_folder(
         self, mock_gdrive: MagicMock, tmp_path: Path, dummy_video_file: Path
     ) -> None:
@@ -201,7 +357,13 @@ class TestGoogleDriveUploadHelper:
         import youtube_clipper.gdrive_uploader as gdu
 
         monkeypatch.setattr(gdu, "DEFAULT_SERVICE_ACCOUNT_PATH", "/non/existent/path/sa.json")
+        monkeypatch.setattr(gdu, "DEFAULT_TOKEN_PATH", "/non/existent/path/token.json")
+        monkeypatch.setattr(
+            "google.auth.default",
+            MagicMock(side_effect=Exception("ADC unavailable for this missing-credentials case")),
+        )
         monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+        monkeypatch.delenv("GOOGLE_TOKEN_FILE", raising=False)
         monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
         monkeypatch.delenv("GOOGLE_CLIENT_SECRET", raising=False)
         monkeypatch.delenv("GOOGLE_REFRESH_TOKEN", raising=False)
