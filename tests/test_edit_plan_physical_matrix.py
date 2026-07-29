@@ -77,6 +77,14 @@ def _render(
     end_ms: int = 1000,
     profile: str = "preview",
 ) -> dict:
+    plan = deepcopy(plan)
+    plan["clip_id"] = f"clp_{name}"
+    plan["source_id"] = "src_physical_matrix"
+    plan["timeline"] = {
+        "start_ms": start_ms,
+        "end_ms": end_ms,
+        "duration_ms": end_ms - start_ms,
+    }
     return generate_clip_preview(
         input_source=str(source),
         start_ms=start_ms,

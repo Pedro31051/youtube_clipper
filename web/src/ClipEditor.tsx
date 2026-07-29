@@ -14,7 +14,7 @@ import {
   retryPreview,
   updateEditPlan
 } from "./api/client";
-import { useEditorStore } from "./editorStore";
+import { useEditorStore, validateTimeline } from "./editorStore";
 import { WaveformEditor } from "./WaveformEditor";
 import { Button, StatusBadge } from "./ui";
 
@@ -32,6 +32,7 @@ export function ClipEditor({
 }) {
   const [tab, setTab] = useState<Tab>("Corte");
   const [action, setAction] = useState<"preview" | "render">();
+  const [actionError, setActionError] = useState<string>();
   const {
     plan,
     serverVersion,
@@ -40,30 +41,52 @@ export function ClipEditor({
     sync,
     error,
     initialize,
+    dispose,
     change,
     undo,
     redo,
-    saving,
+    beginSave,
     saved,
     failed
   } = useEditorStore();
 
-  useEffect(() => initialize(clip.clip_id, clip.edit_plan), [clip.clip_id]);
+  useEffect(() => {
+    initialize(clip.clip_id, clip.edit_plan);
+    return () => dispose(clip.clip_id);
+  }, [clip.clip_id]);
 
   useEffect(() => {
     if (!plan || sync !== "dirty") return;
     const timer = window.setTimeout(async () => {
-      saving();
+      const requestId = beginSave(clip.clip_id);
+      if (requestId === undefined) return;
+      const validationError = validateTimeline(plan);
+      if (validationError) {
+        failed(clip.clip_id, requestId, validationError);
+        return;
+      }
       try {
         const updated = await updateEditPlan(
           clip.clip_id,
           plan,
           serverVersion
         );
-        saved(updated.edit_plan, updated.plan_version);
-        onUpdated(updated);
+        if (
+          saved(
+            clip.clip_id,
+            requestId,
+            updated.edit_plan,
+            updated.plan_version
+          )
+        ) {
+          onUpdated(updated);
+        }
       } catch (reason) {
-        failed(reason instanceof Error ? reason.message : "Falha ao salvar");
+        failed(
+          clip.clip_id,
+          requestId,
+          reason instanceof Error ? reason.message : "Falha ao salvar"
+        );
       }
     }, 1000);
     return () => window.clearTimeout(timer);
@@ -104,10 +127,13 @@ export function ClipEditor({
 
   async function regenerate() {
     setAction("preview");
+    setActionError(undefined);
     try {
       await retryPreview(clip.clip_id);
     } catch (reason) {
-      failed(reason instanceof Error ? reason.message : "Falha ao gerar preview");
+      setActionError(
+        reason instanceof Error ? reason.message : "Falha ao gerar preview"
+      );
     } finally {
       setAction(undefined);
     }
@@ -115,10 +141,13 @@ export function ClipEditor({
 
   async function render() {
     setAction("render");
+    setActionError(undefined);
     try {
-      await renderFinal(clip.clip_id, clip.status);
+      await renderFinal(clip.clip_id);
     } catch (reason) {
-      failed(reason instanceof Error ? reason.message : "Falha no render final");
+      setActionError(
+        reason instanceof Error ? reason.message : "Falha no render final"
+      );
     } finally {
       setAction(undefined);
     }
@@ -163,7 +192,9 @@ export function ClipEditor({
         </div>
       </header>
 
-      {error ? <div className="editor-error" role="alert">{error}</div> : null}
+      {error || actionError ? (
+        <div className="editor-error" role="alert">{error ?? actionError}</div>
+      ) : null}
 
       <div className="editor-body">
         <aside className="editor-candidates">
