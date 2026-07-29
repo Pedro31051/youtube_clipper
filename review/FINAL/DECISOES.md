@@ -30,6 +30,17 @@ Alternativa descartada: adicionar todos os traces binários ao histórico Git.
 Motivo: traces são essenciais para inspeção da execução, mas multiplicam o
 tamanho do PR em cada navegador e viewport.
 
+## Runs do servidor Playwright
+
+Decisão: preservar os runs auditáveis criados pelo servidor com CWD `web/`,
+mas ignorar `web/runs/` no Git.
+
+Alternativa descartada: apagar os runs após o teste ou versioná-los junto com
+as evidências visuais.
+
+Motivo: a primeira opção viola a imutabilidade da auditoria; a segunda mistura
+logs e mídia transitórios ao diff do painel.
+
 ## Relatório gerado
 
 Decisão: produzir `report.json` e `report.md` exclusivamente pelo script

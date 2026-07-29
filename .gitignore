@@ -25,6 +25,7 @@ service-account*.json
 /web/dist/
 /web/test-results/
 /web/playwright-report/
+/web/runs/
 /panel_workspace/
 
 # Traces completos ficam no artifact da CI; screenshots de homologação seguem

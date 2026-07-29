@@ -6,19 +6,19 @@ evidências; o veredito funcional e visual permanece com o revisor externo.
 ## Identidade da entrega
 
 - base de comparação: `581fb30`
-- commit observado: `b5b4a0eabaaef1e9588a6a3020566d80ea4114bd`
+- commit observado: `124d028869bdf4eb8a7f86e60f005795d23b493e`
 - branch: `codex/finalize-panel`
-- arquivos alterados desde a base: 190
+- arquivos alterados desde a base: 221
 - nomes sensíveis encontrados no diff: 0
 
 ## Testes observados
 
-- Python: 830 testes, 0 falhas,
+- Python: 839 testes, 0 falhas,
   0 erros, 0 ignorados,
-  610.629 s
+  588.292 s
 - Playwright: 24 testes, 0 falhas,
   0 erros, 5 ignorados,
-  63.858 s
+  60.477 s
 - repetição física análise→preview: 50 projetos, um preview válido por
   `clip_id` e `plan_version`
 - navegadores/viewports: Chromium 1440×900, 1280×800, 768×1024 e 390×844;
@@ -27,9 +27,9 @@ evidências; o veredito funcional e visual permanece com o revisor externo.
 ## Benchmark do encoder
 
 - encoder físico: `h264_nvenc`
-- razão mediana na base: 0.7414
-- razão mediana atual: 0.7394
-- variação atual/base: -0.270%
+- razão mediana na base: 0.7286
+- razão mediana atual: 0.7257
+- variação atual/base: -0.398%
 - repetições por checkout: 7
 - hardware: `Linux-6.17.0-1021-gcp-x86_64-with-glibc2.39`
 

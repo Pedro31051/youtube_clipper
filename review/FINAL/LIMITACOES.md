@@ -12,5 +12,7 @@
   diferente, embora usem a mesma rota de fallback.
 - Traces Playwright completos ficam disponíveis por 14 dias no artifact da CI,
   não permanentemente no Git.
+- O servidor Playwright ainda grava runs físicos sob `web/runs/` porque seu CWD
+  é `web/`; eles são preservados localmente e ignorados pelo Git.
 - O cancelamento de bibliotecas externas que não exponham um handle continua
   cooperativo. FFmpeg de preview/render é encerrado fisicamente.
