@@ -6,7 +6,7 @@ evidências; o veredito funcional e visual permanece com o revisor externo.
 ## Identidade da entrega
 
 - base de comparação: `581fb30`
-- commit observado: `ee2c4f0134a5f7f5c5c6ca19d541ed24f39c4f4a`
+- commit observado: `b5b4a0eabaaef1e9588a6a3020566d80ea4114bd`
 - branch: `codex/finalize-panel`
 - arquivos alterados desde a base: 190
 - nomes sensíveis encontrados no diff: 0
@@ -18,7 +18,7 @@ evidências; o veredito funcional e visual permanece com o revisor externo.
   610.629 s
 - Playwright: 24 testes, 0 falhas,
   0 erros, 5 ignorados,
-  87.058 s
+  63.858 s
 - repetição física análise→preview: 50 projetos, um preview válido por
   `clip_id` e `plan_version`
 - navegadores/viewports: Chromium 1440×900, 1280×800, 768×1024 e 390×844;

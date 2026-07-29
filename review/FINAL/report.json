@@ -185,124 +185,124 @@
     },
     "screenshots": [
       {
-        "bytes": 79976,
+        "bytes": 79705,
         "path": "review/UI-7/runs/playwright/main-flow-abre-o-editor-correto-e-salva-nova-versão-do-plano-chromium-1280x800/editor-preview-stale.png",
-        "sha256": "sha256:3586b73e3092e308aef3b97562a4f7345b85f68748179a89f0f0a4c9aace2225"
+        "sha256": "sha256:13334f502049f9fce6ca695be8be261cb25e415bb83266ea9dcb9fd073b20ec1"
       },
       {
-        "bytes": 81937,
+        "bytes": 131939,
         "path": "review/UI-7/runs/playwright/main-flow-abre-o-editor-correto-e-salva-nova-versão-do-plano-chromium-1440x900/editor-preview-stale.png",
-        "sha256": "sha256:b036e5f9713611f40cdd04e40a117e07537e08e5e53801d8bbb577084d43e09b"
+        "sha256": "sha256:4bb9cfdea5a0b03157e0569957c12e7fe13977b12296edc7f4f010adf3d424b2"
       },
       {
-        "bytes": 109055,
+        "bytes": 147186,
         "path": "review/UI-7/runs/playwright/main-flow-abre-o-editor-correto-e-salva-nova-versão-do-plano-chromium-390x844/editor-preview-stale.png",
-        "sha256": "sha256:849ec2eb59e9392bcc0d3ec74e989c02e6d7186af71f0daa510a7e5ad13f3626"
+        "sha256": "sha256:e8a14022ccda893c8599733d781235760b3530288a7fecd2873cecad43bb1b3d"
       },
       {
-        "bytes": 109315,
+        "bytes": 163395,
         "path": "review/UI-7/runs/playwright/main-flow-abre-o-editor-correto-e-salva-nova-versão-do-plano-chromium-768x1024/editor-preview-stale.png",
-        "sha256": "sha256:2fd524a25d6024101aa996f7a08d5fc22208c81f8e58025693a096d665c1724c"
+        "sha256": "sha256:87a3114a9c407c2bb76135363d172b1a3857390181815bb435edf92909a9e9f8"
       },
       {
-        "bytes": 101554,
+        "bytes": 159821,
         "path": "review/UI-7/runs/playwright/main-flow-abre-o-editor-correto-e-salva-nova-versão-do-plano-firefox-1280x800/editor-preview-stale.png",
-        "sha256": "sha256:e6b304468de52f403eacbb8fa8d2b9c91a692ca7d67a8cb79da54b286e7f3593"
+        "sha256": "sha256:e8cad1726f6e1df5ff5928e15bfe179f4cdd5d508c8772ea5990977106cf0f57"
       },
       {
-        "bytes": 222027,
+        "bytes": 227836,
         "path": "review/UI-7/runs/playwright/main-flow-abre-o-editor-correto-e-salva-nova-versão-do-plano-webkit-1280x800/editor-preview-stale.png",
-        "sha256": "sha256:305ec4e80dd39857f0c67316ecf144406061c8e6944a4aa5fa32856db850f750"
+        "sha256": "sha256:242426f489f813421ddd0212b929c6fcc2f4422999b5757e288687f6df881990"
       },
       {
-        "bytes": 132604,
+        "bytes": 128539,
         "path": "review/UI-7/runs/playwright/main-flow-mantém-identidade-independente-entre-três-cards-chromium-1280x800/cards-independentes.png",
-        "sha256": "sha256:ff1f05649d2e27111452547f456ace2ddb72113d44f3262be676afebddc22216"
+        "sha256": "sha256:b346e5475b4a971565c3fdb16c913d6b37060a67227d9197287317dc3f4f42dc"
       },
       {
-        "bytes": 133327,
+        "bytes": 134547,
         "path": "review/UI-7/runs/playwright/main-flow-mantém-identidade-independente-entre-três-cards-chromium-1440x900/cards-independentes.png",
-        "sha256": "sha256:ef20ad31a458577ac288e5c7ccea97b865796f7bcc0e6e58249769ada2791e2c"
+        "sha256": "sha256:74460ece8783bf0a7ebd40b465fb4aa56e362426a725a8aefd1b802fcb47ebc9"
       },
       {
-        "bytes": 120401,
+        "bytes": 120418,
         "path": "review/UI-7/runs/playwright/main-flow-mantém-identidade-independente-entre-três-cards-chromium-390x844/cards-independentes.png",
-        "sha256": "sha256:48f9d57ccc06adb5bdc7dcfb6fc5c88bfaf2f4e51fedf71492ca1ad12bab197c"
+        "sha256": "sha256:7a63d39648b4f900ea845d63fb3f155bb9965e86f2569785ba817d70da5b81a3"
       },
       {
-        "bytes": 145759,
+        "bytes": 145843,
         "path": "review/UI-7/runs/playwright/main-flow-mantém-identidade-independente-entre-três-cards-chromium-768x1024/cards-independentes.png",
-        "sha256": "sha256:aa03730c355506f8757718c0bb3e7653de6011969ce04fb40d31a3f61dda81ef"
+        "sha256": "sha256:13bdeac80051423839d307dbbea84821ef29ff7e61e515639e635fb0e65e5f2d"
       },
       {
-        "bytes": 158967,
+        "bytes": 154130,
         "path": "review/UI-7/runs/playwright/main-flow-mantém-identidade-independente-entre-três-cards-firefox-1280x800/cards-independentes.png",
-        "sha256": "sha256:344a3fd48e35ecdadc0ba6aacc534a26d767f6cccee62b62380a9ed22b4bcbdb"
+        "sha256": "sha256:268fbb38cd0b2b3b6478bfea3370502d8484f3c8c245f7f9fdd6fa4dfbad575e"
       },
       {
-        "bytes": 356023,
+        "bytes": 343405,
         "path": "review/UI-7/runs/playwright/main-flow-mantém-identidade-independente-entre-três-cards-webkit-1280x800/cards-independentes.png",
-        "sha256": "sha256:d7eecdf3df1a36afb3410bf1dccee0ebbe26bf3b1d00f465c6b2ee68625e4546"
+        "sha256": "sha256:d456872d6bb575b41bb11c28045601e970e2e0935ef0544a64e0e5598867d70e"
       },
       {
-        "bytes": 172539,
+        "bytes": 151269,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-1280x800/dialog-exportacao.png",
-        "sha256": "sha256:1e0a573cad3fec2d3db286fb07d7a2138d095860f8a215b235dd2eed668a26cb"
+        "sha256": "sha256:1aa61010a99aea16c4c497a4abe265098193e19d525f0ad74e35660c4e67b361"
       },
       {
-        "bytes": 192517,
+        "bytes": 171223,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-1280x800/jobs-exportacoes.png",
-        "sha256": "sha256:24cbdb4a72ccebad617dcba314ec75a3607dfe0e55cd0d518d6bd99a41107bcd"
+        "sha256": "sha256:df1bf4be79c4fa29636847d678e4ec2b32338c4cd05c7d321a194631b7b059ef"
       },
       {
-        "bytes": 111205,
+        "bytes": 165452,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-1440x900/dialog-exportacao.png",
-        "sha256": "sha256:c3f5a4b9d34b00e99e2bcd77aeefd9a029b07e94c1c5dce310b61d18168b3f31"
+        "sha256": "sha256:c7a872e9b44c8be6e7a65f01c10da3551d47ca1496e52ca0632c1b0aed798ca8"
       },
       {
-        "bytes": 115453,
+        "bytes": 173395,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-1440x900/jobs-exportacoes.png",
-        "sha256": "sha256:c7664446cdc67ee751c78b18d71933bfcfa96a8915c5ea610585706c81d388e3"
+        "sha256": "sha256:999012dc8400557045f393a0fa3ac86dcecc3e1a484856192b3623d8ca19397b"
       },
       {
-        "bytes": 191834,
+        "bytes": 145099,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-390x844/dialog-exportacao.png",
-        "sha256": "sha256:ee56783ff24793c0701da4e13c1bd84330145ed39062176790ab49c2c92c34eb"
+        "sha256": "sha256:2010e480ebecae6237a617f310eb8f74e3dfde62cd62506211040fd2436d5c9b"
       },
       {
-        "bytes": 199551,
+        "bytes": 151742,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-390x844/jobs-exportacoes.png",
-        "sha256": "sha256:adc4f1bec4a772544b1b107e8e99990f3b155ee4c5dbd71a4bff2c0adfc35a02"
+        "sha256": "sha256:94ccaec17045b7f0898d0543dd63e6119202e10e5be548ff746d6c262af8c540"
       },
       {
-        "bytes": 196511,
+        "bytes": 159447,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-768x1024/dialog-exportacao.png",
-        "sha256": "sha256:a63fb31edba602b3117336e38f0a9ad15df4f704ce5233c24114fe52e184e2e8"
+        "sha256": "sha256:eb5cd71f15fc404ad921d43527e8fe1e9fbb8beb9e12ea8595167533a721cedf"
       },
       {
-        "bytes": 208124,
+        "bytes": 175633,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-chromium-768x1024/jobs-exportacoes.png",
-        "sha256": "sha256:e7ba83fec55fa57f715b4b7cde73bb95b28fcad28af3dbb477343202345b8887"
+        "sha256": "sha256:caa119e6423e5a2dcacaeb146d1bb9757c2ce1615ce863a65042ecc6d4654e10"
       },
       {
-        "bytes": 293636,
+        "bytes": 185628,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-firefox-1280x800/dialog-exportacao.png",
-        "sha256": "sha256:90558b0386984fde4b299b04e2cdb56dc26c42c141591f0b8360be3bcc0a73ba"
+        "sha256": "sha256:6009f1d865322e29e93a1fe49bf36e565184ceb08b8fe63ab5cdeb217969cbe0"
       },
       {
-        "bytes": 310587,
+        "bytes": 206720,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-firefox-1280x800/jobs-exportacoes.png",
-        "sha256": "sha256:fd990f42002bc9c3116d1f8fcf78d10e724a46d642ebc2e2dc175b95c724ba48"
+        "sha256": "sha256:5fe97cea42200c1c4cbbb58c60d3d58a17a97789925b7640bf7e447366e1ff87"
       },
       {
-        "bytes": 721300,
+        "bytes": 410251,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-webkit-1280x800/dialog-exportacao.png",
-        "sha256": "sha256:075d867ea2f2b5db643580ebba7c2b77c637d816453362bf9d6e1cd75dcff559"
+        "sha256": "sha256:4198c52ba5b050e359c41352a3b46de6d59e9ac816355ddfa7f9bbc5dd133264"
       },
       {
-        "bytes": 781474,
+        "bytes": 481633,
         "path": "review/UI-7/runs/playwright/ui7-observa-jobs-e-baixa-mídia-e-relatório-físicos-webkit-1280x800/jobs-exportacoes.png",
-        "sha256": "sha256:fa17640cb6f4227e2e3f386ad1ae698e146ac80f346c3850d6c214be3d02ce6c"
+        "sha256": "sha256:c686b7d188b0ca0d0eb4b42f8ba53d58063dcc4b1e6f5a75465f4774b10806c6"
       }
     ]
   },
@@ -507,7 +507,7 @@
       "web/src/ClipEditor.tsx",
       "web/src/JobsExportPanel.tsx"
     ],
-    "head": "ee2c4f0134a5f7f5c5c6ca19d541ed24f39c4f4a"
+    "head": "b5b4a0eabaaef1e9588a6a3020566d80ea4114bd"
   },
   "schema_version": "1.0.0",
   "security": {
@@ -521,7 +521,7 @@
       "skipped": 5,
       "source": "youtube_clipper_playwright_junit.xml",
       "tests": 24,
-      "time_seconds": 87.058
+      "time_seconds": 63.858
     },
     "python": {
       "errors": 0,
