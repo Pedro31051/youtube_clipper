@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import pathlib
+import platform
 import shutil
 import threading
+import time
 from typing import Any, Optional
 
 from cortes.ingest import probe_video_metadata
@@ -125,10 +127,12 @@ def generate_clip_preview(
         preview_path = artifact_dir / (
             "render_final.mp4" if profile == "final" else "preview.mp4"
         )
-        encoder = detect_h264_encoder()
+        detected_encoder = detect_h264_encoder()
+        encoder = detected_encoder
+        fallback_reason: Optional[str] = None
         video_args = (
             ["-c:v", "h264_nvenc", "-preset", "p4"]
-            if encoder == "h264_nvenc"
+            if detected_encoder == "h264_nvenc"
             else [
                 "-c:v",
                 "libx264",
@@ -216,11 +220,32 @@ def generate_clip_preview(
             next_action="preview.poster",
             next_stage="report",
         ) as span:
+            render_started = time.monotonic()
             rendered = run_cmd(
                 command,
                 stage="render",
                 cancel_event=cancel_event,
             )
+            if rendered.returncode != 0 and detected_encoder == "h264_nvenc":
+                fallback_reason = (rendered.stderr or "NVENC failed")[-1000:]
+                preview_path.unlink(missing_ok=True)
+                fallback_command = list(command)
+                codec_index = fallback_command.index("-c:v")
+                fallback_command[codec_index : codec_index + 4] = [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "medium" if profile == "final" else "veryfast",
+                    "-crf",
+                    "23" if profile == "final" else "27",
+                ]
+                rendered = run_cmd(
+                    fallback_command,
+                    stage="render",
+                    cancel_event=cancel_event,
+                )
+                encoder = "libx264"
+            render_elapsed = time.monotonic() - render_started
             if cancel_event is not None and cancel_event.is_set():
                 preview_path.unlink(missing_ok=True)
                 raise PreviewCancelledError("Render cancelled by the user")
@@ -266,16 +291,34 @@ def generate_clip_preview(
             span.set_evidence([poster_path])
 
         probed = probe_video_metadata(preview_path)
+        duration_seconds = float(probed["duration"])
+        fps = float(probed["fps"])
         render_metadata = {
             "profile": profile,
             "plan_version": request.plan_version,
             "applied_features": dict(request.applied_features),
             "normalization_mode": normalization_mode,
             "encoder": encoder,
+            "encoder_detected": detected_encoder,
+            "encoder_used": encoder,
+            "fallback_reason": fallback_reason,
             "aspect_ratio": request.aspect_ratio,
             "requested_resolution": request.requested_resolution,
             "actual_resolution": f"{probed['width']}x{probed['height']}",
             "layout_mode": request.layout_mode,
+            "duration_seconds": duration_seconds,
+            "width": int(probed["width"]),
+            "height": int(probed["height"]),
+            "fps": fps,
+            "frame_count": int(round(duration_seconds * fps)),
+            "hardware": platform.platform(),
+            "processing_seconds": round(render_elapsed, 3),
+            "processing_ratio": (
+                round(render_elapsed / duration_seconds, 4)
+                if duration_seconds > 0
+                else None
+            ),
+            "applied_plan": request.model_dump(mode="json"),
         }
         return {
             "run_id": active_run_id,
@@ -288,4 +331,5 @@ def generate_clip_preview(
             "plan_version": request.plan_version,
             "applied_features": dict(request.applied_features),
             "metadata": render_metadata,
+            "render_metadata": render_metadata,
         }

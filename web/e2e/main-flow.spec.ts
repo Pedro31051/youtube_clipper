@@ -1,36 +1,127 @@
 import { expect, test } from "@playwright/test";
 
+test.afterEach(async ({ page }) => {
+  const overflow = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth
+  }));
+  expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.viewportWidth);
+});
+
 test("mantém identidade independente entre três cards", async ({ page }, testInfo) => {
   await page.goto("/");
   const cards = page.locator(".clip-card");
   await expect(cards).toHaveCount(3);
 
-  await page.getByRole("button", { name: "Reproduzir Segundo corte independente" }).click();
-  const second = page.getByLabel("Preview de Segundo corte independente");
-  await expect(second).toBeVisible();
-  const secondSource = await second.getAttribute("src");
+  await page.getByRole("button", { name: "Reproduzir Render concluído sobre mídia física" }).click();
+  const first = page.getByLabel("Preview de Render concluído sobre mídia física");
+  await expect(first).toBeVisible();
+  const firstSource = await first.getAttribute("src");
 
   await page.getByRole("button", { name: "Reproduzir Terceiro corte independente" }).click();
   const third = page.getByLabel("Preview de Terceiro corte independente");
   await expect(third).toBeVisible();
   const thirdSource = await third.getAttribute("src");
 
-  expect(secondSource).not.toBe(thirdSource);
-  await expect(second).toBeVisible();
+  expect(firstSource).not.toBe(thirdSource);
+  await expect(first).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("cards-independentes.png"), fullPage: true });
 });
 
-test("abre o editor correto e salva nova versão do plano", async ({ page }, testInfo) => {
+test("abre o editor correto e salva nova versão do plano", async (
+  { page, request },
+  testInfo
+) => {
   await page.goto("/");
   const card = page.locator(".clip-card").filter({ hasText: "Segundo corte independente" });
   await card.getByRole("button", { name: "Abrir editor" }).click();
   await expect(page.getByRole("dialog")).toContainText("Segundo corte independente");
 
   const start = page.getByLabel("Início (ms)");
-  await start.fill("3200");
+  await start.fill(String(Number(await start.inputValue()) + 100));
   await expect(page.locator(".sync-state")).toContainText("Alterações salvas", {
     timeout: 5_000
   });
-  await expect(page.getByText("Preview desatualizado")).toBeVisible();
+  await expect(page.locator(".editor-overlay")).toHaveAttribute("data-ui-state", "stale");
   await page.screenshot({ path: testInfo.outputPath("editor-preview-stale.png"), fullPage: true });
+  await page.getByRole("tab", { name: "Saída" }).click();
+  await page.getByRole("button", { name: "Regenerar preview" }).click();
+
+  const projects = (await (await request.get("/api/v1/projects")).json()).projects;
+  for (let attempt = 0; attempt < 900; attempt += 1) {
+    const clips = (
+      await (
+        await request.get(`/api/v1/projects/${projects[0].project_id}/clips`)
+      ).json()
+    ).clips;
+    const current = clips.find(
+      (item: { title: string }) => item.title === "Segundo corte independente"
+    );
+    if (current.preview_status === "ready") break;
+    await page.waitForTimeout(100);
+  }
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const restored = page.locator(".clip-card").filter({ hasText: "Segundo corte independente" });
+  await expect(restored.getByRole("button", { name: "Abrir editor" })).toBeEnabled();
+});
+
+test("cancela, repete, baixa por Range e valida relatório", async (
+  { page, request },
+  testInfo
+) => {
+  test.skip(
+    testInfo.project.name !== "chromium-1280x800",
+    "Fluxo físico destrutivo executado uma vez; a matriz visual roda em todos os projetos."
+  );
+  await page.goto("/");
+  const projectsResponse = await request.get("/api/v1/projects");
+  const projects = (await projectsResponse.json()).projects;
+  const clipsResponse = await request.get(
+    `/api/v1/projects/${projects[0].project_id}/clips`
+  );
+  const clips = (await clipsResponse.json()).clips;
+  const clip = clips.find((item: { title: string }) =>
+    item.title.includes("Segundo corte")
+  );
+
+  const approval = await request.post("/api/v1/clips/review", {
+    data: { clip_ids: [clip.clip_id], decision: "approve" }
+  });
+  expect(approval.ok()).toBeTruthy();
+  const submitted = await request.post(`/api/v1/clips/${clip.clip_id}/render-jobs`);
+  expect(submitted.status()).toBe(202);
+  const firstJob = (await submitted.json()).job;
+
+  let running;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    running = (await (await request.get(`/api/v1/jobs/${firstJob.job_id}`)).json()).job;
+    if (running.state === "running") break;
+    await page.waitForTimeout(20);
+  }
+  expect(running.state).toBe("running");
+  const cancelled = await request.post(`/api/v1/jobs/${firstJob.job_id}/cancel`);
+  expect(cancelled.ok()).toBeTruthy();
+
+  const retryResponse = await request.post(`/api/v1/jobs/${firstJob.job_id}/retry`);
+  expect(retryResponse.status()).toBe(202);
+  const retried = (await retryResponse.json()).job;
+  expect(retried.job_id).not.toBe(firstJob.job_id);
+  expect(retried.parent_job_id).toBe(firstJob.job_id);
+
+  let settled;
+  for (let attempt = 0; attempt < 900; attempt += 1) {
+    settled = (await (await request.get(`/api/v1/jobs/${retried.job_id}`)).json()).job;
+    if (["completed", "failed"].includes(settled.state)) break;
+    await page.waitForTimeout(100);
+  }
+  expect(settled.state).toBe("completed");
+
+  const range = await request.get(`/api/v1/clips/${clip.clip_id}/export/download`, {
+    headers: { Range: "bytes=0-255" }
+  });
+  expect(range.status()).toBe(206);
+  expect((await range.body()).byteLength).toBe(256);
+  const report = await request.get(`/api/v1/jobs/${retried.job_id}/report`);
+  expect(report.ok()).toBeTruthy();
+  expect((await report.json()).report.events.at(-1).state).toBe("completed");
 });

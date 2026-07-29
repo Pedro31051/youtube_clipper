@@ -26,3 +26,7 @@ service-account*.json
 /web/test-results/
 /web/playwright-report/
 /panel_workspace/
+
+# Traces completos ficam no artifact da CI; screenshots de homologação seguem
+# pequenos e versionados em review/UI-7.
+/review/UI-7/runs/playwright/**/trace.zip

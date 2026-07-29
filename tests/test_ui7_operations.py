@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import shutil
+import socket
 import time
+from multiprocessing import get_context
 from pathlib import Path
 
+import httpx
+import uvicorn
 from fastapi.testclient import TestClient
 
 from youtube_clipper.api import JobEventBroker, create_app
@@ -18,6 +22,29 @@ FIXTURE = (
     / "panel_preview_identity"
     / "source_three_candidates.mp4"
 ).resolve()
+
+
+def _serve_workspace(workspace: str, port: int) -> None:
+    app = create_app(workspace_dir=workspace)
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="error")
+
+
+def _free_port() -> int:
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        return int(listener.getsockname()[1])
+
+
+def _wait_http(base_url: str, timeout: float = 15) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            if httpx.get(f"{base_url}/api/v1/health", timeout=0.5).status_code == 200:
+                return
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.05)
+    raise AssertionError("API process did not become ready")
 
 
 def _renderable_clip(store: ProjectStore, tmp_path: Path) -> dict:
@@ -101,7 +128,12 @@ def test_orphan_job_is_interrupted_on_startup_and_retry_gets_new_id(
     workspace = tmp_path / "workspace"
     store = ProjectStore(database, workspace)
     clip = _renderable_clip(store, tmp_path)
-    store.update_clip(clip["clip_id"], {"status": "ready"})
+    edited = store.update_clip(
+        clip["clip_id"],
+        {"start_ms": 100, "end_ms": int(clip["end_ms"])},
+    )
+    assert edited["plan_version"] == 2
+    assert edited["preview_status"] == "stale"
     store.update_clip(clip["clip_id"], {"status": "previewing"})
     orphan = store.create_job(
         project_id=clip["project_id"],
@@ -126,6 +158,82 @@ def test_orphan_job_is_interrupted_on_startup_and_retry_gets_new_id(
     assert retried["job_id"] != orphan["job_id"]
     assert retried["parent_job_id"] == orphan["job_id"]
     assert settled["state"] == "completed"
+    valid_previews = [
+        asset
+        for asset in reloaded.get_clip(clip["clip_id"])["assets"]
+        if asset["kind"] == "preview" and asset["valid"]
+    ]
+    assert len(valid_previews) == 1
+    assert valid_previews[0]["version"] == 2
+
+
+def test_real_process_restart_interrupts_active_ffmpeg_and_allows_retry(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "restart-workspace"
+    store = ProjectStore(workspace / "projects.sqlite3", workspace)
+    clip = _renderable_clip(store, tmp_path)
+    port = _free_port()
+    base_url = f"http://127.0.0.1:{port}"
+    context = get_context("fork")
+    first_process = context.Process(
+        target=_serve_workspace,
+        args=(str(workspace), port),
+    )
+    first_process.start()
+    try:
+        _wait_http(base_url)
+        submitted = httpx.post(
+            f"{base_url}/api/v1/clips/{clip['clip_id']}/render-jobs",
+            timeout=5,
+        )
+        assert submitted.status_code == 202
+        job_id = submitted.json()["job"]["job_id"]
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            job = httpx.get(f"{base_url}/api/v1/jobs/{job_id}", timeout=2).json()["job"]
+            if job["state"] == "running":
+                break
+            time.sleep(0.02)
+        assert job["state"] == "running"
+    finally:
+        first_process.kill()
+        first_process.join(timeout=5)
+        if first_process.is_alive():
+            first_process.terminate()
+
+    second_process = context.Process(
+        target=_serve_workspace,
+        args=(str(workspace), port),
+    )
+    second_process.start()
+    try:
+        _wait_http(base_url)
+        interrupted = httpx.get(
+            f"{base_url}/api/v1/jobs/{job_id}", timeout=2
+        ).json()["job"]
+        assert interrupted["state"] == "interrupted"
+        retried_response = httpx.post(
+            f"{base_url}/api/v1/jobs/{job_id}/retry", timeout=5
+        )
+        assert retried_response.status_code == 202
+        retried = retried_response.json()["job"]
+        assert retried["job_id"] != job_id
+        assert retried["parent_job_id"] == job_id
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            settled = httpx.get(
+                f"{base_url}/api/v1/jobs/{retried['job_id']}", timeout=2
+            ).json()["job"]
+            if settled["state"] in {"completed", "failed"}:
+                break
+            time.sleep(0.1)
+        assert settled["state"] == "completed", settled.get("error")
+    finally:
+        second_process.terminate()
+        second_process.join(timeout=10)
+        if second_process.is_alive():
+            second_process.kill()
 
 
 def test_download_and_drive_export_require_and_use_physical_render(

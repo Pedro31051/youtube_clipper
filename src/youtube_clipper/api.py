@@ -445,6 +445,7 @@ class PreviewWorker:
                 duration_ms=generated["duration_ms"],
                 width=generated["width"],
                 height=generated["height"],
+                version=expected_plan_version,
             )
             poster = self.store.add_asset(
                 clip_id=clip_id,
@@ -455,6 +456,7 @@ class PreviewWorker:
                 metadata=generated["metadata"],
                 width=generated["width"],
                 height=generated["height"],
+                version=expected_plan_version,
             )
             self.store.update_clip(clip_id, {"status": "ready"})
             self.store.update_job(job_id, state="completed", run_id=run_id)
@@ -468,6 +470,7 @@ class PreviewWorker:
                     "stage": "preview",
                     "preview_url": preview["url"],
                     "poster_url": poster["url"],
+                    "render_metadata": generated["render_metadata"],
                 },
             )
         except (JobCancelledError, PreviewCancelledError):
@@ -865,6 +868,7 @@ class RenderWorker:
                 duration_ms=generated["duration_ms"],
                 width=generated["width"],
                 height=generated["height"],
+                version=expected_version,
             )
             self.store.create_render(
                 clip_id=clip_id,
@@ -879,7 +883,11 @@ class RenderWorker:
                 state="completed",
                 progress=100,
                 message="Render final pronto",
-                data={"stage": "render", "render_url": asset["url"]},
+                data={
+                    "stage": "render",
+                    "render_url": asset["url"],
+                    "render_metadata": generated["render_metadata"],
+                },
             )
         except (JobCancelledError, PreviewCancelledError):
             current_state = self.store.get_job(job_id)["state"]

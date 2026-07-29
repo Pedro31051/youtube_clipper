@@ -1295,6 +1295,7 @@ class ProjectStore:
         duration_ms: Optional[int] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        version: Optional[int] = None,
     ) -> dict[str, Any]:
         clip = self.get_clip(clip_id)
         source = Path(source_path).expanduser().resolve()
@@ -1328,11 +1329,13 @@ class ProjectStore:
                     """,
                     (clip_id, clean_kind),
                 ).fetchone()[0]
-                version = int(latest) + 1
+                next_version = int(latest) + 1 if version is None else int(version)
+                if next_version < 1:
+                    raise DomainValidationError("Asset version must be positive")
                 clip_dir = self._clip_dir(clip["project_id"], clip_id)
                 asset_dir = clip_dir / "assets"
                 asset_dir.mkdir(parents=True, exist_ok=True)
-                file_name = f"{asset_id}.v{version}{suffix}"
+                file_name = f"{asset_id}.v{next_version}{suffix}"
                 destination = (asset_dir / file_name).resolve()
                 destination.relative_to(asset_dir.resolve())
                 if destination.exists():
@@ -1362,7 +1365,7 @@ class ProjectStore:
                             clip["project_id"],
                             clip_id,
                             clean_kind,
-                            version,
+                            next_version,
                             resolved_plan_version,
                             metadata_json,
                             str(destination),
