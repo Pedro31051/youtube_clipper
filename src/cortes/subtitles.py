@@ -65,8 +65,18 @@ def generate_subtitles_stage(
 
     words_in_clip: List[Dict[str, Any]] = []
     for w in raw_words:
-        w_start = int(w.get("start_ms")) if "start_ms" in w else int(round(float(w["start"]) * 1000))
-        w_end = int(w.get("end_ms")) if "end_ms" in w else int(round(float(w["end"]) * 1000))
+        raw_start_ms = w.get("start_ms")
+        raw_end_ms = w.get("end_ms")
+        w_start = (
+            int(raw_start_ms)
+            if raw_start_ms is not None
+            else int(round(float(w["start"]) * 1000))
+        )
+        w_end = (
+            int(raw_end_ms)
+            if raw_end_ms is not None
+            else int(round(float(w["end"]) * 1000))
+        )
         word_str = w.get("word", "").strip()
 
         if w_end > clip_start_ms and w_start < clip_end_ms and word_str:
@@ -80,8 +90,8 @@ def generate_subtitles_stage(
                 })
 
     subs = pysubs2.SSAFile()
-    subs.info["PlayResX"] = 1080
-    subs.info["PlayResY"] = 1920
+    subs.info["PlayResX"] = "1080"
+    subs.info["PlayResY"] = "1920"
 
     style = pysubs2.SSAStyle(
         fontname=font_name,

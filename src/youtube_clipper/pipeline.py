@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import tempfile
-import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -72,6 +71,7 @@ def run_pipeline(
     fast: bool = False,
     verbose: bool = False,
     vertical: bool = False,
+    cookies: Optional[str] = None,
     **kwargs: Any,
 ) -> str:
     """Execute the end-to-end media clipping pipeline."""
@@ -90,6 +90,7 @@ def run_pipeline(
         fast = fast or ns_dict.get("fast", False)
         verbose = verbose or ns_dict.get("verbose", False)
         vertical = vertical or ns_dict.get("vertical", False)
+        cookies = cookies if cookies is not None else ns_dict.get("cookies")
     elif isinstance(input_source, dict):
         raw_input = input_source.get("input") or input_source.get("input_source")
         start = start if start is not None else input_source.get("start")
@@ -99,6 +100,7 @@ def run_pipeline(
         fast = fast or input_source.get("fast", False)
         verbose = verbose or input_source.get("verbose", False)
         vertical = vertical or input_source.get("vertical", False)
+        cookies = cookies if cookies is not None else input_source.get("cookies")
 
     if raw_input is None and "input" in kwargs:
         raw_input = kwargs["input"]
@@ -116,6 +118,8 @@ def run_pipeline(
         verbose = bool(kwargs["verbose"])
     if not vertical and "vertical" in kwargs:
         vertical = bool(kwargs["vertical"])
+    if cookies is None and "cookies" in kwargs:
+        cookies = kwargs["cookies"]
 
     if raw_input is None or not str(raw_input).strip():
         raise ValidationError("Input source cannot be empty", field="input")
@@ -132,7 +136,11 @@ def run_pipeline(
     try:
         youtube_source = is_youtube_url(clean_input)
         if youtube_source:
-            downloader = YouTubeDownloader()
+            downloader = (
+                YouTubeDownloader(cookies=cookies)
+                if cookies is not None
+                else YouTubeDownloader()
+            )
             temp_dir_obj = tempfile.TemporaryDirectory(prefix="yt_clipper_")
             temp_dir = Path(temp_dir_obj.name)
             media_source_path = downloader.download_segment(

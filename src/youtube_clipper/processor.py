@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from cortes.log import run_cmd
 from youtube_clipper.exceptions import FFmpegNotFoundError, ProcessingError
+from youtube_clipper.media_validation import validate_media_output
 
 
 class FFmpegProcessor:
@@ -29,18 +30,19 @@ class FFmpegProcessor:
             FFmpegNotFoundError: If ffmpeg binary is not found on PATH or provided path.
         """
         if ffmpeg_path:
-            self.ffmpeg_bin = (
+            ffmpeg_bin = (
                 ffmpeg_path
                 if shutil.which(ffmpeg_path) or Path(ffmpeg_path).exists()
                 else None
             )
         else:
-            self.ffmpeg_bin = shutil.which("ffmpeg")
+            ffmpeg_bin = shutil.which("ffmpeg")
 
-        if not self.ffmpeg_bin or not shutil.which(self.ffmpeg_bin):
+        if not ffmpeg_bin or not shutil.which(ffmpeg_bin):
             raise FFmpegNotFoundError(
                 "FFmpeg executable not found. Please install ffmpeg and ensure it is in system PATH."
             )
+        self.ffmpeg_bin: str = ffmpeg_bin
 
     def cut_media(
         self,
@@ -118,46 +120,13 @@ class FFmpegProcessor:
                     cmd=cmd,
                     exit_code=4,
                 )
-            if not outp.exists() or outp.stat().st_size <= 1024:
-                raise ProcessingError(
-                    f"FFmpeg completed but produced an empty or undersized output: {outp}",
-                    cmd=cmd,
-                    exit_code=4,
-                )
-            probe = run_cmd(
-                [
-                    "ffprobe",
-                    "-v",
-                    "error",
-                    "-show_entries",
-                    "format=duration",
-                    "-show_entries",
-                    "stream=codec_type",
-                    "-of",
-                    "json",
-                    str(outp),
-                ],
-                stage="verify",
+            validate_media_output(
+                outp,
+                expected_duration=duration,
+                duration_tolerance=1.5 if fast_copy else 0.5,
+                stage="cut",
+                command_runner=run_cmd,
             )
-            try:
-                metadata = json.loads(probe.stdout) if probe.returncode == 0 else {}
-                measured_duration = float(
-                    metadata.get("format", {}).get("duration", 0.0)
-                )
-                streams = metadata.get("streams", [])
-            except (TypeError, ValueError, json.JSONDecodeError):
-                measured_duration = 0.0
-                streams = []
-            if measured_duration <= 0.0 or not any(
-                stream.get("codec_type") == "video" for stream in streams
-            ):
-                raise ProcessingError(
-                    f"FFmpeg output is not a valid video with positive duration: {outp}",
-                    returncode=probe.returncode,
-                    stderr=probe.stderr,
-                    cmd=cmd,
-                    exit_code=4,
-                )
             return str(outp)
         except FileNotFoundError as e:
             raise FFmpegNotFoundError(f"FFmpeg binary not found at {self.ffmpeg_bin}") from e

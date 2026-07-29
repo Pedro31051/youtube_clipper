@@ -7,3 +7,14 @@ runs/
 .agents/
 *.egg-info/
 
+.env
+.env.*
+!.env.example
+cookies*.txt
+token.json
+service-account*.json
+credentials*.json
+secrets/
+output/
+*.part
+*.ytdl

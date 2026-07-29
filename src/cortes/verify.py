@@ -173,6 +173,89 @@ def _parse_rate(raw_rate: Any) -> float:
         return 0.0
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Convert untrusted ffprobe/JSON numeric fields without aborting verification."""
+    try:
+        return float(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
+def measure_audio_similarity(
+    rendered_media: pathlib.Path,
+    narration_media: pathlib.Path,
+    *,
+    duration_seconds: float = 8.0,
+    sample_rate: int = 8000,
+) -> float:
+    """Measure whether the narration waveform is physically present in final audio."""
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        with tempfile.TemporaryDirectory(prefix="cortes_audio_proof_") as temp_dir:
+            decoded: List[pathlib.Path] = []
+            for index, source in enumerate((rendered_media, narration_media)):
+                wav_path = pathlib.Path(temp_dir) / f"audio_{index}.wav"
+                result = run_cmd(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-nostdin",
+                        "-v",
+                        "error",
+                        "-i",
+                        str(source),
+                        "-t",
+                        str(duration_seconds),
+                        "-vn",
+                        "-ac",
+                        "1",
+                        "-ar",
+                        str(sample_rate),
+                        "-c:a",
+                        "pcm_f32le",
+                        str(wav_path),
+                    ],
+                    stage="verify",
+                    audit=False,
+                )
+                if result.returncode != 0 or not wav_path.exists():
+                    return 0.0
+                decoded.append(wav_path)
+
+            rendered, rendered_rate = sf.read(str(decoded[0]), dtype="float32")
+            narration, narration_rate = sf.read(str(decoded[1]), dtype="float32")
+            if rendered_rate != sample_rate or narration_rate != sample_rate:
+                return 0.0
+            sample_count = min(len(rendered), len(narration))
+            if sample_count < sample_rate:
+                return 0.0
+            rendered = np.asarray(rendered[:sample_count], dtype=np.float64)
+            narration = np.asarray(narration[:sample_count], dtype=np.float64)
+            rendered -= np.mean(rendered)
+            narration -= np.mean(narration)
+            denominator = float(
+                np.linalg.norm(rendered) * np.linalg.norm(narration)
+            )
+            if denominator <= 1e-12:
+                return 0.0
+
+            fft_size = 1 << (2 * sample_count - 1).bit_length()
+            correlation = np.fft.irfft(
+                np.fft.rfft(rendered, fft_size)
+                * np.conj(np.fft.rfft(narration, fft_size)),
+                fft_size,
+            )
+            max_lag = min(sample_rate // 2, sample_count - 1)
+            relevant = np.concatenate(
+                (correlation[: max_lag + 1], correlation[-max_lag:])
+            )
+            return round(float(np.max(np.abs(relevant))) / denominator, 6)
+    except Exception:
+        return 0.0
+
+
 def verify_run(
     run_dir: Union[str, pathlib.Path],
     output_path: Union[str, pathlib.Path, None] = None,
@@ -240,6 +323,16 @@ def verify_run(
             evidence_path=_relative_evidence_path(events_file, r_path),
         )
 
+        event_run_ids = {str(event.get("run_id")) for event in events}
+        run_ids_match = bool(events) and event_run_ids == {run_id}
+        add_check(
+            check_id="events_run_id_match",
+            passed=run_ids_match,
+            measured=sorted(event_run_ids),
+            expected=f"Every event run_id equals {run_id}",
+            evidence_path=_relative_evidence_path(events_file, r_path),
+        )
+
         # 2. Check seq_integrity
         seq_passed = True
         seq_msg = "seq 1..N continuous without gaps and stage DAG sequence valid"
@@ -251,7 +344,7 @@ def verify_run(
                     seq_passed = False
                     seq_msg = f"Mismatch at index {i}: expected seq {expected_seq}, found {ev.get('seq')}"
                     break
-                stage_name = ev.get("stage")
+                stage_name = str(ev.get("stage") or "")
                 stage_rank = STAGE_ORDER.get(stage_name, 999)
                 if stage_rank < prev_stage_rank:
                     seq_passed = False
@@ -379,7 +472,7 @@ def verify_run(
         prod_ev_passed = True
         prod_ev_msg = "Every executed producer stage has at least one completion event with evidence"
         executed_producers = {
-            ev.get("stage")
+            str(ev.get("stage"))
             for ev in events
             if ev.get("stage") in producer_stages and ev.get("outcome") == "ok"
         }
@@ -513,11 +606,11 @@ def verify_run(
             subject = _relative_evidence_path(media_file, r_path)
             info = run_ffprobe_json(media_file)
             format_info = info.get("format", {})
-            duration = float(format_info.get("duration", 0.0))
+            duration = _safe_float(format_info.get("duration", 0.0))
             if duration == 0.0 and info.get("streams"):
                 v_streams = [s for s in info["streams"] if s.get("codec_type") == "video"]
                 if v_streams:
-                    duration = float(v_streams[0].get("duration", 0.0))
+                    duration = _safe_float(v_streams[0].get("duration", 0.0))
             st_size = media_file.stat().st_size
             add_check(
                 check_id=f"intermediate_media_valid::{subject}",
@@ -603,9 +696,9 @@ def verify_run(
             )
 
             # Video duration check
-            duration = float(format_info.get("duration", 0.0))
+            duration = _safe_float(format_info.get("duration", 0.0))
             if duration == 0.0 and video_streams:
-                duration = float(video_streams[0].get("duration", 0.0))
+                duration = _safe_float(video_streams[0].get("duration", 0.0))
             dur_passed = 20.0 <= duration <= 58.0
             add_check(
                 check_id=f"video_duration_range::{subject}",
@@ -704,11 +797,10 @@ def verify_run(
                                 if narration_is_file
                                 else {}
                             )
-                            narration_duration = float(
+                            narration_duration = _safe_float(
                                 narration_info.get("format", {}).get(
                                     "duration", 0.0
                                 )
-                                or 0.0
                             )
                             expected_hash = render_metadata.get(
                                 "narration_source_sha256"
@@ -731,6 +823,14 @@ def verify_run(
                                 and narration_file.name in command
                                 for command in render_commands
                             )
+                            audio_similarity = (
+                                measure_audio_similarity(
+                                    video_file,
+                                    narration_file,
+                                )
+                                if narration_is_file
+                                else 0.0
+                            )
                             narration_passed = bool(
                                 render_metadata.get("narration_mixed")
                                 and narration_is_file
@@ -738,13 +838,15 @@ def verify_run(
                                 and expected_hash == real_hash
                                 and expected_bytes == real_bytes
                                 and command_proves_mix
+                                and audio_similarity >= 0.05
                             )
                             narration_msg = (
                                 f"exists={narration_is_file}, "
                                 f"duration={narration_duration:.3f}s, "
                                 f"hash_match={expected_hash == real_hash}, "
                                 f"bytes_match={expected_bytes == real_bytes}, "
-                                f"amix_proven={command_proves_mix}"
+                                f"amix_proven={command_proves_mix}, "
+                                f"audio_similarity={audio_similarity:.6f}"
                             )
                         add_check(
                             check_id=f"editorial_narration::{subject}",
@@ -752,7 +854,7 @@ def verify_run(
                             measured=narration_msg,
                             expected=(
                                 "Physical narration >= 8.0s with matching hash/bytes "
-                                "and audited amix command"
+                                "audited amix command, and waveform similarity >= 0.05"
                             ),
                             evidence_path=narration_evidence,
                         )
@@ -890,7 +992,7 @@ def verify_run(
                         ingest_metadata_path.read_text(encoding="utf-8")
                     )
                     source_duration_ms = int(
-                        round(float(ingest_metadata.get("duration", 0.0)) * 1000)
+                        round(_safe_float(ingest_metadata.get("duration", 0.0)) * 1000)
                     )
                 if source_duration_ms <= 0 and cut_metadata_path.exists():
                     cut_metadata = json.loads(
@@ -936,13 +1038,13 @@ def verify_run(
                     word_start = int(
                         word.get(
                             "start_ms",
-                            round(float(word.get("start", 0.0)) * 1000),
+                            round(_safe_float(word.get("start", 0.0)) * 1000),
                         )
                     )
                     word_end = int(
                         word.get(
                             "end_ms",
-                            round(float(word.get("end", 0.0)) * 1000),
+                            round(_safe_float(word.get("end", 0.0)) * 1000),
                         )
                     )
                     normalized_words.append(

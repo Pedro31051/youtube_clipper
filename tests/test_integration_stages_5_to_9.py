@@ -164,6 +164,28 @@ def test_run_full_pipeline_mock_backend(tmp_path, integration_fixtures, monkeypa
             "evidence_paths": [str(mock_sel)],
         },
     )
+    monkeypatch.setattr(
+        "cortes.pipeline.reserve_run_dir",
+        lambda _run_id: run_dir,
+    )
+
+    def fake_verify(_run_dir, output_path):
+        result = {
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "overall_passed": True,
+            "total_checks": 1,
+            "passed_checks": 1,
+            "failed_checks": 0,
+            "checks": [
+                {"check_id": "mock", "passed": True}
+            ],
+        }
+        pathlib.Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        pathlib.Path(output_path).write_text(json.dumps(result), encoding="utf-8")
+        return result
+
+    monkeypatch.setattr("cortes.pipeline.verify_run", fake_verify)
 
     res = run_full_pipeline(
         input_source=vid_path,
@@ -177,3 +199,8 @@ def test_run_full_pipeline_mock_backend(tmp_path, integration_fixtures, monkeypa
     assert pathlib.Path(res["audio_path"]).exists()
     assert pathlib.Path(res["render_path"]).exists()
     assert pathlib.Path(res["report_path"]).exists()
+    assert "PASSED" in pathlib.Path(res["report_path"]).read_text(
+        encoding="utf-8"
+    )
+    assert pathlib.Path(res["verification_path"]).exists()
+    assert res["verification"]["overall_passed"] is True

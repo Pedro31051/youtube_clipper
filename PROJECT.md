@@ -1,7 +1,11 @@
-# Project: youtube_clipper Phase T2 (Technical Short Pipeline)
+# Project: youtube_clipper Phase T3 (Audited Technical Short Pipeline)
 
 ## Architecture
-Phase T2 delivers an end-to-end 9-stage technical short pipeline generating 9:16 vertical videos (1080x1920) from local video files, backed by atomic audit logging (`cortes.log`), zero-trust read-only physical verification (`cortes.verify`), gapless AST security contracts (`test_contracts.py`), and a complete review package (`review/T2/`).
+Phase T3 delivers an end-to-end technical short pipeline generating 9:16
+vertical videos (1080x1920) from local video files, backed by isolated audit
+contexts, immutable run identifiers, atomic logging (`cortes.log`), mandatory
+zero-trust read-only physical verification (`cortes.verify`), and editorial
+transformation checks.
 
 Module Boundaries & Data Flow:
 `ingest` -> `transcribe` -> `scenes` -> `select` -> `cut` -> `subtitles` -> `audio` -> `render` -> `report` -> `verify`
@@ -34,9 +38,9 @@ Shared Interfaces:
 |---|------|-------|-------------|--------|
 | M1 | Infrastructure & Audit Contracts | Dependencies installation, AST security contract enforcement (`test_contracts.py`) | None | DONE |
 | M2 | Pipeline Core Stages (1-4) | Stage 1 (ingest), Stage 2 (transcribe Whisper GPU), Stage 3 (scenes PySceneDetect), Stage 4 (select speech density heuristic) | M1 | DONE |
-| M3 | Pipeline Output Stages (5-9) | Stage 5 (cut), Stage 6 (subtitles .ass), Stage 7 (audio 2-pass loudnorm), Stage 8 (render 9:16 vertical), Stage 9 (report) | M2 | PLANNED |
-| M4 | Zero-Trust Verification & Golden Run | Incremental `verify.py` checks, execute golden run `runs/run_t2_golden/` and verify pass | M3 | PLANNED |
-| M5 | Review Package & Git Branch Delivery | Consolidate `review/T2/` review package and push branch `agent/t2-short-tecnico` | M4 | PLANNED |
+| M3 | Pipeline Output Stages (5-9) | Stage 5 (cut), Stage 6 (subtitles .ass), Stage 7 (audio 2-pass loudnorm), Stage 8 (render 9:16 vertical), Stage 9 (report) | M2 | DONE |
+| M4 | Zero-Trust Verification & Golden Run | Incremental `verify.py` checks, execute golden runs and require a passing verification before pipeline success | M3 | DONE |
+| M5 | Review Package & Delivery | Maintain portable T0–T3 evidence packages and synchronize release documentation | M4 | IN PROGRESS |
 
 ## Interface Contracts
 ### `src/cortes/log.py` ↔ Stage Modules (`src/cortes/*.py`)

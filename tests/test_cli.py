@@ -247,8 +247,37 @@ class TestFolderIdCliFlags:
 
         monkeypatch.setattr("youtube_clipper.gdrive_uploader.upload_clip_to_gdrive", mock_upload)
 
-        code = main([str(dummy_video_file), "-s", "0", "-e", "5", "--gdrive", "--folder-id", "target_folder_777"])
+        code = main([str(dummy_video_file), "-s", "0", "-e", "1", "--gdrive", "--folder-id", "target_folder_777"])
         assert code == 0
         assert captured_kwargs.get("folder_id") == "target_folder_777"
 
+    def test_main_returns_failure_when_requested_gdrive_upload_fails(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        dummy_video_file: Path,
+        tmp_path: Path,
+    ) -> None:
+        monkeypatch.setattr(
+            "youtube_clipper.pipeline.run_pipeline",
+            lambda **_kwargs: str(tmp_path / "clip.mp4"),
+        )
+        monkeypatch.setattr(
+            "youtube_clipper.gdrive_uploader.upload_clip_to_gdrive",
+            lambda *_args, **_kwargs: {
+                "success": False,
+                "error": "quota exceeded",
+            },
+        )
+
+        code = main(
+            [
+                str(dummy_video_file),
+                "-s",
+                "0",
+                "-e",
+                "1",
+                "--gdrive",
+            ]
+        )
+        assert code == 1
 

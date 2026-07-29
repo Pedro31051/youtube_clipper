@@ -579,7 +579,7 @@ def test_tier2_report_01_missing_verify_result_fallback(tmp_path: Path):
     assert "FAILED" in content or "N/A" in content
 
 
-def test_tier2_report_02_corrupt_events_jsonl_line_resilience(tmp_path: Path):
+def test_tier2_report_02_corrupt_events_jsonl_is_rejected(tmp_path: Path):
     run_dir = tmp_path / "run_corrupt_events"
     run_dir.mkdir(parents=True, exist_ok=True)
     content_with_bad_line = (
@@ -587,8 +587,8 @@ def test_tier2_report_02_corrupt_events_jsonl_line_resilience(tmp_path: Path):
         '{"schema_version": "1.0.0", "run_id": "' + run_dir.name + '", "seq": 1, "ts": "2026-07-27T12:00:00Z", "agent": "w", "video_id": "v", "clip_id": "c", "stage": "env", "attempt": 1, "severity": "info", "duration_ms": 1, "tool": "py", "cmd": null, "exit_code": 0, "args_hash": "sha256:0", "cost": {"usd": 0, "tokens_in": 0, "tokens_out": 0}, "trace": {"span_id": "s", "parent_span_id": null}, "evidence": {"paths": [], "sha256": [], "bytes": []}, "outcome": "ok", "error": null, "claim": null}\n'
     )
     (run_dir / "events.jsonl").write_text(content_with_bad_line, encoding="utf-8")
-    rpt = generate_report(run_dir)
-    assert rpt.exists()
+    with pytest.raises(ValueError, match="Invalid events.jsonl"):
+        generate_report(run_dir)
 
 
 def test_tier2_report_03_empty_events_jsonl_fallback(tmp_path: Path):

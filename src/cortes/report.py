@@ -32,29 +32,50 @@ def generate_report(
     if not verify_file or not verify_file.exists():
         if (r_path / "verify_result.json").exists():
             verify_file = r_path / "verify_result.json"
-        elif (r_path.parent / "verify_result.json").exists():
-            verify_file = r_path.parent / "verify_result.json"
-
-    if report_file.exists() and not force and not verify_file:
-        return report_file
 
     events: List[Dict[str, Any]] = []
     if events_file.exists():
-        for line in events_file.read_text(encoding="utf-8").splitlines():
+        for line_number, line in enumerate(
+            events_file.read_text(encoding="utf-8").splitlines(),
+            start=1,
+        ):
             if line.strip():
                 try:
-                    events.append(json.loads(line))
-                except Exception:
-                    pass
+                    event = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"Invalid events.jsonl at line {line_number}: {exc}"
+                    ) from exc
+                if not isinstance(event, dict):
+                    raise ValueError(
+                        f"Invalid events.jsonl at line {line_number}: object required"
+                    )
+                if event.get("run_id") != run_id:
+                    raise ValueError(
+                        f"Event run_id mismatch at line {line_number}: "
+                        f"expected {run_id}, got {event.get('run_id')}"
+                    )
+                events.append(event)
 
     verify_data: Dict[str, Any] = {}
     is_verified = False
     if verify_file and verify_file.exists():
         try:
             verify_data = json.loads(verify_file.read_text(encoding="utf-8"))
-            is_verified = True
-        except Exception:
-            pass
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid verification result: {verify_file}") from exc
+        if not isinstance(verify_data, dict):
+            raise ValueError("Verification result must be a JSON object")
+        if verify_data.get("run_id") != run_id:
+            raise ValueError(
+                "Verification result run_id does not match the report run: "
+                f"{verify_data.get('run_id')} != {run_id}"
+            )
+        if not isinstance(verify_data.get("overall_passed"), bool):
+            raise ValueError("Verification result is missing boolean overall_passed")
+        if not isinstance(verify_data.get("checks", []), list):
+            raise ValueError("Verification result checks must be a list")
+        is_verified = True
 
     overall_passed = verify_data.get("overall_passed", False)
     verified_at = verify_data.get("verified_at", "N/A")
@@ -164,7 +185,7 @@ def generate_report(
         "```bash",
     ])
 
-    cmd_entries = [ev.get("cmd") for ev in events if ev.get("cmd")]
+    cmd_entries = [str(ev["cmd"]) for ev in events if ev.get("cmd")]
     if cmd_entries:
         for c in cmd_entries:
             lines.append(c)

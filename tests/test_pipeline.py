@@ -80,6 +80,21 @@ class TestPipelineLocalFileInput:
         assert mock_ffmpeg.has_arg("-c")
         assert mock_ffmpeg.has_arg("copy")
 
+    def test_pipeline_rejects_range_past_end_of_local_media(
+        self,
+        dummy_video_file: Path,
+        tmp_path: Path,
+    ) -> None:
+        out_file = tmp_path / "truncated_clip.mp4"
+
+        with pytest.raises(ProcessingError, match="duration is"):
+            run_pipeline(
+                input_source=str(dummy_video_file),
+                start=1.5,
+                end=5.0,
+                output=out_file,
+            )
+
 
 class TestPipelineYouTubeURLInput:
     """Integration tests for YouTube URL inputs with YouTubeDownloader mock."""
@@ -235,3 +250,23 @@ class TestCLIEntrypoint:
         res = run_cmd(cmd, audit=False)
         assert res.returncode == 0
         assert "usage:" in res.stdout.lower() or "youtube_clipper" in res.stdout.lower()
+
+
+def test_pipeline_passes_cookies_to_request_scoped_downloader(
+    tmp_path: Path, mock_ffmpeg: Any
+) -> None:
+    segment = tmp_path / "downloaded_segment.mp4"
+    segment.write_bytes(b"segment" * 300)
+    output = tmp_path / "cookie_clip.mp4"
+
+    with patch("youtube_clipper.pipeline.YouTubeDownloader") as downloader_class:
+        downloader_class.return_value.download_segment.return_value = str(segment)
+        run_pipeline(
+            input_source="https://youtu.be/dQw4w9WgXcQ",
+            start=0,
+            end=5,
+            output=output,
+            cookies="firefox",
+        )
+
+    downloader_class.assert_called_once_with(cookies="firefox")

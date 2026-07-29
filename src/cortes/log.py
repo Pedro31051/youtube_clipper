@@ -8,10 +8,12 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shlex
 import subprocess
 import time
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -31,33 +33,76 @@ ALLOWED_STAGES = {
     "report",
 }
 
-_CURRENT_RUN_ID: Optional[str] = None
+_RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_CURRENT_RUN_ID: ContextVar[Optional[str]] = ContextVar(
+    "cortes_run_id",
+    default=None,
+)
+
+
+def validate_run_id(run_id: str) -> str:
+    """Validate a portable run identifier that cannot change path scope."""
+    normalized = str(run_id).strip()
+    if (
+        normalized in {"", ".", ".."}
+        or not _RUN_ID_PATTERN.fullmatch(normalized)
+    ):
+        raise ValueError(
+            "Invalid run_id. Use 1-128 ASCII letters, numbers, dots, "
+            "underscores, or hyphens; path components are forbidden."
+        )
+    return normalized
 
 
 def set_run_id(run_id: str) -> None:
-    """Set global active run_id."""
-    global _CURRENT_RUN_ID
-    _CURRENT_RUN_ID = run_id
+    """Set the active run_id for the current thread or async context."""
+    _CURRENT_RUN_ID.set(validate_run_id(run_id))
 
 
 def get_run_id() -> str:
     """Get active run_id or initialize default."""
-    global _CURRENT_RUN_ID
-    if _CURRENT_RUN_ID:
-        return _CURRENT_RUN_ID
+    current = _CURRENT_RUN_ID.get()
+    if current:
+        return current
     env_run_id = os.environ.get("CORTES_RUN_ID")
     if env_run_id:
-        _CURRENT_RUN_ID = env_run_id
-        return env_run_id
-    _CURRENT_RUN_ID = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-    return _CURRENT_RUN_ID
+        normalized = validate_run_id(env_run_id)
+        _CURRENT_RUN_ID.set(normalized)
+        return normalized
+    generated = (
+        f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_"
+        f"{uuid.uuid4().hex[:8]}"
+    )
+    _CURRENT_RUN_ID.set(generated)
+    return generated
 
 
 def get_run_dir(run_id: Optional[str] = None) -> pathlib.Path:
     """Return path to runs/<run_id> directory, creating it if needed."""
-    r_id = run_id or get_run_id()
-    run_dir = pathlib.Path("runs") / r_id
+    r_id = validate_run_id(run_id) if run_id is not None else get_run_id()
+    runs_root = pathlib.Path("runs").resolve()
+    runs_root.mkdir(parents=True, exist_ok=True)
+    run_dir = runs_root / r_id
     run_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        run_dir.resolve().relative_to(runs_root)
+    except ValueError as exc:
+        raise ValueError(f"Run directory escapes runs root: {run_dir}") from exc
+    return run_dir
+
+
+def reserve_run_dir(run_id: Optional[str] = None) -> pathlib.Path:
+    """Create a fresh run directory and refuse reuse of prior evidence."""
+    r_id = validate_run_id(run_id) if run_id is not None else get_run_id()
+    runs_root = pathlib.Path("runs").resolve()
+    runs_root.mkdir(parents=True, exist_ok=True)
+    run_dir = runs_root / r_id
+    try:
+        run_dir.mkdir(parents=False, exist_ok=False)
+    except FileExistsError as exc:
+        raise FileExistsError(
+            f"Run '{r_id}' already exists; choose a new run_id to preserve evidence."
+        ) from exc
     return run_dir
 
 
@@ -259,6 +304,13 @@ def audited(
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
+            explicit_run_id = kwargs.get("run_id")
+            run_token = None
+            if explicit_run_id is not None:
+                normalized_run_id = validate_run_id(explicit_run_id)
+                run_token = _CURRENT_RUN_ID.set(normalized_run_id)
+            else:
+                normalized_run_id = get_run_id()
             start_time = time.perf_counter()
             span_id = uuid.uuid4().hex[:16]
 
@@ -308,47 +360,51 @@ def audited(
                             elif isinstance(val, list):
                                 paths_to_check.extend(val)
 
-                for p_item in paths_to_check:
-                    p_obj = pathlib.Path(p_item)
-                    if p_obj.exists() and p_obj.is_file():
-                        # Evidence is valid only when it belongs to the active run.
-                        # Callback-oriented compatibility tests can return external
-                        # files, but those files must never leak absolute paths into
-                        # the immutable run log.
-                        try:
-                            p_obj.resolve().relative_to(get_run_dir().resolve())
-                        except ValueError:
-                            continue
-                        p_str = str(p_obj.resolve())
-                        if p_str not in ev_paths:
-                            ev_paths.append(p_str)
-                            ev_hashes.append(compute_sha256(p_obj))
-                            ev_bytes.append(p_obj.stat().st_size)
+                try:
+                    active_run_dir = get_run_dir(normalized_run_id).resolve()
+                    for p_item in paths_to_check:
+                        p_obj = pathlib.Path(p_item)
+                        if p_obj.exists() and p_obj.is_file():
+                            # Callback-oriented compatibility results may point
+                            # outside the run, but external paths are never
+                            # admitted as immutable evidence.
+                            try:
+                                p_obj.resolve().relative_to(active_run_dir)
+                            except ValueError:
+                                continue
+                            p_str = str(p_obj.resolve())
+                            if p_str not in ev_paths:
+                                ev_paths.append(p_str)
+                                ev_hashes.append(compute_sha256(p_obj))
+                                ev_bytes.append(p_obj.stat().st_size)
 
-                emit_event(
-                    stage=stage,
-                    agent=agent,
-                    video_id=str(kwargs.get("video_id", video_id)),
-                    clip_id=(
-                        str(kwargs["clip_id"])
-                        if kwargs.get("clip_id") is not None
-                        else clip_id
-                    ),
-                    severity=severity,
-                    duration_ms=duration_ms,
-                    tool="python",
-                    cmd=None,
-                    exit_code=0,
-                    args_hash=args_hash,
-                    trace={"span_id": span_id, "parent_span_id": None},
-                    evidence={"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes},
-                    outcome=outcome,
-                    error=error_msg,
-                    # Events are appended on completion.  Timestamping them at
-                    # completion preserves monotonic order for nested audited
-                    # calls and their run_cmd children.
-                    ts=datetime.now(timezone.utc).isoformat(),
-                )
+                    emit_event(
+                        stage=stage,
+                        agent=agent,
+                        video_id=str(kwargs.get("video_id", video_id)),
+                        clip_id=(
+                            str(kwargs["clip_id"])
+                            if kwargs.get("clip_id") is not None
+                            else clip_id
+                        ),
+                        severity=severity,
+                        duration_ms=duration_ms,
+                        tool="python",
+                        cmd=None,
+                        exit_code=0,
+                        args_hash=args_hash,
+                        trace={"span_id": span_id, "parent_span_id": None},
+                        evidence={"paths": ev_paths, "sha256": ev_hashes, "bytes": ev_bytes},
+                        outcome=outcome,
+                        error=error_msg,
+                        run_id=normalized_run_id,
+                        # Events are appended on completion. Timestamping them at
+                        # completion preserves monotonic order for nested calls.
+                        ts=datetime.now(timezone.utc).isoformat(),
+                    )
+                finally:
+                    if run_token is not None:
+                        _CURRENT_RUN_ID.reset(run_token)
 
         return wrapper
 
@@ -368,6 +424,7 @@ def run_cmd(
     audit: bool = True,
     evidence: Optional[Dict[str, Any]] = None,
     evidence_paths: Optional[List[Union[str, pathlib.Path]]] = None,
+    run_id: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
     """Sole authorized function in the repository for invoking external subprocesses.
 
@@ -409,7 +466,10 @@ def run_cmd(
         return proc
 
     # Append to commands.log with locking
-    run_dir = get_run_dir()
+    effective_run_id = (
+        validate_run_id(run_id) if run_id is not None else get_run_id()
+    )
+    run_dir = get_run_dir(effective_run_id)
     commands_log_file = run_dir / "commands.log"
     with open(commands_log_file, "a", encoding="utf-8") as f:
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
@@ -461,6 +521,7 @@ def run_cmd(
         outcome=outcome,
         error=error_msg,
         evidence=evidence,
+        run_id=effective_run_id,
         ts=start_ts,
     )
 

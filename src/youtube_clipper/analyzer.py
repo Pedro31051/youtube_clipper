@@ -344,17 +344,6 @@ class SpeechDensityAnalyzer:
                 seg_words = seg.get("words", [])
                 if seg_words:
                     raw_words.extend(seg_words)
-                else:
-                    # Segment level fallback if word-level missing
-                    s_ms = int(round(float(seg.get("start", 0.0)) * 1000))
-                    e_ms = int(round(float(seg.get("end", 0.0)) * 1000))
-                    text = seg.get("text", "").strip()
-                    if e_ms > s_ms and text:
-                        words.append({
-                            "word": text,
-                            "start_ms": s_ms,
-                            "end_ms": e_ms,
-                        })
 
         for w in raw_words:
             if not isinstance(w, dict):
@@ -424,7 +413,7 @@ class SpeechDensityAnalyzer:
         min_duration_ms: int = 20000,
         max_duration_ms: int = 58000,
     ) -> Dict[str, Any]:
-        """Deterministically select the clip window maximizing speech density with scene alignment bonus."""
+        """Select the densest word-timed window bounded by real scene cuts."""
         # 1. Clamp custom duration parameter overrides strictly within [MIN_DURATION_MS, MAX_DURATION_MS]
         eff_min_dur = max(cls.MIN_DURATION_MS, min(cls.MAX_DURATION_MS, int(min_duration_ms)))
         eff_max_dur = max(cls.MIN_DURATION_MS, min(cls.MAX_DURATION_MS, int(max_duration_ms)))
@@ -434,6 +423,14 @@ class SpeechDensityAnalyzer:
         words = cls.parse_transcript_words(transcript_data)
         cuts = cls.parse_scene_cuts(scenes_data)
         cuts_set = set(cuts)
+        if not words:
+            raise ProcessingError(
+                "Cannot select clip: word-level transcript timestamps are required"
+            )
+        if len(cuts_set) < 2:
+            raise ProcessingError(
+                "Cannot select clip: at least two scene boundaries are required"
+            )
 
         max_video_ms = max(cuts) if cuts else 0
         if "duration" in transcript_data and float(transcript_data["duration"]) > 0:
@@ -445,8 +442,8 @@ class SpeechDensityAnalyzer:
         if max_video_ms < eff_min_dur:
             raise ProcessingError("Cannot select clip: duration must be between 20.0s and 58.0s")
 
-        candidate_starts = sorted(list(cuts_set.union({w["start_ms"] for w in words})))
-        candidate_ends_base = set(cuts_set.union({w["end_ms"] for w in words}))
+        candidate_starts = sorted(cuts_set)
+        candidate_ends_base = cuts_set
 
         candidates: List[Dict[str, Any]] = []
 
@@ -456,12 +453,9 @@ class SpeechDensityAnalyzer:
             if min_e > max_video_ms:
                 continue
 
-            exact_ends = [e for e in candidate_ends_base if min_e <= e <= max_e]
-            if exact_ends:
-                valid_ends = sorted(exact_ends)
-            else:
-                synth_ends = {s + eff_min_dur, min(s + eff_max_dur, max_video_ms)}
-                valid_ends = sorted([e for e in synth_ends if min_e <= e <= max_e])
+            valid_ends = sorted(
+                e for e in candidate_ends_base if min_e <= e <= max_e
+            )
 
             for e in valid_ends:
                 dur = e - s
@@ -472,10 +466,6 @@ class SpeechDensityAnalyzer:
                 density = spoken_ms / float(dur)
                 base_score = round(density * 100.0, 2)
 
-                aligned = (s in cuts_set) and (e in cuts_set)
-                bonus = 2.0 if aligned else 0.0
-                final_score = min(100.0, round(base_score + bonus, 2))
-
                 candidates.append({
                     "schema_version": "1.0.0",
                     "start_ms": s,
@@ -483,11 +473,14 @@ class SpeechDensityAnalyzer:
                     "duration_ms": dur,
                     "start_formatted": cls.format_timestamp_ms(s),
                     "end_formatted": cls.format_timestamp_ms(e),
-                    "score": final_score,
+                    "score": base_score,
+                    "scene_aligned": True,
                 })
 
         if not candidates:
-            raise ProcessingError("Cannot select clip: duration must be between 20.0s and 58.0s")
+            raise ProcessingError(
+                "Cannot select clip: no 20.0s-58.0s window exists between scene boundaries"
+            )
 
         # Sort deterministically by (score desc, duration_ms desc, -start_ms desc)
         candidates.sort(key=lambda x: (x["score"], x["duration_ms"], -x["start_ms"]), reverse=True)

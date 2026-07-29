@@ -19,6 +19,7 @@ from cortes.log import (
     set_run_id,
     get_run_id,
     get_run_dir,
+    reserve_run_dir,
     emit_event,
     validate_event_dict,
     ALLOWED_STAGES,
@@ -438,3 +439,41 @@ def test_audited_final_event_timestamp_follows_nested_commands(
         for event in events
     ]
     assert timestamps == sorted(timestamps)
+
+
+@pytest.mark.parametrize(
+    "run_id",
+    ["../escape", "nested/run", "/absolute", "..", "run id", "run\nid"],
+)
+def test_run_id_rejects_path_components(run_id):
+    with pytest.raises(ValueError, match="Invalid run_id"):
+        get_run_dir(run_id)
+
+
+def test_reserve_run_dir_refuses_evidence_reuse(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    reserved = reserve_run_dir("run_immutable")
+    (reserved / "evidence.txt").write_text("immutable", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        reserve_run_dir("run_immutable")
+
+
+def test_audited_explicit_run_id_isolates_nested_commands(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    set_run_id("run_prior_context")
+
+    @audited(stage="ingest")
+    def isolated_stage(*, run_id):
+        run_cmd(["echo", "isolated"], stage="ingest")
+
+    isolated_stage(run_id="run_isolated")
+
+    isolated_events = get_run_dir("run_isolated") / "events.jsonl"
+    prior_events = get_run_dir("run_prior_context") / "events.jsonl"
+    assert isolated_events.exists()
+    assert not prior_events.exists()
+    assert {
+        json.loads(line)["run_id"]
+        for line in isolated_events.read_text(encoding="utf-8").splitlines()
+    } == {"run_isolated"}

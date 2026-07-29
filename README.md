@@ -1,6 +1,6 @@
 # YouTube AI Clipper & Analyzer Dashboard
 
-A Python 3.x tool and glassmorphism web dashboard for automated YouTube and local video clipping, AI content analysis (viral hook scoring), 9:16 vertical video layout conversion (center crop & blurred background fill), and 1-click Google Drive upload.
+A Python 3.10+ tool and glassmorphism web dashboard for automated YouTube and local video clipping, AI content analysis (viral hook scoring), 9:16 vertical video layout conversion (center crop & blurred background fill), and 1-click Google Drive upload.
 
 ## Features
 
@@ -15,7 +15,7 @@ A Python 3.x tool and glassmorphism web dashboard for automated YouTube and loca
 
 ## Prerequisites
 
-- **Python**: 3.9 or higher
+- **Python**: 3.10 or higher
 - **FFmpeg**: Required in system `PATH` for video processing and filter graph rendering.
 - **yt-dlp**: Automated download manager for YouTube video streams and captions.
 
@@ -35,6 +35,18 @@ A Python 3.x tool and glassmorphism web dashboard for automated YouTube and loca
 3. Install the package in editable mode with dependencies:
    ```bash
    pip install -e .
+   ```
+
+   Para reproduzir exatamente as versões validadas:
+   ```bash
+   pip install -r requirements.lock
+   pip install -e . --no-deps
+   ```
+
+   Para uma máquina NVIDIA, instale explicitamente o extra de GPU:
+   ```bash
+   pip install -r requirements-gpu.lock
+   pip install -e . --no-deps
    ```
    Or install requirements directly:
    ```bash
@@ -61,8 +73,8 @@ Analyze video transcript for top viral hook moments:
 python3 -m youtube_clipper "https://www.youtube.com/watch?v=3Vpf3EaE1mc" --analyze
 ```
 
-### 4. Upload Clip to Google Drive
-Extract a clip and upload to Google Drive:
+### 4. Upload privado para o Google Drive
+Por padrão, o arquivo enviado permanece privado e acessível apenas a identidades autorizadas:
 ```bash
 python3 -m youtube_clipper local_video.mp4 --start 0 --end 15 --gdrive
 ```
@@ -90,19 +102,49 @@ python3 -m youtube_clipper --dashboard --host 0.0.0.0 \
 ```
 
 Remote clients must send `Authorization: Bearer <token>`. The upload endpoint
-accepts only files inside the configured output directory.
+accepts only files inside the configured output directory. Corpos JSON são limitados
+a 64 KiB e apenas um job pesado é executado por vez por padrão. Excesso recebe
+HTTP 503.
+
+Para YouTube com botguard, use `--cookies /caminho/cookies.txt` ou um navegador
+suportado, como `--cookies firefox`. Cookies são credenciais de sessão: mantenha-os
+fora do repositório e com permissão restrita.
+
+## Pipeline técnica auditável
+
+Além da CLI rápida, `cortes.pipeline.run_full_pipeline` executa o fluxo técnico:
+
+`ingest → transcribe → scenes → select → cut → subtitles → audio → render → report → verify`
+
+Cada `run_id` deve ser novo. A pipeline recusa reutilização para não sobrescrever
+evidências. Ela somente retorna `status="ok"` quando o verificador independente
+aprova todas as medições físicas; o JSON de verificação é gravado fora da pasta
+imutável da execução, em `runs/_verification/`.
+
+```python
+from cortes.pipeline import run_full_pipeline
+
+result = run_full_pipeline(
+    "local_video.mp4",
+    run_id="run_demo_20260728",
+    device="cpu",
+)
+print(result["render_path"])
+print(result["verification_path"])
+```
 
 ## Pytest Test Suite
 
 Execute the test suite using `pytest`:
 ```bash
-.venv/bin/pytest -v
+.venv/bin/pytest -v -m "not performance"
 ```
-To run specific unit or integration test modules:
+Benchmarks dependentes de hardware são executados separadamente no workflow GPU.
+Para rodar módulos específicos:
 ```bash
 .venv/bin/pytest tests/test_e2e_pipeline.py -v
 ```
 
 ## License
 
-MIT License
+[MIT License](LICENSE)

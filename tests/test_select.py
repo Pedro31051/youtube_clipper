@@ -78,6 +78,9 @@ def test_speech_density_analyzer(mock_transcript, mock_scenes):
     assert 20000 <= selection["duration_ms"] <= 58000
     assert selection["end_ms"] > selection["start_ms"]
     assert selection["score"] >= 0.0
+    assert selection["scene_aligned"] is True
+    assert selection["start_ms"] in mock_scenes["cut_timestamps_ms"]
+    assert selection["end_ms"] in mock_scenes["cut_timestamps_ms"]
 
 
 def test_select_clip_stage_audited(mock_transcript, mock_scenes, tmp_path, monkeypatch):
@@ -146,16 +149,32 @@ def test_speech_density_analyzer_short_video_raises_processing_error():
 
 def test_speech_density_analyzer_empty_inputs_raises_processing_error():
     """Test empty transcript and zero scene cuts raises ProcessingError."""
-    with pytest.raises(ProcessingError, match="Cannot select clip: duration must be between 20.0s and 58.0s"):
+    with pytest.raises(ProcessingError, match="word-level transcript"):
         SpeechDensityAnalyzer.select_best_clip({}, {})
+
+
+def test_speech_density_analyzer_rejects_segment_only_timestamps(mock_scenes):
+    transcript = {
+        "duration": 60.0,
+        "segments": [
+            {"start": 0.0, "end": 30.0, "text": "segment without words"}
+        ],
+    }
+    with pytest.raises(ProcessingError, match="word-level transcript"):
+        SpeechDensityAnalyzer.select_best_clip(transcript, mock_scenes)
 
 
 def test_speech_density_analyzer_parameter_clamping(mock_transcript, mock_scenes):
     """Test min_duration_ms and max_duration_ms overrides are clamped to [20s, 58s]."""
+    scenes = dict(mock_scenes)
+    scenes["cut_timestamps_ms"] = [
+        *mock_scenes["cut_timestamps_ms"],
+        20000,
+    ]
     # Passing 10s min duration should clamp to 20s minimum
     selection = SpeechDensityAnalyzer.select_best_clip(
         transcript_data=mock_transcript,
-        scenes_data=mock_scenes,
+        scenes_data=scenes,
         min_duration_ms=10000,
         max_duration_ms=15000,
     )

@@ -26,10 +26,14 @@ jobs:
           nvidia-smi
           ffmpeg -version
       - name: Install project
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-gpu.lock
+          python -m pip install -e . --no-deps
       - name: Empirical CUDA pipeline
         run: >-
           python -m pytest
           tests/test_challenger_m3_4_stress.py
           tests/test_challenger_m3_e2e.py
+          tests/test_t3_performance.py
           -q

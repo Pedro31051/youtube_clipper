@@ -46,15 +46,15 @@ def _create_synthetic_1080p_video(output_path: Path, duration: int = 5) -> Path:
 
 
 def test_build_vertical_filter_low_res_blur_and_sigma() -> None:
-    """Verify build_vertical_filter uses low-resolution scale and configurable gblur sigma."""
+    """Verify the fast low-resolution background blur and configurable radius."""
     filter_1080 = VideoFormatter.build_vertical_filter(1080, 1920, mode="blur_background", sigma=15.0)
-    assert "scale=270:480" in filter_1080
-    assert "gblur=sigma=15.0" in filter_1080
+    assert "scale=135:240" in filter_1080
+    assert "boxblur=luma_radius=15" in filter_1080
     assert "scale=1080:1920" in filter_1080
 
     filter_720 = VideoFormatter.build_vertical_filter(720, 1280, mode="split_blur", sigma=8.5)
-    assert "scale=180:320" in filter_720
-    assert "gblur=sigma=8.5" in filter_720
+    assert "scale=90:160" in filter_720
+    assert "boxblur=luma_radius=8" in filter_720
     assert "scale=720:1280" in filter_720
 
 
@@ -72,6 +72,7 @@ def test_detect_h264_encoder() -> None:
         detect_h264_encoder.cache_clear()
 
 
+@pytest.mark.performance
 def test_single_pass_convert_to_vertical(tmp_path: Path) -> None:
     """Verify single-pass convert_to_vertical applies start and end timestamps directly."""
     source_video = tmp_path / "source_10s.mp4"
@@ -120,6 +121,7 @@ def test_single_pass_convert_to_vertical(tmp_path: Path) -> None:
         assert elapsed < 5.0, f"NVENC render time {elapsed:.2f}s exceeded 5s"
 
 
+@pytest.mark.performance
 def test_pipeline_vertical_single_pass_integration(tmp_path: Path) -> None:
     """Verify run_pipeline executes vertical conversion in single pass for local source."""
     source_video = tmp_path / "source_8s.mp4"

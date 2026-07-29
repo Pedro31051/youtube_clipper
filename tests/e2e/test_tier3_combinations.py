@@ -67,7 +67,7 @@ def test_tier3_03_subtitles_ass_plus_audio_loudnorm_sync(dummy_video_file: Path,
 
     def build_ass_sync(out_p):
         subs = pysubs2.SSAFile()
-        subs.events.append(pysubs2.SSAEvent(start=1250, end=3000, text="Synced Word"))
+        subs.events.append(pysubs2.SSAEvent(start=750, end=1750, text="Synced Word"))
         subs.save(str(out_p))
         return str(out_p)
 
@@ -75,11 +75,11 @@ def test_tier3_03_subtitles_ass_plus_audio_loudnorm_sync(dummy_video_file: Path,
     assert Path(res_sub).exists()
 
     proc = FFmpegProcessor()
-    res_audio = run_audio(proc.cut_media, input_path=str(dummy_video_file), start=0.0, end=3.0, output_path=str(out_audio))
+    res_audio = run_audio(proc.cut_media, input_path=str(dummy_video_file), start=0.0, end=2.0, output_path=str(out_audio))
     assert Path(res_audio).exists()
 
     loaded_subs = pysubs2.load(str(ass_file))
-    assert loaded_subs.events[0].start == 1250
+    assert loaded_subs.events[0].start == 750
 
 
 def test_tier3_04_render_916_plus_loudnorm_plus_subtitles_complex_filter(dummy_video_file: Path, tmp_media_dir: Path):
