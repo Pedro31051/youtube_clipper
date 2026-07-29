@@ -6,9 +6,9 @@ evidências; o veredito funcional e visual permanece com o revisor externo.
 ## Identidade da entrega
 
 - base de comparação: `581fb30`
-- commit observado: `a5004663c12a8d165f36282799d35d6eba99a550`
+- commit observado: `ee2c4f0134a5f7f5c5c6ca19d541ed24f39c4f4a`
 - branch: `codex/finalize-panel`
-- arquivos alterados desde a base: 191
+- arquivos alterados desde a base: 190
 - nomes sensíveis encontrados no diff: 0
 
 ## Testes observados

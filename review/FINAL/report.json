@@ -456,7 +456,6 @@
       "review/T3/verify_result_v5.json",
       "review/T3/verify_result_v5_frozen.json",
       "review/UI-7/CONTRATO_OPERACIONAL.md",
-      "review/UI-7/DECISOES.md",
       "review/UI-7/LIMITACOES.md",
       "review/UI-7/RELATORIO_HOMOLOGACAO.md",
       "review/UI-7/runs/playwright/.last-run.json",
@@ -508,7 +507,7 @@
       "web/src/ClipEditor.tsx",
       "web/src/JobsExportPanel.tsx"
     ],
-    "head": "a5004663c12a8d165f36282799d35d6eba99a550"
+    "head": "ee2c4f0134a5f7f5c5c6ca19d541ed24f39c4f4a"
   },
   "schema_version": "1.0.0",
   "security": {
